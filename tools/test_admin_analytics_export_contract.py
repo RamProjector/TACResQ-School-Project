@@ -24,7 +24,7 @@ assert "disabled={analyticsLoading || !analytics || Boolean(analyticsError)}" in
 assert "const filename = exportAnalyticsCsv(analytics)" in SOURCE
 
 assert "setAnalyticsLoadedAt(new Date().toISOString())" in SOURCE
-assert "Report retrieved " in SOURCE
+assert '"Updated "' in SOURCE and '"Asia/Manila"' in SOURCE
 assert "role=\"status\" aria-live=\"polite\"" in SOURCE
 assert "setAnalyticsExportNotice(\"Export prepared: \" + filename)" in SOURCE
 assert "window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)" in exporter
@@ -43,6 +43,6 @@ assert 'typeof value === "string" ? escapeSpreadsheetText(value) : String(value)
 # every failure means the endpoint is undeployed.
 assert "Retry report" in SOURCE
 assert 'onClick={() => reloadAnalyticsReport()}' in SOURCE
-assert "Check your connection and access, then retry." in SOURCE
+assert "Check your connection and access, then use Retry report above." in SOURCE
 assert "ask the system maintainer to verify that the analytics service is deployed and reachable." in SOURCE
 assert "The endpoint must be deployed before this report can display live data." not in SOURCE

@@ -15,6 +15,14 @@ assert overview_probe.index("setDependencyHealthError(null);") < overview_probe.
 assert "setDependencyHealth(null);" in overview_probe
 assert "setDependencyHealthError(\"Dependency diagnostics are unavailable." in overview_probe
 assert 'dependencyHealthLoading ? "Checking…"' in ADMIN
-assert '"No verified result"' in ADMIN
+assert '"Not yet checked"' in ADMIN
+assert '"Waiting for the first diagnostic check…"' in ADMIN
 
 print("Admin Overview dependency freshness source contract passed.")
+
+# Shared Admin page cleanup keeps layouts compact and responsive without hiding data.
+ADMIN_CSS = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text(encoding="utf-8")
+assert ".admin-panel { margin-bottom:16px; }" in ADMIN_CSS
+assert ".admin-analytics-detail-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }" in ADMIN_CSS
+assert ".admin-analytics-status-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }" in ADMIN_CSS
+assert ".admin-panel__heading { align-items:flex-start; flex-wrap:wrap;" in ADMIN_CSS

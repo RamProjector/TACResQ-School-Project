@@ -3,12 +3,15 @@ from pathlib import Path
 source = Path("backend/web/src/pages/AdminConsole.tsx").read_text()
 styles = Path("backend/web/src/pages/AdminConsole.css").read_text()
 
-# Attachment storage is a first-class, URL-addressable Admin section.
-assert 'type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "attachments" | "settings" | "help";' in source
-assert '{ id: "attachments", label: "Attachment storage", icon: Images }' in source
-assert '"recovery", "attachments", "settings", "help"' in source
-assert '{activeSection === "attachments" && (' in source
+# Attachment safeguards are an internal view of the consolidated Data & continuity workspace.
+assert 'type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";' in source
+assert 'type AdminContinuityPage = "recovery" | "attachments";' in source
+assert '{ id: "recovery", label: "Data & continuity", icon: HardDrive }' in source
+assert 'const [continuityPage, setContinuityPage]' in source
+assert 'url.searchParams.set("adminPage", page);' in source
+assert 'continuityPage === "attachments"' in source
 assert 'id="admin-attachment-title"' in source
+assert 'if (route === "attachments") return "recovery";' in source
 
 # Show the exact evidence boundary and staged rollout caveat.
 for marker in (

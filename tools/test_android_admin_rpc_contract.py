@@ -74,7 +74,7 @@ checks = {
                 'label: "Overview"',
                 'label: "User management"',
                 'label: "Security"',
-                'label: "Reports"',
+                'label: "Analytics & reports"',
                 'label: "Activity log"',
             )
         )

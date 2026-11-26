@@ -110,6 +110,12 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
   return event.actor_user_id === profile.id ? "You" : event.actor_label || "Unknown actor";
 }
 
+function parseOptionalPositiveId(value: string): number | null {
+  if (!value.trim() || !/^[1-9]\d*$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
   // Clipboard promises can resolve after a filter/page change has cleared the
@@ -128,8 +134,11 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
   const [source, setSource] = useState<AdminInvestigationSource>("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(() => new URLSearchParams(window.location.search).get("auditFrom") ?? "");
+  const [to, setTo] = useState(() => new URLSearchParams(window.location.search).get("auditTo") ?? "");
+  const [actorId, setActorId] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [incidentId, setIncidentId] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +149,14 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const dateRangeError = getAuditDateRangeError(from, to);
+  const actorFilterId = parseOptionalPositiveId(actorId);
+  const targetFilterId = parseOptionalPositiveId(targetId);
+  const incidentFilterId = parseOptionalPositiveId(incidentId);
+  const idFilterError = (
+    (actorId.trim() && actorFilterId === null)
+    || (targetId.trim() && targetFilterId === null)
+    || (incidentId.trim() && incidentFilterId === null)
+  ) ? "Actor, target, and incident filters must be positive whole numbers." : null;
 
   useEffect(() => {
     let active = true;
@@ -147,12 +164,12 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     // result. Clear it as soon as filters or pagination change.
     setCopiedEventId(null);
     setCopyError(null);
-    if (dateRangeError) {
+    if (dateRangeError || idFilterError) {
       setEvents([]);
       setTotal(0);
       setExpanded(null);
       setLastSuccessfulRefresh(null);
-      setError(dateRangeError);
+      setError(dateRangeError || idFilterError || "Invalid audit filter.");
       setLoading(false);
       return () => { active = false; };
     }
@@ -173,9 +190,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         source,
         startOfDay(from),
         startOfNextDay(to),
-        null,
-        null,
-        null,
+        actorFilterId,
+        targetFilterId,
+        incidentFilterId,
       ).then((result) => {
         if (!active) return;
         if (page > 0 && page * PAGE_SIZE >= result.total_count) {
@@ -203,7 +220,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, category, source, from, to, refreshVersion, dateRangeError]);
+  }, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);
 
   useEffect(() => {
     let active = true;
@@ -257,37 +274,41 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setSource("all");
     setFrom("");
     setTo("");
+    setActorId("");
+    setTargetId("");
+    setIncidentId("");
     setPage(0);
   }
 
   const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize);
   const pageCount = Math.ceil(total / PAGE_SIZE);
-  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to);
+  const notificationReadCount = events.filter((event) =>
+    event.source === "app_action_audit_logs" && event.event_type === "notification_marked_read"
+  ).length;
+
+  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to || actorId || targetId || incidentId);
   const firstVisiblePage = Math.max(0, Math.min(page - 2, pageCount - 5));
   const visiblePages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstVisiblePage + index);
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
-
   return (
     <section className="audit-page" aria-labelledby="audit-page-title" aria-busy={loading}>
       <div className="audit-page__intro">
         <div>
-          <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY INVESTIGATION</p>
           <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
-          <p>Review recorded account, authentication, incident, and responder activity. Open an entry for its context; technical record identifiers stay out of the main feed.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
           setRefreshVersion((current) => current + 1);
-        }} disabled={loading || Boolean(dateRangeError)}>
-          <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : "Refresh"}
+        }} disabled={loading || Boolean(dateRangeError || idFilterError)} aria-label="Refresh investigation activity">
+          <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : error ? "Retry" : "Refresh"}
         </button>
       </div>
 
-      <div className="audit-page__coverage" role="note">
-        <strong>Coverage boundaries</strong>
-        <span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
-      </div>
+      <details className="audit-page__coverage-details">
+        <summary>Audit coverage and limitations</summary>
+        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span></div>
+      </details>
 
       <details className="audit-page__coverage-details">
         <summary>Included sources and known limitations</summary>
@@ -310,6 +331,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
               <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
               <li><strong>Direct-client API and Storage activity</strong><span>Laravel telemetry does not cover direct Android or browser Supabase calls.</span></li>
+              <li><strong>Laravel API operation telemetry</strong><span>The server-side telemetry source is not included in this feed, is best-effort, and covers only Laravel-mediated requests—not direct Android/browser Supabase or Storage calls.</span></li>
+              <li><strong>FCM delivery attempts</strong><span>The server-only delivery-attempt ledger is not included in this feed. Provider acceptance does not prove device receipt or user acknowledgement.</span></li>
+              <li><strong>Retention and integrity policy</strong><span>A single reviewed retention schedule, export-control policy, and cross-source integrity/restore standard is not established for every audit source.</span></li>
             </ul>
           </section>
         </div>
@@ -322,7 +346,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
           </div>
           <div className="audit-page__lifecycle-actions">
-            <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}{lifecycleLastCheckedAt && !lifecycleError ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)" : ""}</span>
+            <span className="admin-data-freshness" data-state={lifecycleError ? "error" : lifecycleLoading ? "loading" : lifecycleLastCheckedAt ? "success" : "empty"} role="status" aria-live="polite">{lifecycleError ? "Unavailable" : lifecycleLoading ? "Refreshing history…" : lifecycleTotal.toLocaleString() + " recorded" + (lifecycleLastCheckedAt ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " · Asia/Manila" : " · Not yet checked")}</span>
             <button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}>
               <RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> {lifecycleError ? "Retry history" : "Refresh history"}
             </button>
@@ -375,6 +399,14 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
+        <details className="audit-page__technical-filters">
+          <summary>Technical reference filters</summary>
+          <div className="audit-page__filters">
+            <label><span>Actor profile reference</span><input type="number" inputMode="numeric" min="1" step="1" value={actorId} aria-invalid={Boolean(actorId.trim() && actorFilterId === null)} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
+            <label><span>Target profile reference</span><input type="number" inputMode="numeric" min="1" step="1" value={targetId} aria-invalid={Boolean(targetId.trim() && targetFilterId === null)} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
+            <label><span>Incident reference</span><input type="number" inputMode="numeric" min="1" step="1" value={incidentId} aria-invalid={Boolean(incidentId.trim() && incidentFilterId === null)} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
+          </div>
+        </details>
         <div className="audit-page__date-presets" role="group" aria-label="Quick date range">
           <span>Quick range</span>
           {[7, 30, 90].map((days) => <button key={days} type="button" aria-pressed={isDatePresetSelected(days, from, to)} onClick={() => { setPage(0); setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0)); }}>{days} days</button>)}
@@ -386,7 +418,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <div className="audit-page__summary" role="status" aria-live="polite">
         <span>{loading ? "Loading activity…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
-        <span>{lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
+        <span>{loading || error ? "Notification reads: —" : "Notification reads on this page: " + notificationReadCount.toLocaleString()}</span>
+        <span className="admin-data-freshness" data-state={error ? "error" : loading ? "loading" : lastSuccessfulRefresh ? "success" : "empty"}>{error ? "Unavailable" : loading ? "Refreshing…" : lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
       <p className="audit-page__copy-error" role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}</p>
@@ -411,7 +444,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                 <p>{sourceDisplay(event.source)}</p>
                 <h3>{event.summary}</h3>
               </div>
-              <button className="audit-page__details" type="button" aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary} aria-expanded={expanded === event.event_id} aria-controls={"audit-event-details-" + event.event_id} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>
+              <button className="audit-page__details" type="button" aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary} aria-expanded={expanded === event.event_id} aria-controls={expanded === event.event_id ? "audit-event-details-" + event.event_id : undefined} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>
                 {expanded === event.event_id ? "Hide details" : "View details"} <ChevronDown size={14} />
               </button>
             </div>

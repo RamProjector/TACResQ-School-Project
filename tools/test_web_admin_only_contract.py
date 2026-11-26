@@ -6,6 +6,23 @@ dockerfile = (ROOT / "backend/Dockerfile").read_text()
 web_routes = (ROOT / "backend/src/routes/web.php").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
 web_readme = (ROOT / "backend/web/README.md").read_text()
+admin_console_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
+
+
+# Compact density must reduce the content-card spacing across Admin workspaces,
+# not just table rows and the outer panel margins.
+compact_density = admin_console_css.split(".admin-shell--compact .admin-table th", 1)[1].split(".admin-shell--high-contrast", 1)[0]
+for selector in (
+    ".admin-shell--compact .admin-settings-card",
+    ".admin-shell--compact .admin-help-card",
+    ".admin-shell--compact .admin-recovery-card",
+    ".admin-shell--compact .admin-attachment-card",
+    ".admin-shell--compact .admin-analytics-card",
+    ".admin-shell--compact .audit-event-card",
+    ".admin-shell--compact .admin-security-status__item",
+):
+    assert selector in compact_density, f"Compact density is not applied to {selector}"
+assert "padding:13px" in compact_density
 
 # The browser frontend must not offer an incident queue or dispatch mutations.
 for forbidden in ("DispatcherBoard", "assignIncident(", "getAllIncidents(", "getFieldUnits("):
@@ -14,6 +31,11 @@ for forbidden in ("DispatcherBoard", "assignIncident(", "getAllIncidents(", "get
 # Keep administrator governance and a clear dispatcher-to-Android handoff.
 assert 'profile.role === "admin"' in home
 assert "<AdminConsole" in home
+assert 'const AdminConsole = lazy(() => import("@/pages/AdminConsole"));' in home
+assert 'import { lazy, Suspense, useCallback, useEffect, useState } from "react";' in home
+assert "function AdminWorkspaceLoading()" in home
+assert "<Suspense fallback={<AdminWorkspaceLoading />}>" in home
+assert '<AdminMfaGate key={session.access_token} onSignOut={handleSignOut}>' in home
 assert 'profile.role === "dispatcher"' in home
 assert "TACResQ Android app" in home
 
@@ -102,7 +124,7 @@ assert 'disabled={lifecycleLoading || lifecyclePage + 1 >= lifecyclePageCount}' 
 assert 'role="status" aria-live="polite"><LoaderCircle' in audit_page
 assert 'role="alert">{lifecycleError}' in audit_page
 assert 'aria-busy={lifecycleLoading}' in audit_page
-assert '{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}' in audit_page
+assert '{lifecycleError ? "Unavailable" : lifecycleLoading ? "Refreshing history…" : lifecycleTotal.toLocaleString() + " recorded" + (lifecycleLastCheckedAt ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " · Asia/Manila" : " · Not yet checked")}' in audit_page
 assert "setLifecyclePage(Math.max(0, Math.ceil(result.total_count / lifecyclePageSize) - 1))" in audit_page
 assert ".audit-page__lifecycle-pagination" in admin_css
 assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
@@ -125,14 +147,16 @@ assert "not proof that every source writer or provider setting is active" in aud
 assert "A zero-row result means no matching records were returned" in audit_page
 assert "selected-action subset, not comprehensive activity monitoring" in audit_page
 assert "Six recorded event sources are queried." not in audit_page
-assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
+assert 'aria-controls={expanded === event.event_id ? "audit-event-details-" + event.event_id : undefined}' in audit_page
+assert '{expanded === event.event_id && (' in audit_page
 assert 'id={"audit-event-details-" + event.event_id}' in audit_page
 assert 'aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary}' in audit_page
 assert 'role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}' in audit_page
 assert '<dd>{actorDisplay(event, profile)}</dd>' in audit_page
 
 # Overview and directory states remain accurate while server-side filters are pending.
-assert "Searchable read-only history across seven event sources" in admin_console
+assert "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." in admin_console
+assert "Searchable read-only history across seven event sources" not in admin_console
 assert "Searchable read-only history across six event sources" not in admin_console
 assert '{directoryError ? "User data is unavailable" : "No accounts match this filter"}' in admin_console
 assert '{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}' in admin_console
@@ -144,7 +168,8 @@ assert 'aria-busy={loading || refreshing || directoryFilterPending}' in admin_co
 assert 'aria-describedby="admin-overview-metrics-context"' in admin_console
 assert 'id="admin-overview-metrics-context"' in admin_console
 assert 'directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()' in admin_console
-assert 'directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating"' in admin_console
+assert 'todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()' in admin_console
+assert "setTodayActivityCount(result.total_count)" in admin_console
 assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
 assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
@@ -155,7 +180,7 @@ assert 'id="admin-health-limitations"' in admin_console
 assert 'reachableDependencyCount === dependencyProbes.length' in admin_console
 assert 'reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in admin_console
 assert '{dependencyProbes.map(([label, result]) => (' in admin_console
-assert 'Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)"' in admin_console
+assert '"Checked " + formatManilaDateTime(dependencyHealth.checked_at) + " · Asia/Manila"' in admin_console
 assert 'className={"admin-health-status admin-health-status--" + result.status} role="status"' not in admin_console
 assert '.admin-health-grid { grid-template-columns:minmax(0,1fr); }' in admin_css
 
@@ -185,7 +210,9 @@ assert '<section className="admin-panel admin-analytics-panel"' in admin_console
 assert 'aria-labelledby="admin-analytics-title"' in admin_console
 assert 'aria-busy={analyticsLoading}' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
-assert 'role="group" aria-label="Current status of requests created during the selected reporting period"' in admin_console
+assert '<section className="admin-analytics-card admin-analytics-status-chart" aria-labelledby="admin-status-distribution-title">' in admin_console
+assert '<h3 id="admin-status-distribution-title">Request status distribution</h3>' in admin_console
+assert "Current status of requests created in the selected reporting period; this is not a historical status-transition chart." in admin_console
 assert '<span>Period (Manila time)</span>' in admin_console
 assert 'No daily buckets were returned for this reporting period.' in admin_console
 assert 'No daily data for this period.' not in admin_console
@@ -348,3 +375,53 @@ assert 'if (currentTarget.status === "verified" && currentVerifiedCount <= 1)' i
 assert 'const currentTotpFactors = latestFactors.all.filter((factor) => factor.factor_type === "totp");' in admin_security
 assert 'if (currentTotpFactors.length >= 10)' in admin_security
 assert 'const existingNames = new Set(currentTotpFactors.map((factor) => factor.friendly_name || "Authenticator app"));' in admin_security
+
+
+# The explicit High contrast preference covers the shared workspace and dense Admin pages.
+high_contrast_rules = admin_css.split("User-selected high contrast applies to the complete Admin workspace", 1)[1].split("@media (max-width:900px)", 1)[0]
+for selector in (
+    ".admin-recovery-card",
+    ".admin-attachment-card",
+    ".admin-analytics-card",
+    ".admin-health-item",
+    ".audit-event-card",
+    ".admin-modal",
+    ".admin-settings-nav__item",
+):
+    assert selector in high_contrast_rules, f"High contrast is missing {selector}"
+assert ".admin-shell--high-contrast :where(button, a, input, select, textarea, summary):focus-visible" in high_contrast_rules
+assert "color-scheme: light;" in admin_css
+assert "outline: 3px solid #8b3d20;" in admin_css
+assert ".admin-shell--high-contrast .admin-table th" in admin_css
+assert ".admin-shell--high-contrast .admin-recovery-card p" in admin_css
+assert ".admin-shell--high-contrast .admin-attachment-card p" in admin_css
+assert ".admin-shell--high-contrast .admin-analytics-card p" in admin_css
+assert ".admin-shell--high-contrast .audit-event-card__details dd" in admin_css
+assert ".admin-shell--reduced-motion *::after" in admin_css
+
+
+# Notification settings disclose the actual delivery boundary and do not expose unsafe client-only controls.
+for required_text in (
+    "Persistent in-app notification inbox",
+    "Automatic queue execution",
+    "Not enabled in the current deployment",
+    "Physical-device delivery verification",
+    "not proof that a person received, opened, or acted on an alert",
+    "Do not enable quiet hours, suppression, or per-role delivery switches",
+    "Open notification guidance",
+):
+    assert required_text in admin_console, f"Notification guidance is missing: {required_text}"
+assert "admin-notifications-workspace" in admin_console
+
+
+# Privacy & data guidance remains explicit about the missing controlled case workflow.
+for required_text in (
+    "Identity verification and representative authority",
+    "Not implemented as a controlled workflow",
+    "Per-case authorization and append-only decision audit",
+    "Not implemented — no case actions available",
+    "No personal-data request is submitted or processed here.",
+    "Release gates for an online request centre",
+):
+    assert required_text in admin_console, f"Privacy request readiness is missing: {required_text}"
+assert "No personal-data export, correction, deletion, blocking, or retention operation is performed from this page." in admin_console

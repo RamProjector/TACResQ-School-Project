@@ -109,10 +109,15 @@ def test_directory_account_details_are_expandable_read_only_and_source_bounded()
     assert "Profile identifier" in source
     assert "Operational duty status" in source
     assert "These are the account fields currently returned by the protected Admin directory." in source
-    assert "does not include authentication history or a complete account activity timeline" in source
+    assert "not a complete account activity timeline" in source
+    assert "Up to 10 recent events where this profile was the actor or target." in source
     assert "user.duty_status ? user.duty_status.replaceAll(\"_\", \" \") : \"Not applicable\"" in source
     assert "admin-account-details-panel" in CSS.read_text(encoding="utf-8")
     assert "admin-account-details:focus-visible" in CSS.read_text(encoding="utf-8")
+    assert "getAdminInvestigationEventsPage(5, 0, \"\", \"all\", \"all\", null, null, user.id, null, null)" in source
+    assert "getAdminInvestigationEventsPage(5, 0, \"\", \"all\", \"all\", null, null, null, user.id, null)" in source
+    assert "accountActivityRequestVersion.current" in source
+    assert "admin-account-activity__results" in CSS.read_text(encoding="utf-8")
 
 
 def test_directory_refresh_invalidates_old_filter_timestamp_and_expanded_row():

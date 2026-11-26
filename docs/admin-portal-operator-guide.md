@@ -2,24 +2,26 @@
 
 ## Available sections
 
-- **Overview:** paginated account summary and reachability checks for the configured Laravel, Supabase Auth, and database probes. Reachability is not an end-to-end emergency-readiness check.
+- **Overview:** compact operational snapshot with the exact account-directory count for the active directory filters, a protected count of recorded investigation-feed events since Manila midnight, a five-event preview from those same today's records with a shortcut that opens Activity Log filtered to the same Manila calendar day, and reachability checks for the configured Laravel, Supabase Auth, and database probes. The event count is not limited to the five preview rows, but it covers only sources integrated into the protected investigation feed; it is not a complete count of every action or denied attempt. Reachability is not an end-to-end emergency-readiness check.
 - **User management:** server-side account search and role filtering, paginated results, and reason-required role changes. Admin accounts remain operator-managed and cannot be promoted or demoted from this page.
 - **Security:** administrator TOTP/AAL2 controls and security guidance. A branch implementation is not proof that a production migration or setting has been deployed.
-- **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
+  The Security workspace also shows a five-event preview from the protected authentication investigation feed, with a refresh action and a route to the full Activity Log. The preview is limited to events currently collected by that source and is not a complete sign-in/session history; an empty result is not proof that no sign-ins occurred.
+- **Analytics & reports:** aggregate incident request totals, a current-status distribution chart, daily request-volume chart, and average/median time to first assignment for 7-, 30-, or 90-day windows. Status distribution describes the current status of requests created in the selected period; it is not a chart of historical status transitions.
 - **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section. Its visible source inventory explains which event types are included and which remain unavailable.
-- **Settings:** browser-local display and accessibility preferences, with Notifications, Security & sessions, and Privacy & data guidance kept read-only until their backend/governance requirements are verified.
+- **Data & continuity:** combines the Backup & recovery and Attachment safeguards views. Both are evidence/readiness workspaces; neither controls live backups or exposes attachment contents. The former Attachment storage URL remains supported as an internal view.
+- **Settings:** browser-local display and accessibility preferences, with Notifications and Privacy & data guidance kept read-only until their backend/governance requirements are verified. Authenticator and session controls are centralized in Security.
 - **Help & about:** searchable operator guidance for the available Admin workspaces and their capability boundaries.
 
 ## Analytics CSV export
 
-The Reports section can export the currently loaded aggregate report as CSV. The export includes:
+The Analytics & reports section can export the currently loaded aggregate report as CSV. The export includes:
 - Reporting timezone and period boundaries
 - Total, pending, active, resolved, and cancelled request counts
 - Average and median time to first assignment
 - Count of requests with a valid assignment time
 - Daily request totals
 
-The export intentionally excludes requester names, phone numbers, descriptions, incident coordinates, responder identities, and raw audit details. It exports only the same aggregate summary already returned to the Reports page; it does not issue a second query or expand the caller's data access.
+The export intentionally excludes requester names, phone numbers, descriptions, incident coordinates, responder identities, and raw audit details. It exports only the same aggregate summary already returned to the Analytics & reports page; it does not issue a second query or expand the caller's data access.
 
 ## Account lifecycle safety boundary
 
@@ -98,7 +100,7 @@ Contextual question-mark disclosures in Settings work with pointer, keyboard, an
 
 ### Settings subpages
 
-Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, **Security & sessions**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications, Security & sessions, and Privacy & data explain the currently unavailable controls and link to existing verified capabilities where applicable; they do not present inert toggles or promise unsupported data-rights operations.
+Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications and Privacy & data explain the currently unavailable controls and do not present inert toggles or promise unsupported data-rights operations. Authenticator enrollment, factor management, and session assurance have one home in the Security workspace.
 
 
 ## Contextual help across core workspaces
@@ -146,7 +148,7 @@ When an Overview dependency check starts, the previous three-probe snapshot and 
 
 ## Mobile Admin navigation
 
-The section navigation remains available on narrow screens as a horizontally scrollable row beneath the Admin brand. Swipe or horizontally scroll the navigation row to reach sections that do not fit on screen, then select the section. The active section is identified visually and with `aria-current="page"`. The mobile layout hides the desktop-only sidebar footer, not the section controls.
+On tablet and mobile widths, use the menu button in the top bar to open the navigation drawer. The drawer presents the full section labels in a vertically scrollable list; select a section to navigate and close the drawer. The active section is identified visually and with `aria-current="page"`.
 
 
 ## User directory retrieval freshness
@@ -316,9 +318,9 @@ Important recovery boundaries shown in the workspace:
 
 The page performs no exports, copies, restores, provider probes, scheduling, or configuration changes. Before any live backup/restore integration is added, approve ownership, target and destination, encryption/key recovery, access controls, retention, evidence storage, and production-change boundaries. Use the [backup and disaster-recovery research plan](security/backup-disaster-recovery-research-and-implementation-plan.md) and [isolated restore-drill checklist](security/isolated-restore-drill-checklist.md) as the source procedures.
 
-## Attachment storage workspace
+## Attachment safeguards
 
-The Admin sidebar includes a read-only **Attachment storage** workspace for incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
+The **Data & continuity → Attachment safeguards** view provides read-only incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
 
 The page presents the last repository-recorded live bucket inspection date (22 November 2026) as historical evidence, not a current provider check. That inspection recorded a private `incident-chat-attachments` bucket, a 5 MiB limit, JPEG/PNG/WebP allowlist, and authenticated INSERT/SELECT policies without authenticated UPDATE/DELETE. Re-check the provider before relying on those values for an operational decision.
 
@@ -335,7 +337,7 @@ Before any cleanup or retention feature is implemented, the project owner must a
 
 ## Admin workspace layout and form usability
 
-The desktop Admin sidebar is an independently scrollable region when its navigation exceeds the viewport. The mobile layout retains the horizontally scrollable section row; it does not inherit the desktop sidebar's vertical scroll container. The security note and version information remain part of the desktop sidebar's scrollable content.
+The desktop Admin sidebar is an independently scrollable region when its navigation exceeds the viewport. At tablet and mobile widths, navigation becomes an overlay drawer: the main workspace remains full width, the drawer scrolls independently, and a backdrop plus Escape key closes it. The drawer locks background page scrolling while open and restores the previous scroll behavior when closed. The security note and version information remain available in the drawer.
 
 Admin sections use one primary panel surface. When a subsection is nested inside a panel, it is presented as a heading/content group separated by a divider rather than another bordered panel. Small information groups and metric collections should not add repeated card borders or shadows inside the parent surface. Content tiles should size to their content instead of stretching to the tallest neighboring tile.
 
@@ -364,11 +366,23 @@ On long pages, a Back to top control appears after the page has been scrolled do
 These helpers are local navigation only. They do not change account data, permissions, query scope, or server behavior.
 
 
-## Collapsible desktop navigation
+## Collapsible desktop navigation and mobile drawer
 
-The desktop Admin sidebar can be collapsed from the top bar to give data tables and workspace content more horizontal room. The compact rail retains the section icons; each navigation button keeps its accessible name and exposes the section label as a tooltip. The control is hidden at tablet and mobile widths, where the existing responsive navigation layout remains in place. Collapsing the rail changes only the current page layout and does not hide or restrict any Admin capability.
+The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. The sidebar becomes a compact icon-only rail while the workspace expands to use the available width. Section icons, active-page state, accessible navigation names, and per-item tooltips remain available in the rail. The same control remains visible and changes to an expand action; keyboard focus stays on the control after the layout changes. The selected section and its URL are unchanged. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
+
+At tablet and mobile widths, the desktop collapse control is replaced by a menu button in the top bar. It opens the same navigation as a left-side drawer over the full-width workspace. The drawer has its own vertical scroll region, a visible close control, a dimmed backdrop, and Escape-key dismissal. Choosing a section closes the drawer and preserves the existing route/navigation behavior. Background page scrolling is locked while the drawer is open. If the desktop rail was saved as collapsed, the mobile drawer still displays the full navigation labels.
+
+The desktop rail transition and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
 
 
 ## Account directory action clarity and row scanning
 
 Repeated actions in the account directory include the affected account's name in their accessible labels, so assistive-technology users can distinguish identical controls across rows. The visible button labels remain concise. Table rows receive a restrained hover/focus-within surface to help track a row across wide columns; this is only a reading aid and does not encode role, account status, or duty status. Expanded account details retain a separate background and the existing explicit status text. Motion on row highlighting is removed when reduced motion is requested.
+
+## User Management account activity preview
+
+Expanded account details can load a compact, read-only activity preview for the selected profile. The preview reuses the existing `api_admin_list_investigation_events` RPC and therefore retains its Admin TOTP/AAL2 requirement and source-specific minimization. It makes two bounded reads (five events where the profile is the actor and five where the profile is the target), deduplicates overlapping event IDs, sorts by event time, and displays at most ten recent rows.
+
+The preview is on demand; opening account details does not automatically query the investigation feed. It shows the event summary, source, and Asia/Manila timestamp only. It does not display raw event details, request payloads, coordinates, contact data, messages, attachment contents, or secrets. A zero-result message means no matching rows were returned by the currently integrated sources; it is not proof that the profile has no activity. Coverage, source retention, and optional Auth Audit Log availability remain limitations. For a full filtered investigation, use the Activity Log workspace.
+
+If the Admin session no longer satisfies the RPC's TOTP/AAL2 requirement, the preview reports the protected read failure rather than falling back to an unprotected query. Closing the expanded account row cancels the active preview state. This preview does not alter account status, role, duty status, or audit records.

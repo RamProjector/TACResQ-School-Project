@@ -260,4 +260,14 @@ for required in (
         f"Same-valid-JWT Storage suspension regression missing: {required}"
     )
 
+# Admin must distinguish SQL/source checks from real Storage and device acceptance.
+admin_page = read("backend/web/src/pages/AdminConsole.tsx")
+for required in (
+    "END-TO-END ACCEPTANCE",
+    "HTTP and device verification",
+    "Isolated HTTP Storage acceptance and Android device verification remain outstanding",
+    "production rollout is not approved by this workspace",
+):
+    assert required in admin_page, f"Admin attachment rollout disclosure missing: {required}"
+
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")

@@ -1,15 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AlertCircle, ArrowUpRight, BadgeCheck, LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import AdminConsole from "@/pages/AdminConsole";
 import AdminMfaGate from "@/components/AdminMfaGate";
 import { getMyProfile, getSupabase } from "@/lib/supabase";
 import type { TacruProfile } from "@/lib/supabase";
 
+const AdminConsole = lazy(() => import("@/pages/AdminConsole"));
+
 interface HomeProps {
   session: Session | null;
+}
+
+function AdminWorkspaceLoading() {
+  return (
+    <main className="loading-screen" aria-live="polite">
+      <Brand />
+      <LoaderCircle size={22} className="spin" aria-hidden="true" />
+      <span>Loading the secure Admin workspace…</span>
+    </main>
+  );
 }
 
 function LoginScreen() {
@@ -155,7 +166,7 @@ export default function Home({ session }: HomeProps) {
   if (profileLoading) return <main className="loading-screen"><Brand /><LoaderCircle size={22} className="spin" /><span>Checking administrator access…</span></main>;
   if (profileError) return <AccessScreen title="We couldn't verify this profile." description={profileError} onSignOut={handleSignOut} icon="error" />;
   if (!profile) return <AccessScreen title="A TACResQ profile is required." description="This account is signed in, but no linked TACResQ profile was returned. Ask a trusted project administrator to verify the account mapping." onSignOut={handleSignOut} />;
-  if (profile.role === "admin") return <AdminMfaGate key={session.access_token} onSignOut={handleSignOut}><AdminConsole profile={profile} onSignOut={handleSignOut} /></AdminMfaGate>;
+  if (profile.role === "admin") return <AdminMfaGate key={session.access_token} onSignOut={handleSignOut}><Suspense fallback={<AdminWorkspaceLoading />}><AdminConsole profile={profile} onSignOut={handleSignOut} /></Suspense></AdminMfaGate>;
   if (profile.role === "dispatcher") {
     return <AccessScreen title="Dispatch is handled in the Android app." description="The web dispatch dashboard has been retired to keep dispatch operations in one place. Sign in to the TACResQ Android app to manage incident queues, assignments, and response progress." onSignOut={handleSignOut} />;
   }

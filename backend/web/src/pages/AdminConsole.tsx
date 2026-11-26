@@ -21,6 +21,7 @@ import {
   RotateCcw,
   LoaderCircle,
   LogOut,
+  Menu,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -34,6 +35,7 @@ import {
   getAdminAnalyticsSummary,
   getAdminAccountLifecycleEvents,
   getAdminDependencyHealth,
+  getAdminInvestigationEventsPage,
   getAdminUsersPage,
   getMyProfile,
   setAdminUserRole,
@@ -43,6 +45,7 @@ import type {
   AdminAnalyticsSummary,
   AdminAccountLifecycleEvent,
   AdminDependencyHealth,
+  AdminInvestigationEvent,
   AdminManagedRole,
   AdminUser,
   TacruProfile,
@@ -57,9 +60,10 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "attachments" | "settings" | "help";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";
 
-type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
+type AdminSettingsPage = "general" | "accessibility" | "notifications" | "privacy";
+type AdminContinuityPage = "recovery" | "attachments";
 
 type AdminPageSize = 10 | 25 | 50 | 100;
 
@@ -80,6 +84,15 @@ const DEFAULT_ADMIN_PREFERENCES: AdminPreferences = {
 };
 
 const ADMIN_PREFERENCES_KEY = "tacresq.admin.preferences.v1";
+const ADMIN_SIDEBAR_COLLAPSED_KEY = "tacresq.admin.sidebar-collapsed.v1";
+
+function readAdminSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 function readAdminPreferences(): AdminPreferences {
   try {
@@ -104,10 +117,9 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "users", label: "User management", icon: Users },
   { id: "security", label: "Security", icon: ShieldAlert },
-  { id: "analytics", label: "Reports", icon: BarChart3 },
+  { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
-  { id: "recovery", label: "Recovery & continuity", icon: HardDrive },
-  { id: "attachments", label: "Attachment storage", icon: Images },
+  { id: "recovery", label: "Data & continuity", icon: HardDrive },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "help", label: "Help & about", icon: BookOpen },
 ];
@@ -115,13 +127,16 @@ const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "di
 
 function resolveSettingsPage(search: string): AdminSettingsPage {
   const page = new URLSearchParams(search).get("adminSettings");
-  return ["general", "accessibility", "notifications", "security", "privacy"].includes(page ?? "") ? page as AdminSettingsPage : "general";
+  return ["general", "accessibility", "notifications", "privacy"].includes(page ?? "") ? page as AdminSettingsPage : "general";
 }
 
 function resolveAdminSection(search: string): AdminSection {
-  const route = new URLSearchParams(search).get("adminPage") ?? "overview";
+  const params = new URLSearchParams(search);
+  const route = params.get("adminPage") ?? "overview";
+  if (route === "settings" && params.get("adminSettings") === "security") return "security";
   if (route === "audit-logs") return "audit";
-  return ["overview", "users", "security", "analytics", "recovery", "attachments", "settings", "help"].includes(route) ? route as AdminSection : "overview";
+  if (route === "attachments") return "recovery";
+  return ["overview", "users", "security", "analytics", "recovery", "settings", "help"].includes(route) ? route as AdminSection : "overview";
 }
 
 function displayRole(role: string) {
@@ -143,6 +158,22 @@ function getManilaAnalyticsRange(days: 7 | 30 | 90, now = new Date()) {
   // the preceding days so daily buckets align with the database calendar.
   const from = new Date(Date.UTC(year, month - 1, day - (days - 1), 0, 0, 0) - 8 * 60 * 60 * 1000);
   return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function getManilaTodayRange(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const year = Number(part("year"));
+  const month = Number(part("month"));
+  const day = Number(part("day"));
+  const from = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 8 * 60 * 60 * 1000);
+  const date = year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+  return { from: from.toISOString(), to: now.toISOString(), date };
 }
 
 function formatManilaDateTime(value: string) {
@@ -232,6 +263,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [roleToast, setRoleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
   const [lifecycleHistoryError, setLifecycleHistoryError] = useState<string | null>(null);
+  const [recentAuthenticationEvents, setRecentAuthenticationEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [authenticationEventsLoading, setAuthenticationEventsLoading] = useState(false);
+  const [authenticationEventsError, setAuthenticationEventsError] = useState<string | null>(null);
+  const [authenticationEventsLoadedAt, setAuthenticationEventsLoadedAt] = useState<string | null>(null);
+  const [todayActivityEvents, setTodayActivityEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [todayActivityCount, setTodayActivityCount] = useState<number | null>(null);
+  const [todayActivityLoading, setTodayActivityLoading] = useState(false);
+  const [todayActivityError, setTodayActivityError] = useState<string | null>(null);
+  const [todayActivityLoadedAt, setTodayActivityLoadedAt] = useState<string | null>(null);
+  const todayActivityRequest = useRef(0);
   const roleToastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -272,17 +313,153 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [continuityPage, setContinuityPage] = useState<AdminContinuityPage>(() => new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
+  const authenticationEventsRequest = useRef(0);
+  const refreshAuthenticationEvents = useCallback(async () => {
+    const requestId = ++authenticationEventsRequest.current;
+    setAuthenticationEventsLoading(true);
+    setAuthenticationEventsError(null);
+    try {
+      const result = await getAdminInvestigationEventsPage(5, 0, "", "authentication", "all", null, null, null, null, null);
+      if (requestId !== authenticationEventsRequest.current) return;
+      setRecentAuthenticationEvents(result.events);
+      setAuthenticationEventsLoadedAt(new Date().toISOString());
+    } catch (cause) {
+      if (requestId !== authenticationEventsRequest.current) return;
+      setAuthenticationEventsError(cause instanceof Error ? cause.message : "Authentication activity could not be loaded.");
+    } finally {
+      if (requestId === authenticationEventsRequest.current) setAuthenticationEventsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeSection !== "security") return;
+    void refreshAuthenticationEvents();
+    return () => { authenticationEventsRequest.current += 1; };
+  }, [activeSection, refreshAuthenticationEvents]);
+  const refreshTodayActivity = useCallback(async () => {
+    const requestId = ++todayActivityRequest.current;
+    setTodayActivityLoading(true);
+    setTodayActivityError(null);
+    setTodayActivityEvents([]);
+    setTodayActivityCount(null);
+    setTodayActivityLoadedAt(null);
+    try {
+      const range = getManilaTodayRange();
+      // The protected investigation RPC returns an exact total_count over its
+      // approved event sources; limit=5 bounds the preview without counting
+      // only the displayed rows.
+      const result = await getAdminInvestigationEventsPage(
+        5, 0, "", "all", "all", range.from, range.to, null, null, null
+      );
+      if (requestId !== todayActivityRequest.current) return;
+      setTodayActivityEvents(result.events);
+      setTodayActivityCount(result.total_count);
+      setTodayActivityLoadedAt(new Date().toISOString());
+    } catch (cause) {
+      if (requestId !== todayActivityRequest.current) return;
+      setTodayActivityEvents([]);
+      setTodayActivityCount(null);
+      setTodayActivityError(cause instanceof Error ? cause.message : "Today's recorded activity is unavailable.");
+    } finally {
+      if (requestId === todayActivityRequest.current) setTodayActivityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== "overview") {
+      todayActivityRequest.current += 1;
+      setTodayActivityLoading(false);
+      setTodayActivityEvents([]);
+      setTodayActivityCount(null);
+      setTodayActivityError(null);
+      setTodayActivityLoadedAt(null);
+      return;
+    }
+    void refreshTodayActivity();
+    return () => {
+      todayActivityRequest.current += 1;
+    };
+  }, [activeSection, refreshTodayActivity]);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readAdminSidebarCollapsed());
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const mobileSidebarTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileSidebarCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileSidebarRef = useRef<HTMLElement>(null);
+  const sidebarCollapseRef = useRef<HTMLButtonElement>(null);
+  const previousSidebarCollapsedRef = useRef(sidebarCollapsed);
+
+  useEffect(() => {
+    if (previousSidebarCollapsedRef.current !== sidebarCollapsed && window.matchMedia("(min-width: 901px)").matches) {
+      sidebarCollapseRef.current?.focus();
+    }
+    previousSidebarCollapsedRef.current = sidebarCollapsed;
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+    } catch {
+      // The layout remains usable when browser storage is unavailable.
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const closeWhenDesktop = () => {
+      if (!window.matchMedia("(min-width: 901px)").matches) return;
+      setMobileSidebarOpen(false);
+      mobileSidebarTriggerRef.current?.focus();
+    };
+    window.addEventListener("resize", closeWhenDesktop);
+    return () => window.removeEventListener("resize", closeWhenDesktop);
+  }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileSidebarCloseRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileSidebarOpen(false);
+        mobileSidebarTriggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(mobileSidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []).filter((element) => element.getClientRects().length > 0);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [mobileSidebarOpen]);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
-  const previousAdminLocation = useRef({ section: activeSection, settingsPage });
+  const previousAdminLocation = useRef({ section: activeSection, settingsPage, continuityPage });
   useEffect(() => {
     const previous = previousAdminLocation.current;
     const locationChanged = previous.section !== activeSection ||
-      (activeSection === "settings" && previous.settingsPage !== settingsPage);
-    previousAdminLocation.current = { section: activeSection, settingsPage };
+      (activeSection === "settings" && previous.settingsPage !== settingsPage) ||
+      (activeSection === "recovery" && previous.continuityPage !== continuityPage);
+    previousAdminLocation.current = { section: activeSection, settingsPage, continuityPage };
     if (locationChanged) adminHeadingRef.current?.focus();
-  }, [activeSection, settingsPage]);
+  }, [activeSection, settingsPage, continuityPage]);
   const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -346,27 +523,72 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setAnalyticsRefreshVersion((version) => version + 1);
   }
 
+  function closeMobileSidebar(restoreFocus = false) {
+    setMobileSidebarOpen(false);
+    if (restoreFocus) mobileSidebarTriggerRef.current?.focus();
+  }
+
   function navigateToSettingsPage(page: AdminSettingsPage) {
-    if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;
+    if ((activeSection !== "settings" || page !== settingsPage) && !confirmDiscardPreferenceChanges()) return;
+    closeMobileSidebar(true);
+    setActiveSection("settings");
     setSettingsPage(page);
     const url = new URL(window.location.href);
-    if (url.searchParams.get("adminSettings") !== page) {
+    if (url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page || url.searchParams.has("auditFrom") || url.searchParams.has("auditTo")) {
       url.searchParams.set("adminPage", "settings");
       url.searchParams.set("adminSettings", page);
+      url.searchParams.delete("auditFrom");
+      url.searchParams.delete("auditTo");
       window.history.pushState({}, "", url.toString());
     }
   }
 
+  function navigateToContinuityPage(page: AdminContinuityPage) {
+    if (activeSection !== "recovery" && !confirmDiscardPreferenceChanges()) return;
+    closeMobileSidebar(true);
+    setActiveSection("recovery");
+    setContinuityPage(page);
+    const url = new URL(window.location.href);
+    url.searchParams.set("adminPage", page);
+    url.searchParams.delete("adminSettings");
+    url.searchParams.delete("auditFrom");
+    url.searchParams.delete("auditTo");
+    window.history.pushState({}, "", url.toString());
+  }
+
   function navigateToSection(section: AdminSection) {
     if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
+    closeMobileSidebar(true);
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
-    if (url.searchParams.get("adminPage") !== route) {
-      url.searchParams.set("adminPage", route);
-      if (section !== "settings") url.searchParams.delete("adminSettings");
+    const currentSettingsPage = url.searchParams.get("adminSettings");
+    if (url.searchParams.get("adminPage") !== route) url.searchParams.set("adminPage", route);
+    if (section !== "settings") {
+      url.searchParams.delete("adminSettings");
+    } else if (currentSettingsPage === "security") {
+      url.searchParams.set("adminSettings", "general");
+    }
+    if (section !== "audit") {
+      url.searchParams.delete("auditFrom");
+      url.searchParams.delete("auditTo");
+    }
+    if (url.toString() !== window.location.href) {
       window.history.pushState({}, "", url.toString());
     }
+  }
+
+  function navigateToTodayActivityLog() {
+    if (activeSection !== "audit" && !confirmDiscardPreferenceChanges()) return;
+    closeMobileSidebar(true);
+    const range = getManilaTodayRange();
+    setActiveSection("audit");
+    const url = new URL(window.location.href);
+    url.searchParams.set("adminPage", "audit-logs");
+    url.searchParams.set("auditFrom", range.date);
+    url.searchParams.set("auditTo", range.date);
+    url.searchParams.delete("adminSettings");
+    window.history.pushState({}, "", url.toString());
   }
 
   // Keep the selected admin view in sync with browser Back/Forward navigation.
@@ -382,12 +604,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         window.history.pushState({}, "", currentUrl.toString());
         return;
       }
+      setMobileSidebarOpen(false);
+      mobileSidebarTriggerRef.current?.focus();
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
+      setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
     };
     window.addEventListener("popstate", syncSectionFromLocation);
     return () => window.removeEventListener("popstate", syncSectionFromLocation);
-  }, [activeSection, settingsPage, preferencesDirty, confirmDiscardPreferenceChanges]);
+  }, [activeSection, settingsPage, continuityPage, preferencesDirty, confirmDiscardPreferenceChanges]);
 
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -404,6 +629,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [lifecycleTarget, setLifecycleTarget] = useState<AdminUser | null>(null);
   const [expandedAccountId, setExpandedAccountId] = useState<number | null>(null);
+  const [accountActivityAccountId, setAccountActivityAccountId] = useState<number | null>(null);
+  const [accountActivityEvents, setAccountActivityEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [accountActivityLoading, setAccountActivityLoading] = useState(false);
+  const [accountActivityError, setAccountActivityError] = useState<string | null>(null);
+  const accountActivityRequestVersion = useRef(0);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -411,6 +641,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const modalRoot = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
+  const dependencyHealthRequestVersion = useRef(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
   // Provide a predictable shortcut to the account search without intercepting
@@ -489,6 +720,77 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
   }, [target, lifecycleTarget, saving]);
 
+  async function loadAccountActivity(user: AdminUser) {
+    const requestId = ++accountActivityRequestVersion.current;
+    setAccountActivityAccountId(user.id);
+    setAccountActivityEvents([]);
+    setAccountActivityError(null);
+    setAccountActivityLoading(true);
+    try {
+      // The existing investigation RPC requires Admin TOTP/AAL2. Query both
+      // actor and target dimensions so the timeline includes events performed
+      // by this profile as well as events affecting it.
+      const [asActor, asTarget] = await Promise.all([
+        getAdminInvestigationEventsPage(5, 0, "", "all", "all", null, null, user.id, null, null),
+        getAdminInvestigationEventsPage(5, 0, "", "all", "all", null, null, null, user.id, null),
+      ]);
+      if (requestId !== accountActivityRequestVersion.current) return;
+      const uniqueEvents = new Map<string, AdminInvestigationEvent>();
+      for (const event of [...asActor.events, ...asTarget.events]) {
+        uniqueEvents.set(event.event_id, event);
+      }
+      setAccountActivityEvents(
+        [...uniqueEvents.values()]
+          .sort((left, right) => Date.parse(right.occurred_at) - Date.parse(left.occurred_at))
+          .slice(0, 10),
+      );
+    } catch (cause) {
+      if (requestId !== accountActivityRequestVersion.current) return;
+      setAccountActivityEvents([]);
+      setAccountActivityError(cause instanceof Error ? cause.message : "Recent account activity is unavailable.");
+    } finally {
+      if (requestId === accountActivityRequestVersion.current) setAccountActivityLoading(false);
+    }
+  }
+
+  function toggleAccountActivity(user: AdminUser) {
+    if (accountActivityAccountId === user.id) {
+      accountActivityRequestVersion.current += 1;
+      setAccountActivityAccountId(null);
+      setAccountActivityEvents([]);
+      setAccountActivityError(null);
+      setAccountActivityLoading(false);
+      return;
+    }
+    void loadAccountActivity(user);
+  }
+
+  useEffect(() => {
+    if (accountActivityAccountId === null || expandedAccountId === accountActivityAccountId) return;
+    accountActivityRequestVersion.current += 1;
+    setAccountActivityAccountId(null);
+    setAccountActivityEvents([]);
+    setAccountActivityError(null);
+    setAccountActivityLoading(false);
+  }, [expandedAccountId, accountActivityAccountId]);
+
+  async function retryDependencyHealth() {
+    const requestId = ++dependencyHealthRequestVersion.current;
+    setDependencyHealthLoading(true);
+    setDependencyHealthError(null);
+    try {
+      const nextHealth = await getAdminDependencyHealth();
+      if (requestId !== dependencyHealthRequestVersion.current) return;
+      setDependencyHealth(nextHealth);
+    } catch {
+      if (requestId !== dependencyHealthRequestVersion.current) return;
+      setDependencyHealth(null);
+      setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+    } finally {
+      if (requestId === dependencyHealthRequestVersion.current) setDependencyHealthLoading(false);
+    }
+  }
+
   const refresh = useCallback(async () => {
     const requestId = ++requestVersion.current;
     setRefreshing(true);
@@ -507,7 +809,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     // A section change invalidates an in-flight Overview probe. Clear its
     // loading state here because the superseded request will no longer finish
     // with the current request ID and therefore cannot clear it itself.
-    if (activeSection !== "overview") setDependencyHealthLoading(false);
+    if (activeSection !== "overview") {
+      dependencyHealthRequestVersion.current += 1;
+      setDependencyHealthLoading(false);
+    }
     if (activeSection !== "overview" && activeSection !== "users") {
       setLoading(false);
       setRefreshing(false);
@@ -525,22 +830,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         });
     }
     if (activeSection === "overview") {
+      const dependencyRequestId = ++dependencyHealthRequestVersion.current;
       setDependencyHealth(null);
       setDependencyHealthError(null);
       setDependencyHealthLoading(true);
       void getAdminDependencyHealth()
         .then((nextHealth) => {
-          if (requestId !== requestVersion.current) return;
+          if (dependencyRequestId !== dependencyHealthRequestVersion.current) return;
           setDependencyHealth(nextHealth);
           setDependencyHealthError(null);
         })
         .catch(() => {
-          if (requestId !== requestVersion.current) return;
+          if (dependencyRequestId !== dependencyHealthRequestVersion.current) return;
           setDependencyHealth(null);
           setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
         })
         .finally(() => {
-          if (requestId === requestVersion.current) setDependencyHealthLoading(false);
+          if (dependencyRequestId === dependencyHealthRequestVersion.current) setDependencyHealthLoading(false);
         });
     }
     try {
@@ -763,8 +1069,25 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           </div>
         )}
       </div>
-      <aside className="admin-sidebar">
-        <Brand inverse />
+      <aside ref={mobileSidebarRef} id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} role={mobileSidebarOpen ? "dialog" : undefined} aria-modal={mobileSidebarOpen ? true : undefined} aria-label="Primary navigation">
+        <div className="admin-sidebar__header">
+          <Brand inverse />
+          <button
+            ref={sidebarCollapseRef}
+            className="admin-sidebar-toggle"
+            type="button"
+            aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            title={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-controls="admin-primary-sidebar"
+            aria-expanded={!sidebarCollapsed}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+          </button>
+          <button ref={mobileSidebarCloseRef} className="admin-mobile-sidebar-close" type="button" aria-label="Close navigation" onClick={() => closeMobileSidebar(true)}>
+            <X size={19} aria-hidden="true" />
+          </button>
+        </div>
         <div className="admin-sidebar__context">
           <span>ADMIN WORKSPACE</span>
           <p>Manage accounts, security, and activity.</p>
@@ -774,9 +1097,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-nav-entry" key={id}>
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
-              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">RESILIENCE</div>}
-              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">STORAGE &amp; MEDIA</div>}
-              {index === 7 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
+              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">DATA &amp; CONTINUITY</div>}
+              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
               <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-label={label} title={sidebarCollapsed ? label : undefined} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
@@ -788,19 +1110,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <div className="admin-sidebar__version">TACRESQ · PRIVILEGED ACCESS</div>
         </div>
       </aside>
+      {mobileSidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close navigation" tabIndex={-1} onClick={() => closeMobileSidebar(true)} />}
 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
           <div className="admin-topbar__leading">
             <button
-              className="admin-sidebar-toggle"
+              ref={mobileSidebarTriggerRef}
+              className="admin-mobile-sidebar-toggle"
               type="button"
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-pressed={sidebarCollapsed}
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              aria-label="Open navigation"
+              aria-expanded={mobileSidebarOpen}
+              aria-controls="admin-primary-sidebar"
+              onClick={() => setMobileSidebarOpen(true)}
             >
-              {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+              <Menu size={19} aria-hidden="true" />
             </button>
             <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
           </div>
@@ -821,7 +1145,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? "Review documented backup and restore procedures, evidence requirements, and recovery capabilities that remain unverified." : activeSection === "attachments" ? "Review private incident-chat attachment safeguards, lifecycle controls, and storage evidence that is not connected to this portal." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? (continuityPage === "recovery" ? "Review backup, restore, and continuity evidence." : "Review private incident attachment safeguards and storage evidence.") : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
@@ -844,13 +1168,38 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
           )}
 
-          <section className="admin-metrics" aria-label="Account summary" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
-            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Across all directory pages; follows the active search and role filters</small></article>
-            <article><span>REQUESTERS · CURRENT PAGE</span><strong>{directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating" : users.filter((user) => user.role === "requester").length}</strong><small>Loaded page only; not a system-wide total</small></article>
-            <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating" : users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on the loaded page only</small></article>
-            <article><span>AUDIT HISTORY</span><strong>Activity feed</strong><small>Searchable read-only history across seven event sources</small></article>
+          <section className="admin-metrics" aria-label="Operational snapshot" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
+            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Exact directory total for the current search and role filters</small></article>
+            <article><span>RECORDED EVENTS TODAY</span><strong>{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()}</strong><small>Protected investigation-feed records since Manila midnight</small></article>
           </section>
-          <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to {pageSize} profiles; they are not system-wide role totals. Current directory page: {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}. Last successful directory retrieval: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
+          <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Matching accounts follows the active directory search and role filters. Today's activity is an exact count from the protected investigation feed, not a count of the five preview rows; it covers only the event sources currently integrated into that feed and is not a complete record of every action or denied attempt.</p>
+          <section className="admin-panel admin-overview-activity" aria-labelledby="admin-overview-activity-title" aria-busy={todayActivityLoading} hidden={activeSection !== "overview"}>
+            <div className="admin-panel__heading">
+              <div><p className="admin-eyebrow">TODAY · ASIA/MANILA</p><h2 id="admin-overview-activity-title"><Activity size={18} /> Recent recorded activity</h2></div>
+              <div className="admin-overview-activity__actions">
+                <span className="admin-data-freshness" data-state={todayActivityError ? "error" : todayActivityLoading ? "loading" : todayActivityLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading…" : todayActivityLoadedAt ? "Updated " + formatManilaDateTime(todayActivityLoadedAt) : "Not yet retrieved"}</span>
+                <button type="button" className="admin-refresh" onClick={() => void refreshTodayActivity()} disabled={todayActivityLoading}><RefreshCw size={14} className={todayActivityLoading ? "admin-spin" : ""} /> {todayActivityError ? "Retry" : "Refresh"}</button>
+                <button type="button" className="admin-refresh" onClick={navigateToTodayActivityLog}>Open Today in Activity Log</button>
+              </div>
+            </div>
+            {todayActivityError ? (
+              <div className="admin-health-unavailable" role="alert">Today's recorded activity could not be loaded. {todayActivityError}</div>
+            ) : todayActivityLoading ? (
+              <div className="admin-empty" role="status"><LoaderCircle size={17} className="admin-spin" /> Loading today's recorded activity…</div>
+            ) : todayActivityEvents.length === 0 ? (
+              <div className="admin-empty" role="status">{todayActivityCount === 0 ? "No events are recorded in the integrated investigation sources today." : "No activity preview is available."}</div>
+            ) : (
+              <ol className="admin-overview-activity__list">
+                {todayActivityEvents.map((event) => (
+                  <li key={event.event_id}>
+                    <div><strong>{event.summary}</strong><small>{event.actor_label}</small></div>
+                    <time dateTime={event.occurred_at}>{formatManilaDateTime(event.occurred_at)}</time>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className="admin-panel__footnote">This preview includes only recorded events available through the protected investigation feed. It does not represent complete authentication, API failure, device-security, or notification-delivery monitoring.</p>
+          </section>
 
           <section className="admin-panel admin-overview-shortcuts" aria-labelledby="admin-overview-shortcuts-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
@@ -859,16 +1208,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
             <div className="admin-overview-shortcuts__grid">
               <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Request reports</strong><small>Review incident volume and assignment timing</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Analytics &amp; reports</strong><small>Review request trends and dispatch performance</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToSection("recovery")}><HardDrive size={18} /><span><strong>Recovery &amp; continuity</strong><small>Review backup procedures and restore evidence gaps</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={18} /><span><strong>Data &amp; continuity</strong><small>Review backup, restore, and attachment safeguards</small></span><span aria-hidden="true">→</span></button>
             </div>
           </section>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div><AdminHelpTip label="About dependency reachability" message="These probes only confirm that Laravel, Supabase Auth, and the database responded within the configured threshold. They do not verify incident creation, assignment, routing, location accuracy, or push delivery." /></div>
-              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
+              <div className="admin-health-actions">
+                <span className="admin-data-freshness" data-state={dependencyHealthError ? "error" : dependencyHealthLoading ? "loading" : dependencyHealth ? "success" : "empty"} role="status" aria-live="polite">{dependencyHealthError ? "Unavailable" : dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Checked " + formatManilaDateTime(dependencyHealth.checked_at) + " · Asia/Manila" : "Not yet checked"}</span>
+                <button type="button" className="admin-refresh" onClick={() => void retryDependencyHealth()} disabled={dependencyHealthLoading} aria-label="Refresh dependency diagnostics">
+                  <RefreshCw size={14} className={dependencyHealthLoading ? "admin-spin" : undefined} aria-hidden="true" /> {dependencyHealthLoading ? "Checking…" : "Refresh"}
+                </button>
+              </div>
             </div>
             {dependencyHealthError ? (
               <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
@@ -997,8 +1351,42 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                               <p>
                                 These are the account fields currently returned by the protected Admin directory.
                                 Duty status is operational availability, not sign-in or suspension status.
-                                This view does not include authentication history or a complete account activity timeline.
+                                The preview below uses only event sources currently integrated into the protected investigation feed; it is not a complete account activity timeline.
                               </p>
+                              <div className="admin-account-activity">
+                                <button
+                                  className="admin-account-details"
+                                  type="button"
+                                  aria-expanded={accountActivityAccountId === user.id}
+                                  aria-label={(accountActivityAccountId === user.id ? "Hide recent activity for " : "Load recent activity for ") + user.name}
+                                  onClick={() => toggleAccountActivity(user)}
+                                >
+                                  {accountActivityAccountId === user.id ? "Hide recent activity" : "Load recent activity"}
+                                </button>
+                                {accountActivityAccountId === user.id && (
+                                  <div className="admin-account-activity__results" aria-live="polite">
+                                    {accountActivityLoading ? (
+                                      <p role="status"><LoaderCircle size={15} className="admin-spin" /> Loading protected account activity…</p>
+                                    ) : accountActivityError ? (
+                                      <p role="status">{accountActivityError}</p>
+                                    ) : accountActivityEvents.length === 0 ? (
+                                      <p>No matching events were returned for this profile.</p>
+                                    ) : (
+                                      <>
+                                        <p>Up to 10 recent events where this profile was the actor or target.</p>
+                                        <ul>
+                                          {accountActivityEvents.map((event) => (
+                                            <li key={event.event_id}>
+                                              <span>{event.summary}</span>
+                                              <small>{event.source.replaceAll("_", " ")} · {formatManilaDateTime(event.occurred_at)}</small>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </section>
                           </td>
                         </tr>
@@ -1049,31 +1437,46 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-analytics-controls">
                   <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => reloadAnalyticsReport(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
                   <button className="admin-refresh" type="button" onClick={() => { if (!analytics) return; try { const filename = exportAnalyticsCsv(analytics); setAnalyticsExportNotice("Export prepared: " + filename); } catch { setAnalyticsExportNotice("The CSV export could not be prepared. Try again or refresh the report."); } }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
-                  <button className="admin-refresh" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
+                  <span className="admin-data-freshness" data-state={analyticsError ? "error" : analyticsLoading ? "loading" : analyticsLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{analyticsError ? "Unavailable" : analyticsLoading ? "Refreshing…" : analyticsLoadedAt ? "Updated " + formatManilaDateTime(analyticsLoadedAt) + " · Asia/Manila" : "Not yet retrieved"}</span>
+                  <button className="admin-refresh" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> {analyticsError ? "Retry report" : "Refresh report"}</button>
                 </div>
               </div>
               {analyticsExportNotice && <p className="admin-analytics-export-notice" role="status" aria-live="polite">{analyticsExportNotice}</p>}
               {analyticsLoading ? (
                 <div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
               ) : analyticsError ? (
-                <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} Check your connection and access, then retry. If the problem continues, ask the system maintainer to verify that the analytics service is deployed and reachable. <button className="admin-filter-reset" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}>Retry report</button></div>
+                <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} Check your connection and access, then use Retry report above. If the problem continues, ask the system maintainer to verify that the analytics service is deployed and reachable.</div>
               ) : analytics ? (
                 <>
-                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals. {analyticsLoadedAt ? "Report retrieved " + formatManilaDateTime(analyticsLoadedAt) + "." : ""}</p>
+                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
-                    <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
-                    <article><span>RESOLVED</span><strong>{analytics.resolved.toLocaleString()}</strong><small>Currently marked resolved</small></article>
-                    <article><span>CANCELLED</span><strong>{analytics.cancelled.toLocaleString()}</strong><small>Currently marked cancelled</small></article>
                   </div>
                   <div className="admin-analytics-detail-grid">
+                    <section className="admin-analytics-card admin-analytics-status-chart" aria-labelledby="admin-status-distribution-title">
+                      <p className="admin-eyebrow">CURRENT STATUS MIX</p><h3 id="admin-status-distribution-title">Request status distribution</h3>
+                      <p className="admin-analytics-status-chart__description">Current status of requests created in the selected reporting period; this is not a historical status-transition chart.</p>
+                      <div className="admin-analytics-status-chart__rows">
+                        {[
+                          { label: "Pending", value: analytics.pending },
+                          { label: "Active", value: analytics.active },
+                          { label: "Resolved", value: analytics.resolved },
+                          { label: "Cancelled", value: analytics.cancelled },
+                        ].map((item) => (
+                          <div className="admin-analytics-status-chart__row" key={item.label}>
+                            <div><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong></div>
+                            <div className="admin-analytics-status-chart__track" aria-hidden="true"><i style={{ width: (analytics.total_requests > 0 ? Math.min(100, item.value / analytics.total_requests * 100) : 0) + "%" }} /></div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                     <section className="admin-analytics-card" aria-labelledby="admin-assignment-time-title">
                       <p className="admin-eyebrow">DISPATCH EFFICIENCY</p><h3 id="admin-assignment-time-title">Time to first assignment</h3>
                       <div className="admin-analytics-time"><strong>{analytics.average_assignment_minutes === null ? "—" : analytics.average_assignment_minutes.toLocaleString() + " min"}</strong><span>Average</span></div>
                       <div className="admin-analytics-secondary"><span>Median</span><strong>{analytics.median_assignment_minutes === null ? "—" : analytics.median_assignment_minutes.toLocaleString() + " min"}</strong></div>
                       <p className="admin-panel__footnote">Based on the first recorded “assigned” status transition for requests created in this period. {analytics.assigned_request_count.toLocaleString()} requests had a valid assignment time.</p>
                     </section>
-                    <section className="admin-analytics-card" aria-labelledby="admin-request-trend-title">
+                    <section className="admin-analytics-card admin-analytics-card--wide" aria-labelledby="admin-request-trend-title">
                       <p className="admin-eyebrow">REQUEST VOLUME</p><h3 id="admin-request-trend-title">Daily requests</h3>
                       {analytics.daily_requests.length === 0 ? <div className="admin-empty" role="status">No daily buckets were returned for this reporting period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
                         {analytics.daily_requests.map((point) => {
@@ -1097,9 +1500,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       )}
                     </section>
                   </div>
-                  <div className="admin-analytics-status-grid" role="group" aria-label="Current status of requests created during the selected reporting period">
-                    {[["Pending", analytics.pending], ["Active", analytics.active], ["Resolved", analytics.resolved], ["Cancelled", analytics.cancelled]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value.toLocaleString()}</strong></div>)}
-                  </div>
                   <p className="admin-panel__footnote">Aggregates include requests created within the selected timestamp range. Status counts reflect each request’s current status at query time, not historical status totals. All timestamps are evaluated by the database; daily buckets use {analytics.reporting_timezone}. No requester names, contact details, descriptions or coordinates are returned.</p>
                 </>
               ) : null}
@@ -1108,12 +1508,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           {activeSection === "settings" && (
             <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : settingsPage === "security" ? "Security & sessions" : "Privacy & data"}</h2></div>
-                <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
+                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : "Privacy & data"}</h2></div>
+                <span className="admin-count">{settingsPage === "general" || settingsPage === "accessibility" ? (preferencesDirty ? "Unsaved changes" : "Saved on this device") : "Read-only guidance"}</span>
               </div>
-              <p className="admin-settings-intro">These settings are separated by purpose. Personal display preferences affect only this browser; notification, security, and privacy controls remain read-only until their backend and governance requirements are verified.</p>
+              <p className="admin-settings-intro">{settingsPage === "general" ? "Set personal workspace defaults for this browser." : settingsPage === "accessibility" ? "Adjust contrast, motion, and contextual help for this browser." : settingsPage === "notifications" ? "Emergency notification delivery preferences are not connected here; this page does not suppress or delay alerts." : "Review privacy governance and interim handling guidance. No personal-data request is submitted or processed here."}</p>
               <nav className="admin-settings-nav" aria-label="Settings pages">
-                {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["security", "Security & sessions"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
+                {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
               </nav>
               {settingsPage === "general" && <div className="admin-settings-grid">
                 <article className="admin-settings-card">
@@ -1142,6 +1542,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <p>TACResQ processes account and emergency-response information. The project owner must approve and publish the privacy notice, identify the responsible personal information controller and privacy contact, and approve a retention schedule before this workspace can accept or decide formal requests.</p>
                 <div className="admin-settings-status"><span>Approved privacy notice and contact</span><strong>Not verified in this release</strong></div>
                 <div className="admin-settings-status"><span>Formal request intake and case register</span><strong>Not connected — no online submission or case tracking</strong></div>
+                <div className="admin-settings-status"><span>Identity verification and representative authority</span><strong>Not implemented as a controlled workflow</strong></div>
+                <div className="admin-settings-status"><span>Per-case authorization and append-only decision audit</span><strong>Not implemented — no case actions available</strong></div>
                 <div className="admin-settings-status"><span>Retention schedule and disposal evidence</span><strong>Not verified — no retention controls exposed</strong></div>
                 <div className="admin-settings-status"><span>Personal-data export, correction, and erasure</span><strong>Not available as Admin actions</strong></div>
                 <div className="admin-settings-card">
@@ -1179,20 +1581,26 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <p className="admin-panel__footnote">The aggregate Reports CSV is not a personal-data access or portability response. No personal-data export, correction, deletion, blocking, or retention operation is performed from this page.</p>
                 <p className="admin-panel__footnote">Reference: <a href="https://privacy.gov.ph/data-subject-rights/" target="_blank" rel="noreferrer">National Privacy Commission — Rights of Data Subjects</a> · <a href="https://privacy.gov.ph/implementing-rules-regulations-data-privacy-act-%202012/" target="_blank" rel="noreferrer">Implementing Rules and Regulations</a>.</p>
               </div>}
-              {settingsPage === "notifications" && <div className="admin-settings-subsection">
-                <p className="admin-eyebrow">NOTIFICATIONS</p>
-                <h3>Delivery preferences</h3>
-                <p>Emergency notification preferences are not configurable from this Admin portal. This section intentionally provides no quiet-hours or suppression toggle, because no verified preference-enforcement workflow is connected here.</p>
-                <div className="admin-settings-status"><span>Preference controls</span><strong>Unavailable — no verified settings service</strong></div>
+              {settingsPage === "notifications" && <div className="admin-settings-subsection admin-notifications-workspace">
+                <p className="admin-eyebrow">NOTIFICATIONS & DELIVERY ASSURANCE</p>
+                <h3>Emergency alert delivery</h3>
+                <p>Use this section to understand the current delivery boundary. It does not change recipient eligibility, mute alerts, or control emergency dispatch.</p>
+                <div className="admin-settings-status"><span>Persistent in-app notification inbox</span><strong>Primary notification record</strong></div>
+                <div className="admin-settings-status"><span>Firebase Cloud Messaging sender and retry ledger</span><strong>Implemented — delivery remains best-effort</strong></div>
+                <div className="admin-settings-status"><span>Automatic queue execution</span><strong>Not enabled in the current deployment</strong></div>
+                <div className="admin-settings-status"><span>Physical-device delivery verification</span><strong>Not verified for this release</strong></div>
+                <div className="admin-settings-card">
+                  <h4>Operational safeguards</h4>
+                  <ul>
+                    <li>The in-app notification inbox is authoritative. A push attempt is not proof that a person received, opened, or acted on an alert.</li>
+                    <li>Push messages are supplemental and should remain generic; incident details must be fetched again through the authenticated app.</li>
+                    <li>The current Render web-service startup does not run the dispatcher. Free-tier spin-down can delay a wake-up, so do not treat push as a guaranteed emergency channel.</li>
+                    <li>Do not enable quiet hours, suppression, or per-role delivery switches until server-side enforcement, emergency exceptions, audit history, and device tests are approved.</li>
+                  </ul>
+                </div>
+                <div className="admin-settings-status"><span>Recipient preference controls</span><strong>Not connected — no server-enforced preference service</strong></div>
               </div>}
-              {settingsPage === "security" && <div className="admin-settings-subsection">
-                <p className="admin-eyebrow">SECURITY & SESSIONS</p>
-                <h3>Administrator session protection</h3>
-                <p>Authenticator enrollment and current-session assurance are managed in the Security workspace. This Settings subpage does not expose password changes, session revocation, or account lock controls because no separate verified Admin settings workflow is connected.</p>
-                <div className="admin-settings-status"><span>Authenticator controls</span><strong>Available in Security workspace</strong></div>
-                <div className="admin-settings-status"><span>Session/device management</span><strong>Not available in this portal</strong></div>
-                <button className="admin-refresh" type="button" onClick={() => navigateToSection("security")}>Open Security workspace <span aria-hidden="true">→</span></button>
-              </div>}
+
             </section>
           )}
           {activeSection === "help" && (
@@ -1210,9 +1618,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["overview", "service reachability", "dependencies", "health", "incident workflow", "laravel", "supabase"])}><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["user management", "accounts", "roles", "duty status", "role changes", "permissions"])}><h3>User management</h3><p>Search and filter accounts, then change eligible operational roles with a required reason. Admin accounts are operator-managed. Duty status is not an account suspension or sign-in state.</p><button type="button" onClick={() => navigateToSection("users")}>Open User management <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["security", "authenticator", "totp", "aal2", "mfa", "factor", "sessions"])}><h3>Security & authenticator</h3><p>Use a verified authenticator for the required AAL2 session. Keep the only verified factor available. The current Security page is not a complete security-event monitoring centre.</p><button type="button" onClick={() => navigateToSection("security")}>Open Security <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"])}><h3>Attachment storage</h3><p>Review the private incident-chat bucket safeguards, upload reservation rollout state, object lifecycle gaps, and storage evidence limitations. This is not a live media browser or bucket monitor.</p><button type="button" onClick={() => navigateToSection("attachments")}>Open Attachment storage <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"])}><h3>Recovery &amp; continuity</h3><p>Review documented database and Storage backup procedures, Auth/configuration gaps, and isolated restore-drill requirements. This workspace does not show live backup or restore evidence.</p><button type="button" onClick={() => navigateToSection("recovery")}>Open Recovery &amp; continuity <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"])}><h3>Attachment safeguards</h3><p>Review private incident-chat storage safeguards, upload-reservation rollout state, object lifecycle gaps, and storage evidence limitations inside Data &amp; continuity. This is not a live media browser or bucket monitor.</p><button type="button" onClick={() => navigateToContinuityPage("attachments")}>Open attachment safeguards <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"])}><h3>Recovery &amp; continuity</h3><p>Review documented database and Storage backup procedures, Auth/configuration gaps, and isolated restore-drill requirements. This workspace does not show live backup or restore evidence.</p><button type="button" onClick={() => navigateToContinuityPage("recovery")}>Open Backup &amp; recovery <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"])}><h3>Reports & Activity Log</h3><p>Reports contain aggregate request metrics. Activity Log contains only events collected by its connected sources; missing sources must not be interpreted as zero activity.</p><div><button type="button" onClick={() => navigateToSection("analytics")}>Open Reports <span aria-hidden="true">→</span></button><button type="button" onClick={() => navigateToSection("audit")}>Open Activity Log <span aria-hidden="true">→</span></button></div></article>
+                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["notifications", "push", "fcm", "delivery", "alert", "inbox"])}><h3>Notifications & delivery</h3><p>The in-app inbox is authoritative. Push delivery is supplemental; automatic queue execution and physical-device receipt are not verified in the current release. No quiet-hours or suppression controls are exposed.</p><button type="button" onClick={() => navigateToSettingsPage("notifications")}>Open notification guidance <span aria-hidden="true">→</span></button></article>
               </div>
               {normalizedHelpQuery && ![
                 ["overview", "service reachability", "dependencies", "health", "incident workflow", "laravel", "supabase"],
@@ -1221,6 +1630,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"],
                 ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"],
                 ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"],
+                ["notifications", "push", "fcm", "delivery", "alert", "inbox"],
               ].some((terms) => matchesAdminHelp(normalizedHelpQuery, terms)) && <p className="admin-help-empty" role="status">No guidance matched that search. Try a workspace name or a term such as roles, authenticator, reports, audit, recovery, or storage.</p>}
               <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">ABOUT TACRESQ ADMIN</p>
@@ -1247,6 +1657,41 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
             </section>
             <AdminSecurityStatus />
+            <section className="admin-panel admin-security-events" aria-labelledby="admin-security-events-title" aria-busy={authenticationEventsLoading}>
+              <div className="admin-panel__heading">
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the existing protected investigation feed. It includes only events currently collected by the connected authentication source; it is not a complete sign-in or session history." /></div>
+                <div className="admin-analytics-controls">
+                  <span className="admin-data-freshness" data-state={authenticationEventsError ? "error" : authenticationEventsLoading ? "loading" : authenticationEventsLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{authenticationEventsError ? "Unavailable" : authenticationEventsLoading ? "Refreshing…" : authenticationEventsLoadedAt ? "Updated " + formatManilaDateTime(authenticationEventsLoadedAt) + " · Asia/Manila" : "Not yet retrieved"}</span>
+                  <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> {authenticationEventsError ? "Retry" : "Refresh"}</button>
+                </div>
+              </div>
+              {authenticationEventsError ? (
+                <div className="admin-health-unavailable" role="alert">{authenticationEventsError} Use Retry above to request this authentication preview again.</div>
+              ) : authenticationEventsLoading && recentAuthenticationEvents.length === 0 ? (
+                <div className="admin-empty" role="status"><LoaderCircle size={18} className="admin-spin" /> Loading authentication activity…</div>
+              ) : recentAuthenticationEvents.length === 0 ? (
+                <p className="admin-panel__footnote" role="status">No authentication events were returned by the connected source for this preview. This does not prove that no sign-ins occurred.</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <caption className="admin-table-caption">Latest five authentication events returned by the protected investigation feed</caption>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Account / actor</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
+                    <tbody>{recentAuthenticationEvents.map((event) => (
+                      <tr key={event.event_id}>
+                        <td>{event.summary}</td>
+                        <td>{event.actor_label}</td>
+                        <td className="admin-date">{formatDate(event.occurred_at)}</td>
+                        <td><code>{event.source}</code></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              <div className="admin-settings-actions">
+                <span className="admin-panel__footnote">Preview only · five most recent returned records · source coverage may be incomplete.</span>
+                <button className="admin-filter-reset" type="button" onClick={() => navigateToSection("audit")}>Open activity log</button>
+              </div>
+            </section>
             <section className="admin-panel admin-access-review" aria-labelledby="admin-access-review-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">LEAST-PRIVILEGE REVIEW</p><h2 id="admin-access-review-title"><ShieldCheck size={19} /> Admin access review</h2></div><AdminHelpTip label="About Admin access review" message="This matrix summarizes the current Admin portal boundary from the repository. It is not a live scan of every database policy, API, Storage object, or user permission." /></div>
@@ -1259,7 +1704,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <thead><tr><th scope="col">Capability</th><th scope="col">Current authorization</th><th scope="col">Boundary / limitation</th></tr></thead>
                   <tbody>
                     <tr><th scope="row">Overview and dependency reachability</th><td>Admin portal</td><td>Fixed reachability probes only; not emergency-service readiness.</td></tr>
-                    <tr><th scope="row">Recovery &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
+                    <tr><th scope="row">Data &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
                     <tr><th scope="row">Attachment storage</th><td>Admin portal · read-only guidance</td><td>Summarizes source and dated inspection evidence only; no live bucket query, object listing, media access, or cleanup action is available.</td></tr>
                     <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded account directory with current Active/Suspended state; it is not a complete authentication history.</td></tr>
                     <tr><th scope="row">Change an ordinary account role</th><td>Admin + AAL2 + TOTP; reason required</td><td>Only requester, responder, driver, and dispatcher roles. Admin promotion/demotion is trusted-operator-only; active incident assignments block changes.</td></tr>
@@ -1276,6 +1721,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </>
           )}
           {activeSection === "recovery" && (
+            <nav className="admin-continuity-nav" aria-label="Data and continuity views">
+              <button type="button" className={continuityPage === "recovery" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "recovery" ? "page" : undefined} onClick={() => navigateToContinuityPage("recovery")}>Backup &amp; recovery</button>
+              <button type="button" className={continuityPage === "attachments" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "attachments" ? "page" : undefined} onClick={() => navigateToContinuityPage("attachments")}>Attachment safeguards</button>
+            </nav>
+          )}
+          {activeSection === "recovery" && continuityPage === "recovery" && (
             <section className="admin-panel admin-recovery-panel" aria-labelledby="admin-recovery-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">BUSINESS CONTINUITY</p><h2 id="admin-recovery-title"><HardDrive size={19} /> Backup &amp; recovery readiness</h2></div><AdminHelpTip label="About recovery readiness" message="This workspace summarizes documented procedures and known gaps. It is not connected to backup jobs, provider snapshots, off-site storage, or restore evidence." /></div>
@@ -1291,13 +1742,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <div><p className="admin-eyebrow">DATABASE</p><span className="admin-recovery-state">Procedure documented</span></div>
                   <h3>PostgreSQL data &amp; schema</h3>
                   <p>The documented export separates schema, data, and custom roles. The Supabase CLI dump excludes managed Auth and Storage schemas. No export or destination is verified here.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/postgres-logical-backup-procedure.md" target="_blank" rel="noreferrer">Open database backup procedure <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Database backup procedure</summary><p>Steps for creating and verifying a logical database backup. Use this as an operator reference; the portal does not start a backup.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/postgres-logical-backup-procedure.md" target="_blank" rel="noreferrer">Open procedure <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">ATTACHMENTS</p><span className="admin-recovery-state">Separate procedure</span></div>
                   <h3>Storage object bytes</h3>
                   <p>Incident attachments require a separate object copy and manifest. Database metadata alone cannot recover deleted object bytes. No off-site object copy or restore is verified here.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Open Storage backup procedure <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Storage object backup</summary><p>Explains the separate backup and verification steps for uploaded objects, which are not covered by a database dump alone.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Open procedure <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">IDENTITY &amp; CONFIGURATION</p><span className="admin-recovery-state">Recovery unresolved</span></div>
@@ -1309,19 +1760,19 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <div><p className="admin-eyebrow">APPLICATION HOSTING</p><span className="admin-recovery-state">Source-controlled</span></div>
                   <h3>Render Admin portal &amp; API</h3>
                   <p>Git preserves source history, not the deployed runtime configuration. Render filesystems are ephemeral by default; do not use the service filesystem as a backup destination. Environment values and secret files require separate protected recovery.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/RENDER_DEPLOYMENT.md" target="_blank" rel="noreferrer">Open deployment guide <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Render deployment guide</summary><p>Deployment configuration, release sequence, and post-deploy checks for the hosted web service.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/RENDER_DEPLOYMENT.md" target="_blank" rel="noreferrer">Open guide <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">NOTIFICATIONS</p><span className="admin-recovery-state">Execution not verified</span></div>
                   <h3>FCM dispatcher continuity</h3>
                   <p>The documented Render web-service startup does not launch the FCM dispatcher, scheduler, or worker. Credential availability is not proof of queue execution or device delivery.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/FCM_OPERATIONS_RUNBOOK.md" target="_blank" rel="noreferrer">Open FCM operations runbook <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Push notification operations</summary><p>Operational guidance for Firebase Cloud Messaging delivery and troubleshooting.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/FCM_OPERATIONS_RUNBOOK.md" target="_blank" rel="noreferrer">Open runbook <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">VALIDATION</p><span className="admin-recovery-state">No drill recorded</span></div>
                   <h3>Isolated restore drill</h3>
                   <p>A successful manifest check is not a restore test. Recovery requires an approved isolated project, database and Storage restore validation, Auth recovery, application smoke checks, and reviewer acceptance.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/isolated-restore-drill-checklist.md" target="_blank" rel="noreferrer">Open restore-drill checklist <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Restore-drill checklist</summary><p>Checklist for validating recovery in an isolated environment before relying on a backup.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/isolated-restore-drill-checklist.md" target="_blank" rel="noreferrer">Open checklist <span aria-hidden="true">↗</span></a></details>
                 </article>
               </div>
               <section className="admin-recovery-next" aria-labelledby="admin-recovery-next-title">
@@ -1344,7 +1795,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </section>
           )}
 
-          {activeSection === "attachments" && (
+          {activeSection === "recovery" && continuityPage === "attachments" && (
             <section className="admin-panel admin-attachment-panel" aria-labelledby="admin-attachment-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">PRIVATE INCIDENT MEDIA</p><h2 id="admin-attachment-title"><Images size={19} /> Attachment storage safeguards</h2></div><AdminHelpTip label="About attachment storage" message="This view summarizes source and dated inspection evidence. It does not query the live bucket, list files, download media, or change Storage policy." /></div>
@@ -1375,6 +1826,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <p className="admin-eyebrow">UPLOAD RESERVATIONS</p><h3>Staged enforcement</h3>
                   <span className="admin-attachment-state">Live switch not verified</span>
                   <p>The repository contains a private one-operation reservation ledger and a reservation-aware Storage policy. Its migration default keeps strict reservation enforcement disabled for legacy-client compatibility; this page does not read the live switch or prove rollout completion.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">END-TO-END ACCEPTANCE</p><h3>HTTP and device verification</h3>
+                  <span className="admin-attachment-state">Not completed</span>
+                  <p>SQL policy replay and source tests do not prove real binary upload/download behavior. Isolated HTTP Storage acceptance and Android device verification remain outstanding; production rollout is not approved by this workspace.</p>
                 </article>
                 <article className="admin-attachment-card">
                   <p className="admin-eyebrow">LIFECYCLE</p><h3>Orphans and retention</h3>

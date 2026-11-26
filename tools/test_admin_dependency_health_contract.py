@@ -45,7 +45,7 @@ assert "do not verify incident creation" in console
 assert "void getAdminDependencyHealth()" in console
 assert "exceeded five seconds" in console
 assert "dependencyHealthLoading" in console
-assert '"Last checked "' in console
+assert '"Checked "' in console and 'Asia/Manila' in console
 assert '"Checking…"' in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
