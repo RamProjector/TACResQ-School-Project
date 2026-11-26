@@ -146,3 +146,15 @@ The staged plan is in `docs/QA_LOCAL_SUPABASE_INTEGRATION_PLAN.md` and Section 5
 5. Exclude hosted Supabase, Render production, FCM provider, real GPS/user data, and external routing from ordinary CI.
 
 The current CI's `needs: source-checks` dependency on Laravel and migration jobs is intentional fail-fast behavior. GitHub documents that dependent jobs are skipped when a prerequisite fails or is skipped unless explicitly overridden. Keep this gate; do not use `always()` just to force integration jobs past a failed source-contract suite.
+
+
+## 11. RPC authorization runtime follow-up (Section 54–55)
+
+The live callable audit added a specific runtime-test gap beyond the generic lifecycle matrix:
+- `api_mark_notification_read(bigint)` remains caller-owned but lacks an active-account check in the reviewed live body. A suspended account with a still-valid JWT can therefore still mutate its own notification read marker. The correction and regression must prove denial using the same pre-suspension JWT.
+- `api_unregister_fcm_token(text)` is an intentional cleanup exception: a suspended user can remove only their own exact token. Runtime tests must preserve this while denying list/register/update and cross-owner delete.
+- `public.tacresq_require_incident_location()` is trigger-only. Direct client EXECUTE must be denied while actual trigger-driven DML continues to enforce the invariant.
+- Admin wrapper tests must include AAL1, missing TOTP, non-Admin, and suspended Admin with same valid AAL2/TOTP JWT.
+- The legacy `api_admin_list_audit_logs(integer)` grant must not change until all supported callers are traced.
+
+The test-by-test expectations are documented in `docs/QA_RPC_AUTHORIZATION_RUNTIME_MATRIX.md`. The new cases should run against the disposable local Supabase environment described in `docs/QA_LOCAL_SUPABASE_INTEGRATION_PLAN.md`; they were not executed against the hosted project. No migration or grant change was made.
