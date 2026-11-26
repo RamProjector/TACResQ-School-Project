@@ -4558,3 +4558,173 @@ Controls such as “Declare incident”, “Escalate”, “Approve containment�
 - [CISA — Federal Government Cybersecurity Incident and Vulnerability Response Playbooks](https://www.cisa.gov/sites/default/files/2024-08/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf)
 
 **Evidence boundary:** Section 44 is a proposed incident-response procedure and Admin IPS design specification. It does not claim TACResQ has a staffed security response team, formal incident declaration authority, complete forensic capability, durable case-management workflow, escalation integrations, or automated containment/recovery. It does not change application code, database schema, roles, permissions, provider configuration, alert delivery, theme, or production behavior.
+
+
+---
+
+## 44. Security investigation record lifecycle, triage, evidence preservation, and human decision boundaries
+
+**Research date:** 2026-11-26.  
+**Scope:** Define how a future Admin IPS workflow should move from a source event or detection to a reviewed security investigation record without confusing it with TACResQ emergency incidents, routine administrative activity, or automated enforcement. This is a design specification only. The repository currently provides event/investigation browsing through a protected RPC, but this review does not establish a persistent security-case registry, case assignment workflow, evidence vault, or incident-response team.
+
+### 44.1 Keep four different objects separate
+
+The interface and any future data model must distinguish:
+
+1. **Source event:** one recorded occurrence from an authoritative or explicitly qualified source, such as an Admin role-change row, Auth audit entry, incident lifecycle event, or provider log.
+2. **Detection:** a versioned rule result that explains why one or more source events matched a defined condition. A detection may be informational, suspicious, or indeterminate; it is not automatically a confirmed security incident.
+3. **Security investigation record:** a human-reviewed work item created to track a question, evidence references, analysis, decisions, and disposition. It may reference one or more detections or source events.
+4. **TACResQ operational incident:** an emergency-response request and its lifecycle. It is a separate business domain and must never be reused as the storage entity or status model for cybersecurity investigations.
+
+Do not call every failed login, denied RPC, unusual event, or rule match a security incident. Do not create a security investigation record merely because an event row exists. Conversely, a genuine security concern may require review even when evidence is incomplete; label it as an investigation lead or unconfirmed concern rather than asserting compromise.
+
+### 44.2 Proposed investigation lifecycle
+
+If a persistent investigation workflow is separately approved and implemented, use a small explicit lifecycle:
+
+| State | Meaning | Allowed next states |
+|---|---|---|
+| New | A reviewable lead or detection has been accepted into the investigation queue | Triage, Closed as duplicate/benign |
+| Triage | An administrator is checking source quality, scope, impact, and whether investigation is warranted | Investigating, Escalated, Closed as benign/duplicate/insufficient evidence |
+| Investigating | Evidence is being examined and hypotheses are being tested | Escalated, Containment recommended, Resolved |
+| Escalated | The issue requires an authorized owner, specialist, or decision beyond the current administrator's authority | Investigating, Resolved, Closed |
+| Containment recommended | A proposed containment decision is documented but has not itself changed an account, token, service, or operational record | Investigating, Escalated, Resolved |
+| Resolved | The available evidence and authorized response are documented; no further immediate work is pending | Reopened |
+| Closed | Administrative closure with a required disposition and rationale | Reopened only through an explicit audited action |
+
+Do not conflate the investigation status with detection severity, confidence, source health, or rule lifecycle. A low-severity item can require investigation; a high-severity rule match can remain unconfirmed; a resolved investigation does not mean the underlying source telemetry is healthy.
+
+The lifecycle above is a proposed workflow, not an existing TACResQ status enum. Avoid implementing status controls until transitions, persistence, authorization, audit history, concurrency, retention, and reopen behavior have been specified and tested.
+
+### 44.3 Triage must establish evidence quality before urgency
+
+The first review should answer, in order:
+
+- What exact source event or detection triggered this review?
+- Is the source authoritative, provider-generated, server-generated, or client-reported?
+- Is the record complete, current, and within its known retention/pagination limits?
+- Is the actor identity verified within its own namespace?
+- Is the timestamp trusted, and is the event delayed or out of order?
+- Is the event a successful action, denied attempt, validation error, retry, provider failure, or unknown outcome?
+- What policy or expected behavior does it appear to violate?
+- What benign explanation or normal workflow could produce the same record?
+- What additional evidence is required before a conclusion can be made?
+- Is there a time-sensitive impact that justifies escalation?
+
+Triage outcomes should be explicit:
+- **Confirmed security concern:** evidence supports a policy violation or compromise hypothesis.
+- **Suspicious — needs investigation:** evidence is credible but not yet sufficient to confirm the hypothesis.
+- **Expected/authorized:** the activity is supported by the relevant policy and context.
+- **Benign/false positive:** review established that the detection logic matched a legitimate or irrelevant event.
+- **Insufficient evidence:** a required source, identity, timestamp, or context is unavailable.
+- **Duplicate/related:** the item is already represented by another investigation; preserve the source event and relationship.
+- **Operational/platform issue:** the event reflects service availability, application behavior, or telemetry failure rather than a security finding.
+
+Do not use a single generic “dismiss” action for these distinct outcomes. The chosen disposition should preserve the reason and the evidence considered.
+
+### 44.4 Preserve evidence references and provenance
+
+An investigation record should point to source evidence; it should not silently copy sensitive source payloads into a new editable text field.
+
+A future evidence reference should retain:
+- source namespace, source instance/environment, source-native event ID, and source schema/version where available;
+- the original source timestamp and separately observed/ingested timestamps;
+- source query/filter scope and retrieval time;
+- actor and target identifiers with their identity namespaces;
+- the detection rule ID/version and correlation method, if applicable;
+- whether the source record is immutable, append-only, mutable, provider-retained, or only temporarily queryable;
+- any truncation, pagination, redaction, retention, or access limitation;
+- the person/system that added the reference and when it was added.
+
+For any separately exported evidence file, define an approved process for collection, integrity verification (for example, a cryptographic hash), restricted storage, access logging, retention, and authorized disposal before exposing an upload/export feature. A hash can help detect later changes to a collected copy; it does not prove that the original source was truthful or that the collection process was complete.
+
+Do not claim forensic chain of custody merely because an event has a timestamp and actor label. Formal evidence handling requires a documented collection and handling process, trusted time, integrity checks, access controls, and accountable custodians. Do not expose raw SQL, tokens, MFA secrets, message bodies, precise coordinates, signed URLs, or private attachment bytes in a general-purpose investigation panel.
+
+### 44.5 Record decisions as append-only history
+
+If investigation records are introduced, preserve a chronological decision history rather than overwriting the current status with no trace.
+
+Each decision entry should capture, where supported:
+- investigation identifier and prior/new state;
+- decision type and bounded reason code;
+- a concise operator explanation that avoids unnecessary personal or incident details;
+- authenticated actor identity in the correct identity namespace;
+- trusted server timestamp;
+- referenced source events/detections;
+- policy/rule version used for the decision;
+- any approved escalation or containment recommendation;
+- outcome/error of the requested transition.
+
+A failed transition should not be represented as a successful status change. If the persistence operation fails, retain a clear UI error and do not optimistically display the new state. Concurrency controls should reject stale transitions and require the administrator to refresh the current record before retrying.
+
+Do not allow ordinary edits to rewrite historical evidence or erase prior dispositions. Corrections should be new, attributable entries with a reason.
+
+### 44.6 Human authority and containment boundaries
+
+A detection or investigation record must not automatically:
+- suspend or delete an account;
+- revoke a session or token;
+- block a device or IP address;
+- alter responder/driver duty or assignment state;
+- cancel or modify an emergency request;
+- disable a provider, notification channel, Storage bucket, or backend service;
+- delete or rewrite source logs.
+
+The current product decision remains one Admin portal role, admin. Do not invent an analyst, investigator, approver, or incident commander role to imitate an enterprise SOC. If the action requires authority beyond the single administrator's documented permissions, show the escalation requirement and leave the action unavailable; do not simulate a second approval with a decorative confirmation dialog.
+
+Any future containment control needs a separate source-backed authorization review, explicit impact preview, fresh server-side state check, reason, protected execution path, durable audit outcome, concurrency protection, rollback/recovery plan, and tests proving it cannot disrupt emergency-response workflows unintentionally. UI confirmation is not a substitute for these controls.
+
+### 44.7 Investigation workspace composition
+
+If the workflow becomes implementable, use a compact queue and a focused detail workspace rather than adding another permanent navigation rail:
+
+- **Queue:** status, severity/impact, confidence, last updated, source freshness, and a short title. Search and filters should remain bounded and preserve the active query.
+- **Detail header:** investigation ID, current state, source-qualified classification, created/updated time, and the exact next permitted action.
+- **Evidence timeline:** source events in source-time order where ordering is supportable; show ingestion delay and uncertain ordering instead of inventing chronology.
+- **Analysis:** concise hypothesis, evidence supporting it, evidence against it, benign explanations considered, and unresolved questions.
+- **Decision history:** append-only triage, escalation, resolution, and reopen entries.
+- **Source coverage:** explicit unavailable, stale, partial, permission-denied, or not-configured states for required evidence sources.
+- **Related items:** typed relationships and correlation confidence; never imply causation from timestamp proximity alone.
+
+Keep the existing eight-section Admin information architecture. A future investigation workspace may be reached from Security or Activity Log according to the final route map, but it must not create a duplicate top-level destination without a demonstrated workflow need. Preserve the current theme, typography, custom SVG icon direction, and collapsible sidebar.
+
+### 44.8 Closure and learning
+
+A resolved/closed investigation should record:
+- the final disposition;
+- what was established versus what remains unknown;
+- the evidence sources reviewed and their coverage limitations;
+- actions actually taken, distinguished from recommendations;
+- any residual risk or follow-up owner, if one is verified;
+- the rule/source defect or process improvement identified;
+- whether a regression fixture or detection-rule change is warranted.
+
+Do not mark an investigation “resolved” because an alert disappeared, a source stopped reporting, an account became inaccessible, or no further rows appeared. If the evidence source is no longer available, preserve that as a limitation. Lessons learned should feed rule tests, source coverage, and operator guidance; they should not silently rewrite historical detections.
+
+### 44.9 Research basis and applicability
+
+NIST SP 800-61 Rev. 3 (April 2025) frames incident response through the CSF 2.0 functions: Govern, Identify, Protect, Detect, Respond, and Recover. It emphasizes prioritization by scope and impact, validating ongoing incident status, documenting analysis, and considering operational disruption when deciding recovery. This supports a human-reviewed lifecycle and explicit decision records; it does not require TACResQ to implement an enterprise SOC or automated response platform.
+
+The Australian Cyber Security Centre's incident-response planning guidance emphasizes documenting who collected or handled evidence, when it was handled, and relevant item details. Apply the evidence-provenance principles proportionately; do not claim formal forensic readiness without the required process and resources.
+
+References:
+- [NIST SP 800-61 Rev. 3 — Incident Response Recommendations and Considerations for Cybersecurity Risk Management](https://csrc.nist.gov/pubs/sp/800/61/r3/final)
+- [NIST — Incident Response project and CSF 2.0 lifecycle](https://csrc.nist.gov/projects/incident-response)
+- [ACSC — Cyber security incident response planning: Practitioner guidance](https://www.cyber.gov.au/publication/cyber-security-incident-response-planning-practitioner-guidance)
+- [OWASP — Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+
+### 44.10 Acceptance criteria
+
+- Source events, detections, security investigations, and TACResQ operational incidents remain distinct.
+- No current page claims a persistent case-management workflow until its backend source exists.
+- Triage dispositions distinguish confirmed, suspicious, expected, benign, duplicate, insufficient-evidence, and operational outcomes.
+- Every investigation relationship retains source namespace and provenance.
+- Event time, observed time, and ingestion time remain distinct.
+- Historical decisions are append-only and attributable.
+- Stale/concurrent transitions are rejected and never shown as successful.
+- Evidence exports are unavailable until integrity, access, retention, and disposal controls are approved.
+- No automated account, session, device, notification, GPS, assignment, or incident enforcement is introduced.
+- The one-Admin-role decision and existing theme/navigation/sidebar are preserved.
+- Any future workflow has explicit authorization, audit, privacy, recovery, and regression tests before release.
+
+**Evidence boundary:** Section 44 defines a future human-led investigation workflow. It does not assert that TACResQ currently has security-case persistence, evidence vaulting, case assignment, formal forensic chain of custody, escalation staffing, or automated containment. No application code, database schema, RPC, permission, provider, notification, theme, or production configuration is changed by this research.
