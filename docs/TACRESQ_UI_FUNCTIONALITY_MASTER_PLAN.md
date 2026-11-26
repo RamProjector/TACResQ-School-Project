@@ -4867,3 +4867,175 @@ Use explicit states: approved, pending external approval, proposal only, expired
 - [OWASP Logging Cheat Sheet — event selection, sensitive-data exclusion, access protection, monitoring, and disposal](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
 
 **Evidence boundary:** Section 45 defines governance and target design requirements. It does not establish a legally approved retention schedule, a second approver, a staffed security function, universal read-access logging, immutable storage, or automated archival/disposal. No application code, database schema, RPC, permission, provider setting, retention job, theme, or production configuration is changed by this research.
+
+
+---
+
+## 45. Monitoring assurance, telemetry freshness, source coverage, and truthful operational-readiness reporting
+
+**Research date:** 2026-11-26.  
+**Scope:** Define how the Admin IPS Overview and Security areas should report the health of monitoring itself, distinguish dependency reachability from operational readiness, and expose source freshness/coverage gaps without inventing an all-clear state. This is a research/design specification; no probe, scheduler, alert destination, telemetry sink, or production configuration is added.
+
+### 45.1 Repository baseline: three on-demand probes, not continuous monitoring
+
+The current Admin Overview calls `getAdminDependencyHealth()` after the existing Admin profile gate. It runs three bounded browser-side checks in parallel:
+
+| Existing probe | What it establishes | What it does not establish |
+|---|---|---|
+| Laravel `/up` | The Laravel application can answer its health route | Supabase, queue/worker, FCM, routing, Storage, or emergency workflows |
+| Supabase Auth `/auth/v1/health` | The Auth health endpoint responds using the publishable key | A particular user's credentials, MFA, or end-to-end sign-in |
+| `api_dependency_health()` | The authenticated request can reach PostgREST and execute the fixed data-free database RPC | Business RPC correctness, table access, writes, realtime, or full database workload readiness |
+
+The probes have a five-second bound and return `healthy`, `slow`, or `unavailable` with response duration. They are on-demand browser checks (initial Overview load and manual refresh), not a scheduled monitor. The UI correctly scopes its summary to the three checks and explicitly lists unmonitored capabilities. The separate Laravel CLI diagnostic has configuration-only and explicit live-read-only modes; its configuration-presence output must not be interpreted as provider health.
+
+**Current coverage boundary:** No repository evidence establishes a durable probe history, independent alert destination, scheduled health checks, source-ingestion heartbeat, alert-delivery verification, or monitoring-pipeline self-test. The dependency-health implementation is useful diagnostic evidence, but it is not a continuous monitoring service or an end-to-end service-level objective.
+
+Do not replace the current precise three-probe wording with a global “System healthy”, “All systems operational”, “100% uptime”, or “No threats detected” badge.
+
+### 45.2 Report four separate dimensions
+
+A future monitoring-assurance view should show four independent dimensions rather than compressing them into one green/red state:
+
+1. **Dependency reachability:** did this exact bounded probe respond successfully within its threshold?
+2. **Telemetry source health:** is the source enabled, reachable, producing records, and successfully exporting/ingesting them?
+3. **Detection pipeline health:** are rules enabled at the expected version, evaluation jobs running, failures visible, and alert outputs being accepted?
+4. **Coverage and confidence:** which systems, event classes, time windows, and identities are actually represented, and which remain unobserved?
+
+A reachable database does not prove the audit writer is functioning. A functioning audit writer does not prove that all security-relevant operations emit events. A populated event table does not prove that detection rules evaluated those events. A successful alert-provider API response does not prove that an operator received or acknowledged the alert.
+
+The UI should therefore avoid a single aggregate score unless the exact component set, weighting, required/optional dependencies, freshness thresholds, and failure behavior have been explicitly defined and validated. Even then, display the underlying dimensions and avoid treating optional routing/notification services as equivalent to the core authentication/database path.
+
+### 45.3 Use explicit source states and freshness semantics
+
+For each configured telemetry source, use a typed state with a source-specific meaning:
+
+| State | Meaning |
+|---|---|
+| Healthy / current | A successful source heartbeat or ingestion confirmation occurred within its documented freshness window |
+| Delayed / stale | The source is expected to report, but its latest confirmed heartbeat or event is older than its allowed window |
+| Unavailable | A bounded connection or source query failed; this is not automatically evidence that the whole product is down |
+| Ingestion failing | The source may be reachable, but forwarding, parsing, storage, or ingestion is failing |
+| Evaluation failing | Events may be collected, but the detection/evaluation job is failing or behind |
+| Alert delivery failing | A detection may exist, but its configured notification/alert destination is not accepting or confirming the handoff |
+| Disabled | An operator intentionally disabled this source or capability; retain the reason and change history |
+| Not configured | No source integration or probe has been configured |
+| Not monitored | No verified health signal exists for this source/capability |
+| Unknown | Available evidence is insufficient or contradictory to assign a more precise state |
+
+Do not use `healthy` just because no recent errors were returned. Freshness requires an expected reporting cadence or heartbeat contract. For quiet event sources, absence of new security events is not proof of source failure; use a source heartbeat, successful poll/ingestion watermark, or independent source-health signal instead.
+
+Display separate timestamps where available:
+- last successful probe;
+- last successful source heartbeat;
+- newest source event time;
+- newest ingestion/processing time;
+- last successful detection evaluation;
+- last successful alert handoff.
+
+These times answer different questions. Do not label the newest event timestamp as “last checked”. Preserve timezone and source clock uncertainty. A future timestamp, clock skew, delayed batch, or out-of-order event should produce a visible quality warning rather than a false fresh state.
+
+### 45.4 Measure coverage against an explicit inventory
+
+Coverage should be calculated against a reviewed source inventory, not the number of rows currently returned by a query.
+
+Each inventory entry should state:
+- source name and namespace (for example, Supabase Auth, Admin role audit, Laravel operation audit, FCM delivery attempts);
+- security or operational event families expected from that source;
+- authoritative owner and trust boundary;
+- enabled/disabled/not-configured state;
+- collection method and expected cadence;
+- last successful source and ingestion heartbeat;
+- retention and query-window limits;
+- expected fields and schema/version;
+- known blind spots, redaction, and permissions;
+- whether it feeds an investigation view, a detection rule, or both;
+- the last validation date and test fixture proving the source still emits usable records.
+
+Coverage labels must be scoped. Prefer “3 of 5 configured sources reported a current heartbeat” over “60% security coverage”. The latter implies a completeness measure that is not defensible unless the denominator is a formally reviewed list of all relevant assets and event classes.
+
+Do not count an intentionally disabled optional integration as an outage. Do not exclude an unconfigured required source from the denominator merely to improve a coverage percentage. Show required and optional source groups separately and explain exclusions.
+
+### 45.5 Monitor the monitoring path independently
+
+A monitor must not rely exclusively on the component it is checking to report its own failure.
+
+Examples:
+- If `api_operation_logs` is unavailable, the Laravel writer may fail open to preserve emergency API availability; the same failed sink cannot be the only place that records the failure.
+- If a scheduled source poll stops running, a dashboard that only displays the last rows may look quiet rather than broken.
+- If a detection job fails, the absence of alerts cannot be interpreted as the absence of suspicious activity.
+- If an alert destination rejects messages, the source event and detection result should remain visible even though the notification handoff failed.
+
+A future monitor should use an independent control path for scheduler/worker execution, probe outcomes, sink errors, and alert delivery (for example, hosting-platform metrics/logs or a separately operated monitor). The exact external mechanism must be selected and verified before claiming independent monitoring. Do not add a paid service, new provider, service credential, or recurring job without explicit approval and cost/security review.
+
+A minimal synthetic canary may verify the complete telemetry pipeline only if it uses a clearly marked non-production test event, a dedicated test destination, no real user/incident data, bounded frequency, and a verified cleanup/retention policy. It must not create a fake SOS, mutate an operational incident, send a real FCM notification, or contaminate production investigation records.
+
+### 45.6 Separate liveness, readiness, and operational capability
+
+Keep platform liveness cheap and independent of optional services. A routing-provider outage must not make the Laravel process appear dead; an FCM outage must not make authentication appear unavailable.
+
+For the Admin Overview:
+- Keep the current three-probe summary scoped to the exact checks and their response threshold.
+- Show the probe timestamp and distinguish “not yet checked”, “checking”, “stale result”, and “check failed”.
+- A timeout should read as “timed out” or “no response within five seconds”, not a definitive provider outage.
+- A missing configuration should read “not configured”; a disabled feature should read “disabled”; a missing probe should read “not monitored”.
+- Keep optional capabilities (FCM, routing, Storage, realtime) outside the core dependency count until their probes and importance are formally defined.
+- Never infer emergency-operational readiness from dependency reachability. Readiness would require separately validated, non-mutating signals for the workflows and components whose failure changes user outcomes.
+
+A dependency check should not block SOS submission or dispatch. If the authoritative request path fails, the client must show that the request was not server-confirmed; it must not present a local optimistic state as a dispatched emergency.
+
+### 45.7 Alert on sustained, meaningful failure—not every transient
+
+If alerting is approved, define per-source thresholds based on expected cadence, criticality, and recovery behavior. Use a bounded consecutive-failure window or duration threshold, cooldown, deduplication key, and recovery notification. Track:
+- first failure observed;
+- most recent failure;
+- failure duration and consecutive count;
+- last known good time;
+- alert opened/updated/recovered;
+- destination acceptance/rejection;
+- acknowledgement only when a real operator acknowledgement mechanism exists.
+
+Keep probe failure, source silence, ingestion delay, rule-evaluation failure, and notification delivery failure as different alert classes. Do not infer that an operator acknowledged an alert from provider acceptance or email delivery. Avoid paging on every short network blip, and do not silently suppress recurring failures during cooldown.
+
+### 45.8 Operator experience and accessible status presentation
+
+The interface should answer: what is failing, since when, what evidence supports the state, what remains unmonitored, and what safe next action is available?
+
+- Put critical degraded sources and stale telemetry before low-priority informational metrics.
+- Include a concise state label, source name, last confirmed time, duration/lag, impact scope, and next safe action.
+- Keep details expandable for probe method, expected cadence, last successful time, error class, and coverage caveat.
+- Use text and icon semantics in addition to color; do not use green as the only success cue or red as the only failure cue.
+- Distinguish “retry probe” from “repair integration”; a refresh button cannot repair a disabled scheduler or missing credentials.
+- Do not expose raw exception text, endpoint URLs, project references, API keys, service-account data, user IDs, incident IDs, precise coordinates, or bearer/session tokens.
+- Preserve the current Admin theme, typography, compact density, existing eight-section information architecture, and collapsible sidebar. Monitoring assurance belongs within Overview/Security/Data & Continuity according to the existing task flow, not a new permanent navigation rail.
+
+### 45.9 Verification and acceptance criteria
+
+Before any future monitoring-assurance implementation:
+- Maintain an explicit source inventory with required/optional classification, owner, expected cadence, and retention.
+- Test healthy, delayed, stale, disabled, not-configured, unavailable, ingestion-failed, evaluation-failed, and alert-delivery-failed states.
+- Test clock skew, out-of-order events, quiet sources, delayed batches, and pagination/retention gaps.
+- Verify that source reachability and event ingestion are tested separately.
+- Verify that the monitor can report the failure of its own event sink or scheduler through an independent path.
+- Verify alert deduplication, cooldown, recovery, and delivery failure without sending real emergency notifications.
+- Ensure status claims are scoped to the exact probe/source inventory and include a last-confirmed time.
+- Ensure a missing or stale source cannot be interpreted as “no suspicious activity”.
+- Ensure no monitoring failure blocks core emergency workflows or causes an optimistic success state.
+- Validate keyboard/focus/contrast/assistive-technology status announcements and reduced-motion behavior.
+- Keep credentials and sensitive operational payloads out of browser-visible diagnostic responses and logs.
+
+**Evidence boundary:** The current three Admin Overview probes and Laravel dependency-health CLI are implemented and source-backed. Durable probe history, scheduled monitoring, telemetry-source heartbeats, ingestion/evaluation health, independent sink monitoring, alert delivery monitoring, and a complete readiness score are not established by the reviewed repository evidence. Section 45 specifies how those gaps should be represented and what must be verified before implementation; it does not claim those capabilities currently exist or authorize a new service, paid integration, recurring job, database change, or production configuration change.
+
+### 45.10 Research basis and applicability
+
+NIST SP 800-137 describes continuous monitoring as an ongoing strategy for visibility into assets, threats, vulnerabilities, and control effectiveness; it supports monitoring the monitoring program and its evidence rather than relying on isolated successful probes. NIST's RMF Monitor step emphasizes ongoing awareness and analyzing/responding to monitoring outputs.
+
+The ASD ACSC/CISA/FBI/NSA joint best-practices guidance recommends centralizing and securing event logs, prioritizing high-value sources, and routinely validating that events are correctly logged, securely relayed, and reliably trigger alerts. CISA's LOTL guidance similarly recommends auditing log integrity and alerting efficiency because software/configuration changes can undermine collection and forwarding.
+
+These are research references, not a claim that TACResQ is subject to federal compliance requirements or has implemented a SIEM/SOC.
+
+References:
+- [NIST SP 800-137 — Information Security Continuous Monitoring](https://csrc.nist.gov/pubs/sp/800/137/final)
+- [NIST RMF — Monitor Step](https://csrc.nist.gov/projects/risk-management/about-rmf/monitor-step)
+- [ASD ACSC — Best practices for event logging and threat detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection)
+- [CISA Joint Guidance — Identifying and Mitigating Living Off the Land Techniques](https://www.cisa.gov/sites/default/files/2025-03/Joint-Guidance-Identifying-and-Mitigating-LOTL508.pdf)
+
