@@ -444,7 +444,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                 <p>{sourceDisplay(event.source)}</p>
                 <h3>{event.summary}</h3>
               </div>
-              <button className="audit-page__details" type="button" aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary} aria-expanded={expanded === event.event_id} aria-controls={"audit-event-details-" + event.event_id} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>
+              <button className="audit-page__details" type="button" aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary} aria-expanded={expanded === event.event_id} aria-controls={expanded === event.event_id ? "audit-event-details-" + event.event_id : undefined} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>
                 {expanded === event.event_id ? "Hide details" : "View details"} <ChevronDown size={14} />
               </button>
             </div>
