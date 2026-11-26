@@ -306,7 +306,7 @@ RLS policy composition is material: permissive policies combine with OR, restric
 
 ### Migration and verification boundaries
 
-The live migration ledger's latest observed entry is 20261125030354, which is not present on the current documentation branch. The branch contains later read-only profile/FCM policy migrations 20261125120000 and 20261125130000 that are not present in the live ledger snapshot. Treat this as branch/deployment drift requiring reconciliation; do not infer that every branch migration is deployed.
+The live migration ledger's latest observed entry is 20261125030354. It contains read_only_account_profile_rls and remove_legacy_fcm_active_account_policy under versions 20261125025825 and 20261125030010, while the current branch carries the same migration names/content under 20261125120000 and 20261125130000. This is a migration version-identity mismatch, not proof that those schema changes are absent. Reconcile canonical filenames/versions and history before merge so the logical migrations are not represented twice. The new 20261126100000 trigger-function EXECUTE revocation is pending.
 
 The live inventory is a catalog snapshot only. It does not prove behavior under real user JWTs, Storage HTTP, Edge Function provider calls, or concurrent suspension and operational writes. The trigger-function revoke migration and exact invoker contract changes must pass clean replay before merge; any production application requires the normal approved migration process.
 
