@@ -8870,3 +8870,213 @@ Before producing a corrective migration:
 **Change boundary:** this is documentation of a read-only live catalog and source-code review. No service-role grants, function ACLs, table contents, migration ledger, secrets, worker schedule, Edge deployment, FCM provider, Render configuration or production behavior changed. No exploit or successful unauthorized operation was demonstrated.
 
 **References:** 20261112215653_admin_role_audit_foundation.sql; 20261122050811_api_operation_audit_and_fk_indexes.sql; 20261114153546_fcm_delivery_queue_hardening.sql; 20261105235016_fcm_delivery_attempts.sql; 20261122050841_restrict_operational_table_writes.sql; 20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql; backend/src/app/ApiOperationAuditLogger.php; backend/src/app/FcmNotificationDispatcher.php; supabase/functions/tacresq-notify/index.ts; live PostgreSQL relation/function ACL queries; Sections 58–61.
+
+## Section 62 — IDS/IPS operational monitoring, detection coverage and source-health assurance
+
+### 62.1 Objective: distinguish threat absence from visibility failure
+
+An IDS/IPS must not interpret an empty query, quiet event stream or green service probe as proof that no suspicious activity occurred. A detection result is meaningful only when the required source was configured, available, recording the relevant event class, retained for the requested period, successfully queried and sufficiently complete.
+
+Keep these dimensions separate:
+- **Security outcome:** what available evidence supports about suspicious or policy-violating activity.
+- **Source availability:** whether the originating service/source could be reached.
+- **Capture coverage:** whether relevant event classes were configured and recorded.
+- **Collection health:** whether records were acquired and ingested without known loss.
+- **Freshness/latency:** how far behind the source or collector is.
+- **Query completeness:** whether the requested time range and all pages/results were retrieved.
+- **Retention availability:** whether evidence still exists for the requested period.
+- **Detection-rule readiness:** whether the rule and its prerequisites were active and valid for that source/window.
+
+A successful health check proves only the narrow condition it tested. It does not prove complete audit capture, all APIs/Storage/Edge paths healthy, full identity attribution or absence of attack. A zero-result query should be described as “no matching records in the queried, available scope” only when query completion and source coverage are established. Otherwise use “unable to assess” or an explicit partial-visibility state.
+
+### 62.2 Source inventory and monitoring contract
+
+Maintain a versioned source inventory before building aggregate coverage metrics. Each source contract should define:
+- source namespace, project/service/environment and owning subsystem;
+- criticality and expected data/event classes, including reads/searches, mutations, authentication, authorization denials, configuration, provider and lifecycle events;
+- authoritative producer and capture point;
+- transport/collection path and bypass paths;
+- identity namespace and source-qualified event ID semantics;
+- expected event volume/rate or documented reason no baseline exists;
+- expected delivery/freshness objective and measurement method;
+- supported query window, pagination, truncation and maximum-result behavior;
+- retention window and provider/plan dependencies;
+- health probe and independent end-to-end canary, if implemented;
+- known blind spots, exclusions, owner and last validation time;
+- schema/version changes and migration compatibility;
+- incident escalation/maintenance expectations, if authorized.
+
+The inventory is not a count of connected services. It maps event families to the exact system path that produces them. TACResQ's reviewed architecture includes Android direct Supabase, Admin web direct Supabase, Supabase Auth/Postgres/Storage, Edge Functions, Render/Laravel bridge/API, separate Laravel Sanctum/Eloquent identities and external notification/routing providers. These paths must remain distinct. Laravel request telemetry cannot proxy direct Android/Admin Supabase activity.
+
+### 62.3 Source-health state model
+
+Represent each source and event family with explicit, time-scoped states:
+
+| State | Meaning | Dashboard interpretation |
+|---|---|---|
+| Healthy/observed | Expected probe or canary succeeded within its defined window | Tested capability observed; not proof of complete security coverage |
+| Degraded | Source responds, but latency, errors, capture or delivery is outside objective | Visibility reduced or delayed |
+| Unavailable | Required source/probe cannot be reached or collection is failing | Do not report clear results for dependent checks |
+| Stale | Last successful observation exceeds freshness threshold | Current visibility unknown |
+| Partial | Some event families, pages, instances, time ranges or records are missing | Findings apply only to observed subset |
+| Not configured | Required capture/telemetry was not enabled or no contract exists | Explicit blind spot, not healthy |
+| Not monitored | No reliable health/coverage measurement exists | Unknown visibility |
+| Expired | Provider/source retention no longer covers requested window | Historical review incomplete |
+| Unknown | State cannot be established from available evidence | Do not infer healthy or unhealthy |
+
+Do not compress these states into one green/amber/red badge without accessible text and the affected capability. “Healthy” must name the probe, event family and observation time. A green Render /up response must not imply Supabase Auth, Postgres, Storage, FCM, routing, direct mobile traffic or audit capture is healthy.
+
+### 62.4 Freshness, latency and completeness measures
+
+Define measures with explicit windows, denominators, source clocks and caveats:
+- **Source event age:** observation time minus source event time, accounting for known clock uncertainty.
+- **Ingestion delay:** ingested/observed time minus source event time; do not compute where source time is absent or untrusted.
+- **Collection lag:** latest complete source cursor/sequence/time minus current expected position, where the source exposes a meaningful cursor.
+- **Query completion:** whether every page/cursor and requested interval was retrieved without truncation or permission errors.
+- **Capture coverage:** event families with verified capture divided by event families expected under the approved source contract.
+- **Source availability:** successful valid probes divided by scheduled probes, with failed/skipped probes shown separately.
+- **Detection eligibility:** proportion of a rule's required source/time windows satisfying freshness, completeness and configuration prerequisites.
+- **Known loss:** explicitly reported dropped, throttled, truncated, rejected or failed events, not guessed from gaps.
+- **Retention coverage:** requested period that remains queryable divided by requested period, only when boundaries are known.
+
+Do not combine these into a single “security coverage” score unless each denominator, weighting, time window, source scope and missing-data treatment is published. Prefer separate measures and show “not enough data” when the denominator is zero or unknown.
+
+Set thresholds from service criticality, expected event rate, source behavior and institutional risk tolerance. Do not copy illustrative freshness intervals or provider defaults as TACResQ service-level objectives. Establish baselines first; document threshold owner, rationale, version, exception and review date.
+
+### 62.5 Heartbeats, canaries and independent validation
+
+A heartbeat confirms that a component can emit a heartbeat; it does not prove that it captures every relevant user/security event. Use layered checks:
+1. **Configuration check:** confirm expected logging/capture configuration and permissions, without changing them.
+2. **Producer heartbeat:** verify producer or collector is running and reporting.
+3. **Transport check:** verify delivery to the next boundary and record errors/retries.
+4. **Ingestion check:** verify an authorized synthetic canary reaches the expected store with expected schema and provenance.
+5. **Query check:** verify the canary can be retrieved through the same query path used by detection.
+6. **Rule check:** verify a test fixture produces the expected evaluation and a non-match does not create a signal.
+7. **Notification route check:** only if an approved notification channel exists; verify test routing separately from real incident alerts.
+
+Canaries must be clearly marked synthetic, isolated from real user records and excluded from incident counts, analytics and user-visible activity. They must not trigger production containment or notifications. If a test must exercise a production provider/configuration, require explicit authorization and a safe bounded plan; prefer local/staging tests.
+
+Independent checks should not depend entirely on the same component they are intended to monitor. A collector reporting its own health through the same failing transport cannot establish end-to-end delivery. Record probe identity, schedule, last result, evidence reference and limitations.
+
+### 62.6 Coverage matrix for TACResQ's known architecture
+
+This is a source-aware monitoring plan based on previously reviewed architecture, not a claim that these monitors currently exist.
+
+| Source/path | What should be monitored | Critical blind spots / caution |
+|---|---|---|
+| Supabase Auth | Availability, relevant auth events, query/retention availability, capture configuration | Provider event persistence and complete session coverage not established; auth logs are not all app actions |
+| Supabase Postgres/RPC | DB connectivity, query errors/latency, migration/schema state, RPC outcomes and audit writers | Successful health RPC does not test all RPC grants, RLS, triggers or workflows |
+| Admin web direct Supabase | Client errors and protected RPC/query outcomes where safely observable | Bypasses Laravel operation logger; browser telemetry is not authoritative audit |
+| Android direct Supabase | App/API failure telemetry and server-side events for direct Auth/PostgREST/Storage paths | Laravel bridge cannot see direct Android operations; client telemetry may be absent or untrusted |
+| Render/Laravel service | /up, process health, API errors/latency, bridge failures, deployment/restart events, operation logger health | /up is narrow; plan retention and per-instance log limits apply; static site logs are not emitted |
+| Laravel Sanctum/Eloquent | Token/auth lifecycle, API middleware and DB availability, identity mapping boundaries | Separate identity domain; do not merge with Supabase profile by email |
+| Supabase Storage | Bucket/policy state, upload/download failures, reservation/finalization lifecycle, object metadata and retention | Attachment workflow and policy require HTTP tests; metadata inventory does not prove bytes are retrievable/restorable |
+| Supabase Edge Functions | Invocation success/failure, auth/active-profile checks, service-role boundary, provider response | Service-role path bypasses RLS; invocation logging/retention and provider traces need validation |
+| FCM/notification provider | Token registration/removal, send attempts, provider outcomes, delivery/read distinctions | Send accepted is not device delivery/read; provider telemetry may have separate retention |
+| Routing/geocoding/location providers | Availability, request failures, rate/usage limits, provider attribution and privacy | Do not claim routing health from DB health; avoid logging precise location unnecessarily |
+| CI/build/deployment | Exact commit, workflow/check status, artifact provenance, deployment outcome and config changes | Passing CI is not runtime or production assurance |
+| Evidence/audit pipeline | Source capture, outbox/backlog if implemented, ingestion, integrity, retention and access audit | No universal audit pipeline or end-to-end coverage currently established |
+
+The current Admin health surface was previously found to check Render /up, Supabase Auth and a fixed-result database health RPC separately. It does not establish health of FCM, routing, Storage, workers, every RPC, direct Android/Admin operations or end-to-end evidence ingestion. Preserve this distinction in the UI and documentation.
+
+### 62.7 Provider retention, quotas and plan-dependent observability
+
+Monitoring must expose provider limits as dependencies:
+- Render documentation states log retention varies by workspace plan (Hobby 7 days, Pro 14 days, Scale/Enterprise 30 days) and application-generated logs above 6,000 lines per minute per running instance are dropped. HTTP request logs have additional plan conditions; do not assume they exist for this project.
+- Supabase Logs documentation states API/database log retention varies by plan (Free 1 day, Pro 7 days, Team 28 days, Enterprise 90 days). Current Log Drains documentation limits the feature to Pro, Team and Enterprise.
+- Supabase logging configuration changes affect future events; they cannot reconstruct past activity. Some event classes, such as Realtime connections/channel joins, are not logged by default unless configured. Enabling additional logging may capture sensitive values and must be narrowly scoped and approved.
+- Supabase log ingest and log drains have separate usage/billing considerations. Do not enable a paid plan, external destination or log drain without explicit approval.
+
+These are provider documentation snapshots and can change. Before relying on them, verify the actual workspace/project plan, configuration, region, retention, quotas and UI/API availability. Do not infer the project's plan from the repository or a prior observation. A retention window is a maximum queryability boundary, not an approved evidence-retention policy.
+
+### 62.8 Detection eligibility and safe degradation
+
+A detection rule must declare source prerequisites and behavior when they fail:
+- If required sources and pages are available, evaluate normally and record exact window and query completeness.
+- If optional sources are unavailable, evaluate only the supported subset and label the result partial; reduce confidence or mark the rule ineligible according to its approved definition.
+- If a required source is unavailable, stale, expired, unconfigured or incomplete, return **unable to assess** for that rule/window rather than “clear”.
+- If query fails or pagination is incomplete, preserve the error and retry policy; do not convert partial results into a clean outcome.
+- If source schema changes, mark the affected parser/rule incompatible until schema validation passes.
+- If clock uncertainty exceeds rule temporal tolerance, do not claim precise ordering or correlation.
+- If ingestion is delayed, separate event-time detection from ingestion-time detection and show late-arrival window.
+- If collector restarts/retries, deduplicate by stable source event ID where available while retaining delivery-attempt metadata.
+
+A detection signal caused by source-health degradation is an operational visibility alert, not automatically a security incident. It may warrant investigation if an adversary could have caused the outage, but that hypothesis requires evidence. Do not classify every logging outage as malicious.
+
+### 62.9 Monitoring and alerting policy
+
+Create alert classes that route to the correct operational response:
+- **Security signal:** suspicious activity supported by eligible source evidence; follow Sections 43–44 and 61.
+- **Visibility-loss alert:** required source/capture/collection/query path is unavailable, stale or incomplete.
+- **Service-health alert:** service latency, errors, saturation or dependency failure.
+- **Retention/approaching-expiry alert:** evidence window approaches provider expiry under approved retention policy.
+- **Configuration-drift alert:** expected logging/permissions/schema configuration changed or differs from approved baseline.
+- **Capacity/ingestion alert:** event rate, queue/backlog, quota or storage approaches a defined limit.
+
+Each alert requires an owner/recipient, actionable condition, severity, confidence where applicable, suppression/maintenance rules, runbook, escalation authority and tested route. Do not create notifications if no supported and authorized delivery path exists. Group correlated alerts carefully without erasing distinct source failures. Ensure maintenance suppression expires and cannot suppress evidence capture or conceal persistent visibility loss.
+
+Use symptom-based alerts for user-impacting availability and service reliability, with diagnostic metrics for causes. Keep operational alerting distinct from security detections; share evidence references where useful rather than combining them into one opaque severity score.
+
+### 62.10 Admin IPS operational visibility design
+
+The Admin IPS should show:
+- **Coverage overview:** expected source/event families, monitored vs not monitored, configured vs unconfigured and known exclusions.
+- **Source health:** state, last successful observation, probe scope, last failure and owner.
+- **Freshness:** event age/ingestion lag with explicit time window and clock caveat.
+- **Collection completeness:** pages/cursors expected and received, truncation, dropped events and errors.
+- **Retention:** queryable period, expiry boundary and provider/plan dependency.
+- **Detection eligibility:** which rules can evaluate which windows, and why any are partial or unable to assess.
+- **Recent configuration changes:** logging settings, schema/parser versions and deployment references.
+- **Evidence links:** underlying source records, health probes, query execution and acquisition manifests.
+
+Use neutral labels such as “not monitored”, “not configured”, “stale” and “unable to assess”; never render these as green “healthy”. Provide observation timestamp and exact evidence/query scope. Keep Overview's high-level summary concise and put detailed source diagnostics in Security or Data & continuity, consistent with the existing eight-page navigation and preserved website theme.
+
+No global “100% protected” score, green all-clear, threat-free claim, fabricated event count or unsupported real-time indicator should appear. If only narrow health probes are available, label them exactly and show unmonitored boundaries.
+
+### 62.11 Verification and acceptance matrix
+
+| Scenario | Required result |
+|---|---|
+| Healthy /up but Supabase Auth unavailable | Render probe remains healthy; Auth and dependent detections show unavailable/unable to assess |
+| DB health RPC succeeds but Storage fails | DB probe remains scoped; Storage separately degraded/unavailable |
+| No events returned from a complete query | Display no matches in named source/window, not proof of no threat |
+| Query pagination stops early | Mark result partial; do not issue a clear detection result |
+| Source retention expires mid-investigation | Historical window marked expired/incomplete; preserve last known retention boundary |
+| Collector stops sending heartbeats | Source becomes stale/unavailable at defined threshold; do not report clear |
+| Heartbeat works but synthetic canary is absent | Producer heartbeat may be healthy; end-to-end capture/ingestion degraded or unable to assess |
+| Canary reaches storage but detection query cannot find it | Query/rule path fails validation; detection eligibility false |
+| Required event class is not configured | Mark not configured and document visibility gap |
+| Provider drops/throttles log volume | Record known loss/limit; do not estimate complete coverage from remaining rows |
+| Clock skew or late arrival occurs | Preserve event/observed/ingested times and correlation uncertainty |
+| Source schema changes | Affected parser/rules marked incompatible until validation passes |
+| Optional source unavailable | Result partial with explicit scope and confidence limitations |
+| Required source unavailable | Rule returns unable to assess, not clear |
+| Maintenance suppression expires | Alerting resumes; evidence capture was not suppressed |
+| Synthetic canary runs | Clearly marked and excluded from real security counts and user activity |
+| Plan/retention changes | Dashboard updates only after actual plan/configuration evidence is verified |
+| Monitoring itself is unavailable | Show monitoring-system health separately; do not present stale dashboard state as current |
+
+### 62.12 Implementation order and current limitations
+
+Recommended sequence:
+1. Reconcile and version the source/event-family inventory.
+2. Document expected capture configuration and authoritative producer for each family.
+3. Establish per-source health, freshness, retention and pagination contracts.
+4. Add synthetic canary tests in local/staging and verify end-to-end paths without real user data.
+5. Add detection eligibility rules and explicit unable-to-assess outcomes.
+6. Establish baseline thresholds and approved operational owners before routing alerts.
+7. Add read-only Admin visibility with truthful states and exact evidence references.
+8. Validate with failure injection, missing-source, quota, truncation, stale-data, schema-change and recovery tests.
+9. Only then consider additional collection, log drains or provider configuration changes, with explicit cost/security approval.
+
+Current repository/live-review boundaries remain: the existing health panel checks only Render /up, Supabase Auth and a fixed-result database health RPC; no universal event pipeline, complete source inventory implementation, end-to-end canary, source-health registry, detection eligibility service or verified notification route has been established. Direct Android/Admin Supabase traffic, provider logs, Storage, Edge, FCM, routing and Sanctum require separate source-specific evidence. No paid observability feature is assumed.
+
+**Research references**
+- NIST SP 800-137, Information Security Continuous Monitoring: https://csrc.nist.gov/pubs/sp/800/137/final
+- NIST SP 800-92, Guide to Computer Security Log Management; NIST's current publication listing identifies Rev. 1 as draft, not final: https://csrc.nist.gov/pubs/sp/800/92/final and https://csrc.nist.gov/Projects/log-management
+- Australian Cyber Security Centre and international partners, Best practices for event logging and threat detection (August 2024): https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection
+- Google SRE Workbook, Monitoring: https://sre.google/workbook/monitoring/
+- Supabase Observability, Logs, Configure logging, Detection checks and Log Drains: https://supabase.com/docs/guides/observability ; https://supabase.com/docs/guides/observability/logs ; https://supabase.com/docs/guides/observability/configure-logging ; https://supabase.com/docs/guides/observability/detecting ; https://supabase.com/docs/guides/observability/log-drains
+- Render Logs and Service Metrics: https://render.com/docs/logging ; https://render.com/docs/service-metrics
+
+This section is a research and verification specification only. No monitoring agent, heartbeat, canary, collector, alert route, log drain, provider plan, paid service, database schema, policy, role, permission, production configuration or live data was changed.
