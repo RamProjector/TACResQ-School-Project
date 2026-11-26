@@ -4282,3 +4282,279 @@ The existing eight-destination navigation remains unchanged. If and when a real 
 - [OWASP — Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
 
 **Evidence boundary:** Section 43 is a researched rule-engineering and operational-governance specification. It does not claim that TACResQ currently has a rule registry, test harness, shadow evaluator, alert delivery, production thresholds, or an operational security response team. It does not change application code, database schema, provider configuration, notification delivery, permissions, theme, or production behavior.
+
+
+## 44. Incident response procedures and administrator decision workflows
+
+**Research date:** 2026-11-26.  
+**Scope:** Define a proportionate response process for a TACResQ Admin IPS finding, from initial triage through evidence preservation, escalation, authorized containment, recovery and post-incident improvement. Apply current NIST incident-response guidance while respecting TACResQ's actual source coverage, single Admin portal role, separate identity domains, and existing backend capabilities. This section is a proposed operating model and UI specification; it is not a claim that TACResQ currently has a formal incident-response team, case-management engine, escalation service, forensic evidence vault, or automated containment workflow.
+
+### 44.1 Use current incident-response guidance and adapt its scale
+
+NIST SP 800-61 Revision 3, finalized in April 2025, supersedes Revision 2. It places incident response within the broader Cybersecurity Framework 2.0 risk-management model: Govern, Identify, Protect, Detect, Respond and Recover. Govern/Identify/Protect establish the preparation and risk-management foundation; Detect/Respond/Recover describe the incident-response lifecycle; improvement feeds lessons back into the wider program. Do not keep citing SP 800-61 Rev. 2 as the current primary NIST incident-response guide. See [NIST SP 800-61 Rev. 3](https://csrc.nist.gov/pubs/sp/800/61/r3/final) and [NIST's incident-response overview](https://csrc.nist.gov/projects/incident-response).
+
+TACResQ is a school project with a documented, multi-service architecture and incomplete cross-source telemetry. It should use a concise, repeatable process rather than copy federal agency staffing, reporting deadlines, or enterprise SOC assumptions. CISA's Federal Government playbooks are useful process references for coordinated identification, response, mitigation and recovery, but their mandatory federal coordination context does not automatically apply to TACResQ. See [CISA Federal Government Cybersecurity Incident and Vulnerability Response Playbooks](https://www.cisa.gov/sites/default/files/2024-08/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf).
+
+### 44.2 Distinguish an alert, a detection, an investigation and a declared incident
+
+The administrator must not be forced to treat every rule match as a confirmed security incident.
+
+- **Alert/attention item:** a notification or queue entry that asks a person to review a condition.
+- **Detection:** a versioned rule output supported by source evidence.
+- **Investigation:** a human examination of a detection, source coverage, impact and context.
+- **Suspected incident:** an investigation has credible indications of a security event, but the conclusion is not yet confirmed.
+- **Confirmed incident:** an authorized decision-maker has determined that the available evidence meets the organization's documented incident criteria.
+- **False positive / benign:** the detection was reviewed and found not to represent the suspected violation or threat.
+- **Insufficient evidence:** source gaps, identity ambiguity, stale records or other limitations prevent a defensible conclusion.
+
+A detection may be valid while the underlying behavior is benign; for example, an authorization denial can be correctly detected but may reflect an ordinary stale session rather than an attack. A security incident may also be reported by a person or provider without first appearing as a rule-generated detection.
+
+Keep these classifications separate in UI labels, counts, reports and lifecycle state. Do not use “incident” as a synonym for every alert.
+
+### 44.3 A proportionate response lifecycle
+
+A future governed workflow may use these stages:
+
+1. **Receive and record:** record the detection or report, source, observed time, collection time, and evidence availability.
+2. **Triage:** determine scope, likely impact, urgency, confidence and whether the event is within TACResQ's systems or a third-party provider.
+3. **Preserve:** identify relevant records and preserve copies/metadata before actions that could destroy, rotate, overwrite or alter them.
+4. **Investigate:** examine source records, validate correlation, identify affected principals/resources, and document uncertainty.
+5. **Decide and authorize:** determine whether the condition is benign, unresolved, suspected or confirmed; identify who may approve response actions.
+6. **Contain:** apply the narrowest approved action necessary to limit harm, with an explicit impact and rollback plan.
+7. **Eradicate and remediate:** address the verified cause, vulnerability, configuration or compromised credential through the responsible technical owner.
+8. **Recover:** restore normal service and validate affected workflows and controls.
+9. **Close and improve:** document outcome, residual risk, evidence limitations, corrective work and lessons learned.
+
+This is an operational sequence for the proposed Admin workflow, not a claim that all steps should be performed by one administrator or that each stage has a dedicated current application feature. NIST Rev. 3 emphasizes prioritizing response based on scope, likely impact, time-criticality and resources, and balancing rapid recovery against the need to preserve observations or conduct further analysis. That trade-off should be recorded when it materially affects a decision. See [NIST SP 800-61 Rev. 3](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf).
+
+### 44.4 Triage: decide what needs attention first
+
+A triage record should capture:
+- detection/report identifier and originating source;
+- rule and policy version, if rule-generated;
+- affected system, principal namespace and resource;
+- event time, observation/ingestion time and freshness;
+- source coverage, missing telemetry and correlation confidence;
+- potential confidentiality, integrity, availability or operational impact;
+- whether an active harmful condition is continuing;
+- time sensitivity and dependencies;
+- recommended next review or escalation;
+- reviewer and review timestamp.
+
+Prioritize using impact, confidence, scope and time-criticality—not severity alone. A high-impact but weakly supported hypothesis should remain visibly unconfirmed. A lower-impact issue that is actively disrupting incident reporting may still require prompt operational attention.
+
+Suggested triage outcomes:
+- **Close as benign/false positive:** evidence supports the benign explanation; retain the decision and reason.
+- **Monitor / gather evidence:** a signal is plausible but insufficient for an incident declaration.
+- **Investigate:** source evidence and potential impact justify deeper review.
+- **Escalate:** the issue exceeds the current administrator's technical authority, skill, or operational responsibility.
+- **Declare incident:** documented criteria are met and an authorized decision-maker records the determination.
+
+Do not infer a severity from the number of log rows, a user's role, IP address, device label, or an isolated failed request.
+
+### 44.5 Escalation and responsibility without inventing application roles
+
+The current Admin portal is an administrator workspace. The repository's operational roles and the portal's Admin access must not be expanded just to represent an incident-response org chart.
+
+Separate **application authorization roles** from **human response responsibilities**. A response procedure may assign responsibilities such as:
+- **Administrator/reviewer:** triages the finding, checks source coverage and records the decision.
+- **Technical maintainer:** investigates the affected application, API, database, deployment or provider integration.
+- **Project owner/authorized decision-maker:** approves consequential response, risk acceptance, external communication and restoration priorities.
+- **Provider/support contact:** handles issues that require Supabase, Render, FCM or another service operator.
+- **Privacy/legal adviser or institutional authority:** consulted when personal data, external reporting, disciplinary action or legal obligations may be involved.
+
+These are responsibility descriptions, not new TACResQ login roles or permissions. One person may hold multiple responsibilities in a small project, but high-impact decisions should receive an independent review when feasible. The Admin portal must not infer that a person is authorized to perform every response function merely because they can sign in as Admin.
+
+For every escalation, record the reason, receiving responsibility/contact, time sent, acknowledgement and unresolved dependency. If no response owner or escalation path has been designated, show the process as an operational gap rather than fabricating a contact or silently treating escalation as complete.
+
+### 44.6 Evidence preservation before investigation or containment
+
+Before changing accounts, sessions, database rows, Storage objects, provider settings or deployments, determine what evidence may be lost or altered.
+
+Minimum preservation record for an evidence item:
+- evidence reference and source namespace;
+- source record identifier or exact query/export scope;
+- collection method, operator and collection time;
+- source event time and timezone, if available;
+- original format and any transformation/redaction;
+- integrity digest, only if actually computed over the collected artifact;
+- storage location and access restrictions, without exposing private object paths in ordinary UI;
+- each transfer, access, copy or analysis action when chain-of-custody requirements apply;
+- retention or disposal authority.
+
+Preserve source records where possible and analyze a controlled copy. Record the exact filters, time range, pagination, source health and any unavailable pages so an export is not misrepresented as complete. A checksum supports comparison against a trusted digest; it does not prove the source event was true, complete or originally untampered.
+
+NIST SP 800-86 describes collection, examination, analysis and reporting as distinct forensic activities and recommends documenting collection and integrity verification. It is an older technical guide, not a legal-admissibility guarantee or a substitute for applicable institutional/legal advice. See [NIST SP 800-86](https://csrc.nist.gov/pubs/sp/800/86/final).
+
+TACResQ-specific cautions:
+- Do not assume the Activity Log is complete; Sections 20–23 and 41 identify direct-client and provider telemetry gaps.
+- Do not assume Supabase Auth and Laravel Sanctum records identify the same person.
+- Do not expose message contents, private attachment bytes, signed URLs, access tokens, refresh tokens, passwords, MFA secrets or unnecessary precise GPS coordinates in an incident summary.
+- Do not turn the metadata-only attachment inventory into permission to download or delete incident media.
+- Do not claim legal chain of custody, forensic soundness or admissibility without a defined process and competent review.
+
+### 44.7 Containment decisions require explicit authority and impact analysis
+
+Containment can protect the system, but it can also interrupt emergency-response workflows. A security response must account for operational safety and the risk of disabling legitimate users or services.
+
+Before containment, record:
+- the suspected/confirmed condition and evidence supporting it;
+- affected principal, service, resource and scope;
+- why the action is necessary now;
+- expected operational effect on requesters, responders, drivers, dispatchers and administrators;
+- alternatives considered and why they are insufficient;
+- approver and executor, if different;
+- exact action, target, time and trusted outcome;
+- rollback/recovery method and conditions;
+- follow-up verification.
+
+Possible containment categories, only where an existing authorized control supports them:
+- restrict a compromised or misconfigured integration through its provider owner;
+- revoke or rotate a credential through the approved owner-controlled process;
+- suspend a Supabase profile using the existing guarded Admin account-lifecycle operation when the documented preconditions and approval are met;
+- pause a deployment or integration using the responsible service owner's approved process;
+- preserve affected records and isolate a test environment for analysis.
+
+Important limits:
+- A detection must not automatically suspend an account or revoke a session.
+- The existing account lifecycle RPC is not a universal incident containment engine; its restrictions and effects remain as documented in Sections 27–28.
+- Supabase account suspension does not automatically suspend the separate Laravel Sanctum identity.
+- Global sign-out revokes refreshable sessions but existing access JWTs may remain valid until expiry; do not promise immediate universal revocation.
+- Do not delete incidents, messages, attachments, logs or user records as a containment shortcut.
+- Do not block responder/driver activity without evaluating active assignments and operational impact.
+- Do not enable new service-role, production, or provider actions from the Admin UI without a separate security and operational design.
+- If authority or impact is unclear, escalate rather than improvise.
+
+### 44.8 Recovery and return-to-service validation
+
+Recovery is more than changing a status to “resolved”. Before declaring normal operation restored:
+- identify the verified root cause or clearly state what remains unknown;
+- confirm the remediation was applied by the responsible owner;
+- verify relevant authentication, authorization, database, API, Storage and provider paths individually;
+- validate critical TACResQ workflows using approved test accounts and isolated/safe test data;
+- confirm that account role, account status, duty status, assignment and incident state remain consistent;
+- check for stale tokens, cached state, delayed events and queued work where relevant;
+- verify that security monitoring/telemetry has resumed and is not silently failing;
+- document residual risk, rollback readiness and any temporary controls;
+- obtain the required decision-maker's approval before closing a significant incident.
+
+A successful Render /up check, Supabase Auth health check or fixed-result database health RPC is not proof that Android, Admin RPCs, Storage, FCM, routing, Edge Functions or complete user workflows are healthy. Keep component probes and end-to-end validation distinct, consistent with Sections 21, 26 and 40.
+
+### 44.9 Communications and privacy
+
+A response workflow should communicate enough to coordinate action without spreading sensitive information.
+
+- Use an approved channel and known recipient; do not invent contact addresses or use public comments for sensitive incident details.
+- Share a concise summary, current confidence, operational impact, actions taken, requested decision and next update time.
+- Distinguish confirmed facts, working hypotheses and unknowns.
+- Limit personal data and technical details to those who need them.
+- Do not disclose private incident reports, chat content, exact coordinates, credentials, tokens, private attachment URLs or account security factors in broad notifications.
+- Do not promise a breach notification, law-enforcement referral, regulatory report or public statement unless the authorized institutional/legal decision-maker has determined the applicable obligation and process.
+- Keep external provider support tickets scoped to the minimum evidence needed and use approved provider channels.
+
+### 44.10 Incident record and decision history
+
+If a durable incident/case workflow is later approved, its record should include:
+- stable incident/case ID and classification;
+- linked detection IDs and source-qualified evidence references;
+- affected systems, principal namespaces and resources;
+- declaration state, impact, confidence and scope;
+- assigned human response responsibilities (not automatically new application roles);
+- timeline of triage, decisions, escalations and actions;
+- approvals, executor identity and outcomes;
+- evidence collection, integrity and access history where required;
+- containment, remediation and recovery verification;
+- communications and dependencies;
+- closure rationale, residual risk and follow-up actions.
+
+Every state transition should be authorized and concurrency-safe. Record prior/new state, actor, time, reason and outcome. Failed network responses must be treated as outcome-unconfirmed until the authoritative state is re-read. Do not let two reviewers silently overwrite each other's decisions.
+
+Do not implement a full case-management database merely to display a proposed lifecycle. First decide whether the project actually needs durable multi-step case handling, who owns it, retention/privacy requirements, and what backend authority exists.
+
+### 44.11 Post-incident review and continuous improvement
+
+For a significant incident or exercise, conduct a blameless, evidence-based review:
+- what happened, when, and which sources support the timeline;
+- what was detected and what was missed;
+- which source gaps, clock issues or identity ambiguities affected confidence;
+- what decisions were made, by whom and on what evidence;
+- what response actions helped or caused unintended operational impact;
+- whether recovery validation was adequate;
+- what changes are required to rules, controls, documentation, tests or training;
+- who owns each corrective action and its due date;
+- how completion will be verified.
+
+Separate a confirmed root cause from a plausible hypothesis. Do not create blame or disciplinary conclusions from incomplete technical logs. Feed lessons into the preparation, detection, response and recovery capabilities. This continuous-improvement loop aligns with NIST SP 800-61 Rev. 3 and its CSF 2.0 model.
+
+### 44.12 Admin IPS interface implications
+
+The current eight navigation destinations remain unchanged. If a governed incident-response capability is later implemented:
+
+- **Overview:** display only actionable, verified attention items and source-coverage caveats; no automatic containment buttons.
+- **Security:** show assurance and supported security controls; link to investigations without implying complete telemetry.
+- **Activity log:** preserve source-specific event records and existing separate streams.
+- **Investigation detail:** show detection rationale, evidence provenance, confidence, impact, missing sources and safe next step.
+- **Future case workspace (only if approved):** show case timeline, responsibility, decision history, evidence references, escalation and recovery verification.
+
+Use a clear decision hierarchy:
+1. Review evidence.
+2. Record the classification.
+3. Escalate if beyond authority or capability.
+4. Request/record approval for consequential action.
+5. Execute only through an existing authorized backend/provider process.
+6. Verify outcome and record it.
+
+Controls such as “Declare incident”, “Escalate”, “Approve containment”, “Suspend account”, “Revoke sessions”, “Close case” or “Restore service” must not be shown as functional until a backend contract defines authorization, preconditions, audit, concurrency, outcome reconciliation and rollback. A design-only mock button must not imply that the action is available.
+
+### 44.13 Implementation sequence and release gates
+
+**Phase A — Procedure before product**
+1. Define what counts as a report, detection, suspected incident and confirmed incident.
+2. Name the human response responsibilities and escalation contacts outside the application role model.
+3. Define severity/impact, urgency, declaration authority and approval thresholds.
+4. Document evidence preservation and privacy expectations.
+5. Define provider-specific contacts and recovery ownership.
+
+**Phase B — Safe manual workflow**
+1. Use existing source records and approved provider consoles.
+2. Keep a manual response record if no governed case backend exists.
+3. Record evidence scope, decision, approver, action and outcome.
+4. Do not add automated containment or new production privileges.
+
+**Phase C — Product design**
+1. Validate whether a durable case workspace is needed.
+2. Define schema, permissions, retention, export, audit and concurrency contracts.
+3. Reuse existing source-qualified detection/evidence references.
+4. Design accessible queue/detail and decision flows in the preserved TACResQ theme.
+
+**Phase D — Isolated verification**
+1. Test benign, suspected, confirmed and insufficient-evidence paths.
+2. Test escalation and approval boundaries.
+3. Test containment impact on active incident workflows using synthetic data.
+4. Test ambiguous network outcomes and concurrent decisions.
+5. Test evidence access, privacy, export and audit.
+6. Conduct a tabletop exercise before production activation.
+
+### 44.14 Acceptance criteria
+
+- The workflow distinguishes alerts, detections, investigations, suspected incidents and confirmed incidents.
+- Triage records impact, confidence, scope, freshness, source coverage and urgency.
+- Human response responsibilities do not create unsupported application roles or privileges.
+- Evidence preservation records source, collection scope, operator, time and integrity method where applicable.
+- Sensitive content and credentials are not exposed in summaries or broad notifications.
+- Containment requires documented authority, impact analysis, approval and rollback/verification.
+- No automatic suspension, session revocation, deletion, or operational-record mutation is triggered by a detection.
+- Supabase and Sanctum identities remain separate unless an approved mapping exists.
+- Recovery verifies individual dependencies and critical workflows, not only component health probes.
+- Incident decisions and actions are attributable, time-stamped and safe under concurrent/ambiguous outcomes.
+- Post-incident improvement produces owned, verifiable corrective actions.
+- No new case-management schema, provider, paid service, permission, alert channel, or production action is introduced without separate approval.
+
+### 44.15 Research references
+
+- [NIST SP 800-61 Rev. 3 — Incident Response Recommendations and Considerations](https://csrc.nist.gov/pubs/sp/800/61/r3/final)
+- [NIST — Incident Response project overview](https://csrc.nist.gov/projects/incident-response)
+- [NIST SP 800-86 — Guide to Integrating Forensic Techniques into Incident Response](https://csrc.nist.gov/pubs/sp/800/86/final)
+- [CISA — Federal Government Cybersecurity Incident and Vulnerability Response Playbooks](https://www.cisa.gov/sites/default/files/2024-08/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf)
+
+**Evidence boundary:** Section 44 is a proposed incident-response procedure and Admin IPS design specification. It does not claim TACResQ has a staffed security response team, formal incident declaration authority, complete forensic capability, durable case-management workflow, escalation integrations, or automated containment/recovery. It does not change application code, database schema, roles, permissions, provider configuration, alert delivery, theme, or production behavior.
