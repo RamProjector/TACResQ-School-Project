@@ -1814,6 +1814,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <p>The repository contains a private one-operation reservation ledger and a reservation-aware Storage policy. Its migration default keeps strict reservation enforcement disabled for legacy-client compatibility; this page does not read the live switch or prove rollout completion.</p>
                 </article>
                 <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">END-TO-END ACCEPTANCE</p><h3>HTTP and device verification</h3>
+                  <span className="admin-attachment-state">Not completed</span>
+                  <p>SQL policy replay and source tests do not prove real binary upload/download behavior. Isolated HTTP Storage acceptance and Android device verification remain outstanding; production rollout is not approved by this workspace.</p>
+                </article>
+                <article className="admin-attachment-card">
                   <p className="admin-eyebrow">LIFECYCLE</p><h3>Orphans and retention</h3>
                   <span className="admin-attachment-state">No cleanup schedule</span>
                   <p>Uploads can exist before their message is finalized. A read-only SQL inventory can classify referenced objects, pending uploads, and orphan candidates, but no approved retention period or automated cleanup worker is in place.</p>
