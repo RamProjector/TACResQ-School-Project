@@ -1507,3 +1507,85 @@ The existing Admin screens and RPCs are useful building blocks, but the source d
 | P1 | Admin UI response behavior | Stale state refresh, active-assignment explanation, ambiguous network outcome recovery, and no false success state |
 
 **Evidence boundary:** This section is a source audit of the named checked-in migrations and web client at the stated repository baseline. It does not prove the migrations have been applied to the connected Supabase project, inspect live PostgreSQL function grants, validate production data, prove Auth audit retention, or replace SQL replay/runtime tests. It identifies no confirmed exploit; gaps above are missing or incomplete coverage evidence, not proof of compromise.
+
+---
+
+## 25. Admin page-to-RPC trace and audit-workflow usability boundaries
+
+**Scope:** Source-level trace of `backend/web/src/pages/AdminConsole.tsx`, `backend/web/src/pages/AuditLogsPage.tsx`, the typed Supabase client, and the reviewed Admin investigation/lifecycle migrations. This section maps what the current Admin UI actually requests and displays. It does not establish live deployment, real-user behavior, or visual/browser acceptance.
+
+### 25.1 Admin workspace navigation and page responsibilities
+
+The current Admin shell exposes these primary sections:
+
+| Navigation section | Source-backed responsibility | Evidence boundary |
+|---|---|---|
+| Overview | Today's recorded activity preview and summary cards | Preview is bounded to five returned rows; exact count comes from the approved investigation source union, not all system actions |
+| User management | Paginated account directory, role changes, suspension/reactivation | Server RPCs enforce authorization; frontend performs preflight re-reads for stale-dialog protection |
+| Security | Dependency probes and recent authentication events | Auth events are limited to the Supabase Auth source; probes cover Laravel liveness, Supabase Auth health, and a fixed database RPC only |
+| Analytics & reports | Aggregate incident performance with 7/30/90-day period selection and CSV export | Aggregate current-status counts are not a historical event ledger |
+| Activity log | Investigation event feed plus separate account lifecycle history | Two distinct readers and pagination states; lifecycle history is not part of the investigation feed's unified sort/filter |
+| Data & continuity | Recovery/attachment-related administration surfaces | Requires separate operation-level source and authorization review; section label alone does not prove every recovery action is available |
+| Settings | Admin preferences and presentation/accessibility options | Local preference persistence is not a server-side policy or account-security control |
+| Help & about | Contextual product guidance | Informational content, not an authorization boundary |
+
+### 25.2 User-management mutation sequence
+
+The account directory uses server-side pagination and filter inputs. Before role or lifecycle mutation, the UI re-reads the selected account by profile ID, compares the current role/status with the values shown in the open dialog, and refuses to submit if the record changed. The database then independently revalidates authorization and target state.
+
+Role changes:
+- The UI offers only requester, responder, driver, and dispatcher as managed roles; Admin is not an ordinary selectable target role.
+- A 10–500 character reason is required before submission.
+- A successful RPC response is validated before a success message is shown.
+- Ambiguous network outcomes are treated as unconfirmed; the client directs the operator to refresh the directory and audit history rather than blindly retry.
+
+Account lifecycle:
+- The dialog captures a reason and passes the previously observed account status as a compare-and-set precondition.
+- The client refreshes on stale-state conflict and does not treat the dialog's original status as authoritative.
+- The database additionally blocks suspension while either legacy single-assignee or multi-member assignment records still represent active work.
+- Account status remains distinct from responder/driver duty status.
+- The recent lifecycle table is a read-only history view; Admin account creation/promotion/demotion remains out-of-band.
+
+**Assessment:** The UI's preflight re-read improves operator clarity, but the database compare-and-set, target lock, assignment guard, active-Admin/TOTP check, and atomic audit insert are the actual security/concurrency controls.
+
+### 25.3 Activity-log page has two independent evidence streams
+
+The Activity log page loads:
+1. The investigation feed at 25 rows per page, with text, category, source, date, actor, target, and incident filters.
+2. Account lifecycle history separately at five rows per page, with its own page state and refresh path.
+
+The lifecycle reader is not passed the investigation feed's query, date range, source, actor, target, or incident filters. Its rows are not included in the investigation feed's total count or chronological ordering. A refresh updates both through separate request paths; success or failure of one source must not be represented as success or failure of the other.
+
+**UI requirement:** Keep lifecycle history visibly distinct until a reviewed database projection supports safe, bounded, cross-source pagination. Do not display one combined result count or imply that the date/search filters apply to both streams. A future unified feed must retain source-qualified IDs and deterministic ordering across sources.
+
+### 25.4 Evidence coverage statements already surfaced by the UI
+
+The Activity log page explicitly warns that:
+- Seven source readers being queried describes feed integration, not proof that all source writers or provider settings are active.
+- A zero-row result is not proof that no activity occurred.
+- Supabase Auth capture depends on optional Postgres storage configuration.
+- Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.
+
+These are important accuracy safeguards. Preserve them in the redesign, but present them compactly in an expandable coverage panel and attach source-specific availability/last-checked state where the backend can substantiate it.
+
+### 25.5 Additional findings and gaps
+
+1. **Security-page authentication scope:** The recent authentication preview requests category `authentication` across all allowed sources, but the currently reviewed source union contributes Supabase Auth audit entries only. Do not label this as complete TACResQ authentication history across Android, Admin browser, and Laravel Sanctum.
+2. **Activity-feed source labels:** The page has explicit labels for the seven integrated sources. It must not list account lifecycle history as one of those seven until the SQL reader actually includes it; it is a separate eighth evidence stream at the UI level, not an eighth member of the current investigation RPC union.
+3. **Read/search telemetry:** Opening the Activity log, filtering the directory, opening user details, and querying investigation records are reads. The current UI call sites do not create durable audit events for each such read/search. Avoid claiming that all Admin reads are logged.
+4. **Lifecycle filter asymmetry:** The independent lifecycle history pagination has no equivalent filter controls. This is a usability limitation for investigations and an architectural reason not to imply one complete searchable audit ledger.
+5. **Data & continuity scope:** The navigation entry groups continuity/recovery surfaces, but it must not be represented as evidence that all attachment downloads, exports, recovery operations, or storage-provider actions are audited. Those require their own handler-to-policy-to-event trace.
+6. **Dependency health scope:** The Security page's three probes are reachability checks only. A healthy Laravel `/up`, Supabase Auth health endpoint, or fixed database RPC does not prove FCM delivery, Storage integrity, routing, or an end-to-end incident workflow.
+
+### 25.6 Redesign and acceptance implications
+
+- Keep one primary navigation destination for activity investigation, but visually separate event stream filters/results from account lifecycle history until a genuinely unified backend reader exists.
+- Add explicit source scope to every security/health status and every zero-result state.
+- Show “last checked” separately for each independent reader; do not use one timestamp to imply all sources refreshed successfully.
+- Keep filters and pagination local to the data stream they actually affect.
+- Preserve stale-dialog protection, compare-and-set conflict messaging, assignment-block messaging, and “outcome unconfirmed” recovery guidance.
+- Treat navigation labels, client-side route checks, and hidden buttons as presentation only. Reconfirm authorization at each database/API boundary.
+- Test the Security, Activity log, User management, Analytics, and Data & continuity screens against unavailable-source, empty-source, timeout, stale-state, and partial-refresh scenarios.
+
+**Evidence boundary:** The UI call-site review is based on the checked-in page and client source. It does not prove that each RPC is deployed, that optional Supabase Auth log storage is enabled, that the Laravel service is currently reachable, or that every event writer is active. No code, database, deployment, or production configuration was changed by this audit.
+
