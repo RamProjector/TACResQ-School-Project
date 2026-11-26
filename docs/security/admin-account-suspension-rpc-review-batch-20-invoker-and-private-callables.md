@@ -94,7 +94,7 @@ The added replay contract checks these distinctions explicitly. It does not esta
 
 ## Current-branch inventory reconciliation
 
-This review's earlier aggregate counts and callable classifications are historical. The current branch SQL contracts require 75 authenticated-callable public functions (24 SECURITY DEFINER and 51 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. The exact private signature list is in tools/test_account_suspension_private_definer_inventory.sql; the public definer list and 75/24/51 aggregate are in tools/test_account_suspension_definer_inventory.sql.
+This review's earlier aggregate counts and callable classifications are historical. The current branch SQL contracts require 38 authenticated-callable public application API functions (24 SECURITY DEFINER and 14 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. The raw 75/24/51 schema-wide aggregate was extension-schema-dependent and has been replaced by an explicit API signature register. The exact private signature list is in tools/test_account_suspension_private_definer_inventory.sql.
 
 Specific corrections:
 - api_unregister_fcm_token(text) is classified as a public SECURITY DEFINER function in the current crosswalk and inventory, not an invoker.
