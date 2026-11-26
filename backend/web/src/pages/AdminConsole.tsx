@@ -1617,6 +1617,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"],
                 ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"],
                 ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"],
+                ["notifications", "push", "fcm", "delivery", "alert", "inbox"],
               ].some((terms) => matchesAdminHelp(normalizedHelpQuery, terms)) && <p className="admin-help-empty" role="status">No guidance matched that search. Try a workspace name or a term such as roles, authenticator, reports, audit, recovery, or storage.</p>}
               <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">ABOUT TACRESQ ADMIN</p>
