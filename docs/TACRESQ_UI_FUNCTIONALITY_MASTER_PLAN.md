@@ -8445,3 +8445,128 @@ The reviewed repository and prior live read-only snapshots do not establish a pr
 - NIST CSF 2.0: https://www.nist.gov/cyberframework
 
 This section is a research and verification specification only. No detection engine, case-management table, response automation, notification integration, role, permission, RPC, retention setting, evidence store, production configuration or live data was changed.
+
+
+## 61. Privileged credential and service-role attack-surface review
+
+**Objective:** trace repository-visible consumers of Supabase elevated credentials, distinguish browser/client credentials from server secrets, inspect the live service_role capability boundary, and identify whether one shared privileged credential has more access than each workload needs.
+
+**Evidence scope:** exact branch `docs/admin-ips-ui-master-plan` source files, environment examples, deployment/workflow files and connected Supabase role/grant catalog snapshot on 2026-11-26. No secret values, environment variable values, JWTs, FCM tokens, service-account JSON, user rows or audit payloads were retrieved. Repository search index returned no matching code excerpts for several credential queries, so conclusions below rely on direct inspection of the listed files rather than treating empty search results as proof of absence.
+
+### 61.1 Live service_role and postgres capabilities
+
+The live role catalog reports:
+- `service_role`: `BYPASSRLS = true`, no LOGIN, no superuser, no replication, no role/database creation.
+- `postgres`: LOGIN, CREATEDB, CREATEROLE, REPLICATION and BYPASSRLS; it is a highly privileged database owner/operator role, though the catalog's `rolsuper` flag is false for this role in this snapshot.
+- `supabase_admin`: superuser and BYPASSRLS.
+- `anon` and `authenticated`: no BYPASSRLS, no LOGIN, no superuser.
+
+The membership catalog shows `authenticator` can assume `service_role` without admin option, and `postgres` has admin option for `service_role`. These are platform role relationships; do not infer a person or workload can use the role without the corresponding credential/session.
+
+**Security meaning:** RLS is not a boundary for requests executing as service_role. The role's explicit table/function grants and the trusted server code that holds its key define the effective workload boundary. PostgreSQL owners and platform superusers remain trusted administrators and can alter grants, policies, triggers, functions and evidence.
+
+### 61.2 Repository credential consumers and separation
+
+| Consumer | Credential visible in source | Intended work | Boundary and assessment |
+| --- | --- | --- | --- |
+| Android app | Supabase URL + publishable key; signed-in user access token | Direct Auth, PostgREST/RPC, Storage, realtime | Correct client credential class. Android source explicitly retains direct caller JWT paths; no service-role key should be packaged. |
+| Admin React portal | Runtime Supabase URL + publishable key; administrator's own Auth session | Admin MFA gate and protected Admin RPCs | Browser-safe. `backend/web/.env.example` explicitly says never use a service-role key; backend README confirms runtime config returns only URL and publishable key. |
+| Render Laravel API bridge | Publishable key + caller's bearer JWT for Auth validation and allowlisted RPC forwarding | Transitional bridge and identity validation | The bridge forwards caller JWT, not service-role credentials, for business RPCs. It does not grant itself elevated incident/profile access. |
+| Render `ApiOperationAuditLogger` | `SUPABASE_SECRET_KEY` via Laravel server config and `SupabaseServerHeaders` | Metadata-only INSERT to `api_operation_logs` | Server-only credential; code sends a fixed table POST, bounded timeouts, metadata-only fields and fail-open behavior. Live grant for this table is INSERT and SELECT only for service_role, consistent with the logger's write path, though SELECT is not used by the shown logger. |
+| Render FCM delivery worker | Same Laravel `SUPABASE_SECRET_KEY` | Claim delivery batches, update attempt ledger, unregister invalid token for exact profile/token pair | Server-only. Needs narrowly bounded privileged queue and token operations; its shared service_role credential has wider capabilities than the worker's documented operations. |
+| Supabase Edge Function `tacresq-notify` | `SUPABASE_SERVICE_ROLE_KEY` read from Deno environment | Validate caller token, read actor/incident/recipients/FCM registrations and remove invalid registrations; send through Firebase service account | Server-side secret, not browser exposed. Function verifies bearer token with Auth, checks active actor and role/incident relationship, filters active recipients, and derives invalid-token cleanup IDs from queried registrations. Its use of service_role bypasses RLS, so every manual authorization check is critical. |
+| Supabase Cron/Vault → Render FCM hook | HMAC secret in Vault and Render environment | Authenticate a fixed internal trigger to run the Render FCM worker | This is a separate invocation secret, not a Supabase service-role key. The operator guide says setup is not active until explicit operator configuration; it must not be treated as deployed/verified. |
+| GitHub workflows | The inspected bridge smoke workflow references `SUPABASE_PUBLISHABLE_KEY` | Authenticated bridge smoke tests | No service-role secret reference appeared in the inspected workflow files. This does not prove all repository/organization secret settings are empty; secret values/settings were not accessed. |
+
+### 61.3 Laravel secret-key handling and actual use
+
+The Render config `backend/src/config/tacru.php` reads `SUPABASE_SECRET_KEY` only server-side. `backend/.env.example` labels it as trusted FCM worker-only and says not to expose it through the dashboard or Android app. The Dockerfile embeds only the project URL and publishable key as defaults; no service-role/secret value is baked into the image.
+
+Two Laravel source consumers were identified:
+1. `ApiOperationAuditLogger::record()` posts a fixed metadata payload to `public.api_operation_logs` using `SupabaseServerHeaders::forSecretKey()`. The payload omits request/response bodies, tokens, coordinates, incident narratives and secrets. It uses a 200 ms connect and 250 ms total timeout and fails open. The matching live grant is service_role INSERT and SELECT on `api_operation_logs`; no UPDATE/DELETE/TRUNCATE grant appeared for this table.
+2. `FcmNotificationDispatcher` uses the same server secret for its delivery queue and token lifecycle operations. The code calls the service-role-only claim RPC, reads/updates delivery-attempt state, and calls `api_unregister_fcm_token_for_delivery` with the exact profile/token pair claimed by the queue. The dispatcher validates configuration, bounds batch sizes, maintains leases/retries, and does not accept recipients or message content from the public internal dispatch hook.
+
+**Credential concentration concern:** the metadata logger and FCM worker share one high-privilege Supabase secret even though their database duties differ. A compromise of the Render process/environment can therefore expose the full service_role capability set, not just the two code paths described. Splitting environment variable names alone would not help if both still authenticate as the same service_role. True isolation requires different database roles/privilege paths or narrowly scoped server-side RPCs, not duplicate copies of the same key.
+
+### 61.4 Edge Function authorization boundary
+
+The `supabase/functions/tacresq-notify/index.ts` source:
+- Requires POST and a bearer token.
+- Creates a service-role client from server environment configuration and calls `auth.getUser(userToken)` to validate the supplied session.
+- Enforces an 8 KiB request-body cap, JSON object shape, positive incident ID, and a three-event allowlist.
+- Loads the actor profile and requires an active account.
+- Validates event-specific actor role and incident relationship: requester owns the newly created incident; dispatcher can announce an assigned incident; responder/driver must be the currently assigned unit for a status notification.
+- Rechecks target profiles are active before loading FCM registrations.
+- Uses a Firebase service-account secret for outbound FCM, and only deletes invalid registration rows whose IDs were obtained from its own registration query.
+
+These checks are positive design evidence, but they do not make the function RLS-protected: its service-role client bypasses RLS. The critical review surface is the full function call graph, race conditions between relationship validation and delivery, all write operations, deployment secrets, and tests for spoofed event/incident pairs, suspended actors/recipients, reassignment races, invalid-token cleanup scope and provider failure. The current source does not establish a complete independent Edge audit trail or provider retention.
+
+### 61.5 Live service_role grant implications
+
+The live catalog shows service_role has broad INSERT/UPDATE/DELETE/TRUNCATE privileges on many operational tables, including profiles, incidents, assignments, notifications, FCM tokens, delivery attempts and some event/history tables. Some grants are needed by trusted workers or Edge Functions; others require explicit consumer mapping. Particularly:
+- `admin_audit_logs`: service_role has SELECT, INSERT, UPDATE, DELETE and TRUNCATE. This confirms Section 60's high-priority audit integrity gap.
+- `api_operation_logs`: service_role has SELECT and INSERT only, matching a safer narrow writer pattern.
+- `device_challenges` and `device_sessions`: selected INSERT/UPDATE capabilities support mutable device/session workflows, but must be traced to a real deployed writer.
+- `fcm_delivery_attempts`, `fcm_tokens` and related operational tables: worker/Edge cleanup capabilities should be restricted to exact workflow needs and preferably routed through narrowly validated RPCs.
+- `incident_assignment_events`, `incident_claimability_logs`, `incident_request_edit_logs`, `incident_status_logs` and `location_logs`: live service_role mutation grants should be reviewed against the actual writer path. Trigger-generated evidence should not inherit broad destructive privileges merely because the role is a trusted server role.
+
+The current branch's `20261112215653_admin_role_audit_foundation.sql` revokes table privileges on `admin_audit_logs` from PUBLIC, anon and authenticated, but does not include service_role in that REVOKE list. This source omission is consistent with the live service_role grant remaining possible; it does not by itself explain every effective privilege or prove the migration is the sole grant source. The live catalog and migration ledger must be reconciled before a corrective migration is authored.
+
+By contrast, `20261122050811_api_operation_audit_and_fk_indexes.sql` explicitly revokes all table privileges from PUBLIC, anon, authenticated and service_role, then grants service_role SELECT and INSERT only. That is a useful source pattern for a server-side append/reader workload where the code's exact needs are known.
+
+### 61.6 Exposure and secret-handling checks
+
+Repository evidence supports the following:
+- Browser runtime configuration exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`.
+- Admin web and Android source use publishable credentials with the signed-in user's session.
+- Laravel bridge RPC calls use the original caller JWT; service-role credentials are not used to impersonate the user for ordinary bridge business operations.
+- Server-only Laravel secret is configured through environment rather than source defaults; example files contain an empty placeholder.
+- Edge Function reads the service-role key from Deno environment and does not return it in response payloads.
+- FCM provider credentials are separate from Supabase credentials.
+- The reviewed workflow files use publishable key secrets for bridge tests.
+
+Not established by repository inspection:
+- Whether the live Render environment contains the intended secret and which personnel can read/rotate it.
+- Whether Supabase Edge Function deployed secrets match the current branch.
+- Whether any historical commit, fork, build artifact, crash dump, log, CI output or external operator copy ever exposed a credential.
+- Whether organization/repository secrets contain unused or overprivileged values.
+- Whether key rotation has occurred or whether old keys remain valid.
+- Whether the Supabase project has all current service-role/secret key types configured with least privilege.
+
+Do not fetch, print, copy, test, or ask the user to paste any secret value. If exposure is suspected, use provider-supported rotation/revocation and redeploy procedures with an authorized operator; treat the old credential as compromised until verified rotated.
+
+### 61.7 Recommended least-privilege target architecture
+
+1. Keep publishable keys in Android and browser clients only; all user data access remains under the user's JWT and RLS/RPC authorization.
+2. Keep Supabase service-role/secret credentials exclusively in server-side secret stores; never put them in Vite variables, Android resources, checked-in files, URLs, browser runtime config or client logs.
+3. Remove unnecessary service_role UPDATE/DELETE/TRUNCATE on `admin_audit_logs` as the first targeted fix, retaining only the exact insertion/reading paths proven necessary.
+4. Separate the Laravel metadata logger from the FCM worker at the database privilege boundary. A logger should have INSERT-only access to its metadata table; a worker should have only the RPC/table capabilities required to claim and finalize delivery attempts and perform exact invalid-token cleanup.
+5. Prefer SECURITY DEFINER RPCs with fixed search_path, strict input validation, explicit invariants, narrow result shapes and revoked default PUBLIC/anon/authenticated execution for trusted worker operations. Do not create a general-purpose SQL proxy or grant a custom role broad schema access.
+6. For Edge notification dispatch, prefer caller-JWT/RLS operations wherever feasible. Where elevated access is necessary, expose a narrow server-side function that revalidates the actor, incident relationship, recipient and current assignment atomically rather than broad direct service-role table access.
+7. Treat service_role as a highly privileged application credential even though it is not a superuser; limit the number of workloads, operators and environments that can read it.
+8. Rotate credentials only through the provider's supported key lifecycle after an impact assessment; update every consumer atomically and verify old credential revocation without interrupting critical workflows.
+9. Add automated secret scanning for current files and history where supported, with safe findings that never echo secret values. Scan build artifacts and CI logs as separate surfaces.
+10. Maintain an inventory of credential purpose, owner, storage location, consumers, privilege scope, environment, rotation procedure, last verification date and incident response contact.
+
+### 61.8 Verification matrix before changing privileges
+
+- Confirm every live service_role table/function/sequence privilege and inherited role membership, including column grants and default ACLs.
+- Map each direct table operation in the FCM worker and Edge Function to its minimum required SQL capability.
+- Verify all service-role-only RPCs check the expected operation context and do not trust caller-supplied actor identity.
+- Test that Android/browser bundles and runtime config contain no secret/service-role credential; test release APK and built portal artifacts, not source alone.
+- Test Laravel metadata logging with service-role INSERT only and prove logger still works when SELECT is removed if it is not needed.
+- Test FCM queue claim, lease recovery, attempt update, invalid-token cleanup and duplicate/replay handling after privilege narrowing in disposable/staging environments.
+- Test Edge Function wrong-role, wrong-incident, non-owner, stale assignment, suspended actor, suspended recipient, oversized payload and invalid token cases.
+- Verify Render and Edge environment secret access/rotation through provider controls without retrieving values into chat or CI logs.
+- Run secret scanners against current branch and history using redacted output; a clean current-tree scan does not prove no historical exposure.
+- Reconcile live grants with clean migration replay and deployed function versions before declaring drift resolved.
+
+### 61.9 Current conclusion and change boundary
+
+**Confirmed:** service_role bypasses RLS; it is used by server-side Laravel FCM/metadata paths and the Supabase notification Edge Function in repository source. Browser and Android source are configured for publishable-key plus user-session access. The Admin audit table's service_role mutation/truncate grant is live and is not revoked by the inspected Admin audit foundation migration. The metadata audit table demonstrates a narrower explicit service-role grant pattern.
+
+**Not established:** live secret values or access control in Render/Supabase dashboards, deployed Edge version/configuration, complete secret history, exact operator access, actual key rotation status, every role grant source, or production behavior of all server workers.
+
+**Change boundary:** repository source and migration review plus read-only live role/grant catalog inspection. No secrets were retrieved; no credential was rotated; no role, grant, function, policy, provider setting, workflow secret or production data was changed.
+
+**References:** Supabase [API keys](https://supabase.com/docs/guides/api/api-keys), [Edge Function secrets](https://supabase.com/docs/guides/functions/secrets), [Secure Data API](https://supabase.com/docs/guides/api/securing-your-api), [Database functions](https://supabase.com/docs/guides/database/functions), and OWASP [Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html).
