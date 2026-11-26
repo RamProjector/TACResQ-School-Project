@@ -2156,5 +2156,31 @@ END;
 $incident_location_trigger_grant_contract$;
 SQL
 
+# Preserve the sequence access still required by authenticated legacy incident-create RPCs.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $legacy_incident_sequence_privilege_contract$
+BEGIN
+  IF NOT has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated legacy incident-create RPCs require USAGE/SELECT but not UPDATE on incidents_id_seq';
+  END IF;
+
+  IF has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not access location_logs_id_seq';
+  END IF;
+
+  IF has_sequence_privilege('anon', 'public.incidents_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('service_role', 'public.incidents_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Unexpected anon or service-role sequence privilege';
+  END IF;
+END;
+$legacy_incident_sequence_privilege_contract$;
+SQL
+
 # Verify the service-role Admin audit boundary and preserve authenticated Admin RPC grants.
 psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
