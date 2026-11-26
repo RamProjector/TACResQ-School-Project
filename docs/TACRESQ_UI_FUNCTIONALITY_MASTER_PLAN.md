@@ -5177,3 +5177,178 @@ Before implementing governance UI or backend changes, verify:
 
 **Current implementation status:** This section adds governance requirements and a design blueprint only. The reviewed repository evidence does not establish an approved retention schedule, designated governance owners, a full audit-read trail, immutable policy registry, legal-hold workflow, break-glass process, or complete evidence-access review. Do not represent these as implemented or compliant until separately verified.
 
+
+
+---
+
+## 46. Backup and recovery evidence model, restore assurance, and Admin Data & Continuity UX
+
+**Research date:** 2026-11-26.  
+**Scope:** Reconcile the current Admin Data & Continuity implementation with the repository's backup procedures, current connected Supabase/Render configuration, and the latest Supabase restore-to-new-project documentation. Define truthful evidence states and the safe path from an operator-run export to a verified recovery capability. This section does not run a backup, copy objects, create a recovery project, restore data, or change provider settings.
+
+### 46.1 Verified product and infrastructure baseline
+
+**Existing Admin UI:** `AdminConsole.tsx` already contains the Data & Continuity section with two focused views:
+- **Backup & recovery:** a documentation/evidence page stating that live backup-job, off-site-copy, freshness, and restore-drill evidence is not connected.
+- **Attachment safeguards:** a privacy and policy summary stating that live inventory, object integrity, retention, upload/download telemetry, and provider-policy checks are not queried by the page.
+
+The Backup & recovery view correctly distinguishes documented procedures from a real backup. It explicitly warns that a manifest or repository document does not prove recoverability. The Security page also explicitly says live backup-job and restore-drill evidence is not connected. Preserve these statements until a trusted evidence feed exists.
+
+**Connected Supabase project (read-only check, 2026-11-26):**
+- Project `TACResQ-School-Project`, ref `kttguamhznoflzagfutr`.
+- Status `ACTIVE_HEALTHY`; PostgreSQL 17.11; region `ap-southeast-1`.
+- The project detail response did not expose billing plan, daily-backup entitlement, PITR entitlement, or backup retention. Do not infer these from active status or PostgreSQL version.
+
+**Connected Render service (read-only check, 2026-11-26):**
+- Service `TACResQ-School-Project`, ID `srv-db8s5kfavr4c73c5dft0`.
+- Free Docker web service, Singapore, one instance, connected to this repository's `main` branch with automatic deploy on commit.
+- The returned service configuration contains no persistent-disk configuration. The Render service's container filesystem must remain treated as ephemeral.
+- Supabase is the application's database/auth/storage platform; no Render Postgres database for TACResQ was present in the service inventory reviewed.
+
+The older 2026-11-19 backup snapshot is now historical. Repeat live provider inspection before acting on its bucket count, object count, plan, or configuration assumptions.
+
+### 46.2 New Supabase recovery path: restore to a new project (beta)
+
+Supabase documentation updated 2026-11-23 now describes **Restore to a new project**, a beta database-only project clone. For eligible projects it can transfer:
+- database schema, tables, views, procedures, data, and indexes;
+- database roles, permissions, and users;
+- Auth user data, including accounts, hashed passwords, and authentication records from the `auth` schema;
+- encryption root key and selected infrastructure settings.
+
+The feature's documented requirements are a paid plan and physical backups enabled on the source project. It is not proof that TACResQ is eligible: the connected project detail does not expose the plan or backup entitlement, so eligibility remains unverified.
+
+The new project still requires manual reconfiguration. Supabase explicitly excludes Storage object bytes and settings (only Storage metadata is copied), Edge Functions, Auth settings and API keys, Realtime settings, database settings, integrations, and other project settings/add-ons.
+
+**Important reconciliation:** The repository's PostgreSQL CLI dump still excludes managed `auth` and `storage` schemas. The beta clone is a distinct provider-managed recovery path that can include Auth user data. Update the Auth recovery plan to evaluate this supported beta path where eligible, but retain a separate Auth/configuration checklist and end-to-end sign-in/MFA tests. Do not describe the CLI dump as an Auth backup, and do not claim the beta clone is available to TACResQ until plan/backup eligibility and a successful isolated drill are verified.
+
+The clone is useful as an isolated recovery/test target and potential recovery mechanism, not a substitute for independently backing up Storage bytes or recording the full project configuration.
+
+### 46.3 Define recovery evidence as progressive proof levels
+
+The Admin UI must not collapse all backup activity into a single “backup healthy” boolean. Use progressive, independently verifiable evidence levels:
+
+| Evidence level | What has actually been proven | What remains unproven |
+|---|---|---|
+| Procedure documented | A reviewed operator procedure and owner exist | No export, copy, or backup exists because a procedure exists |
+| Export produced | A database export or Storage object copy completed at a recorded time | Completeness, encryption, off-site durability, or restore success |
+| Integrity verified | The export/copy matches its manifest and expected source identity | SQL importability, object accessibility, application correctness |
+| Protected off-site copy | Encrypted data exists in a separate approved destination; key recovery and access controls are verified | Recovery from the copy and operational service restoration |
+| Component restored | Database or Storage component restored into an isolated target and independently checked | Cross-component compatibility, Auth, application workflows |
+| Application recovery validated | Auth, authorization, core workflows, attachments, policies, and external side effects pass isolated smoke tests | Production promotion approval and actual achieved production RTO |
+
+A manifest tool in this repository verifies local file inventory, sizes, and SHA-256 digests. It does not connect to Supabase, establish source completeness, encrypt files, upload to an off-site destination, parse/execute SQL, or prove restore. Never promote its result directly to “backup successful” or “recovery ready”.
+
+A complete drill requires all in-scope components and application-level validation. A database-only restore is a **partial component restore**, not a successful whole-system recovery.
+
+### 46.4 Track independent recovery components
+
+The Admin recovery evidence model should track each component independently:
+
+| Component | Required evidence | Current repository boundary |
+|---|---|---|
+| PostgreSQL schema/data/roles | Export time, source project, commit/migration version, manifest, encrypted destination, restore result | Operator procedure and offline manifest tooling; no connected export job |
+| Auth users/identities | Chosen recovery method, eligibility, user/identity transfer evidence, provider/MFA configuration, isolated sign-in tests | CLI dump excludes Auth; beta clone may transfer Auth user data if eligible; settings and API keys need manual configuration |
+| Storage object bytes | Bucket inventory, object manifest, encrypted off-site copy, restored-object checksum and access tests | Separate operator copy procedure and manifest tool; no connected backup copy or integrity scan |
+| Storage configuration | Bucket visibility, size/MIME restrictions, RLS/policies, participant access tests | Migration/source contracts and dated inspection; no current live policy probe in Admin |
+| Edge Functions and integrations | Source/deploy version, required secrets/configuration inventory, safe test destination, smoke test | Git contains function source; project deployment/secrets and live behavior are not established by a database dump |
+| Render Admin portal/API | Git commit, Docker build/deploy identity, environment-variable *names* and secure re-provisioning process, route smoke tests | Git and Render service configuration are inspectable; runtime container files are ephemeral |
+| Security/audit evidence | Included source tables, retention window, row-count/relationship checks, audit-reader authorization after restore | Data is in database scope but must be checked for completeness and retention; do not infer universal audit coverage |
+
+Do not show a component as restored just because it appears in a database clone or because a migration exists in Git.
+
+### 46.5 RPO and RTO must be measured, not assigned by design
+
+The existing backup plan proposes 24-hour RPO and 8-hour RTO targets for core data and attachments. These are planning targets, not observed service capabilities.
+
+For every completed drill, record:
+- the timestamp of the newest verified backup that predates the simulated failure;
+- the simulated failure time and selected recovery point;
+- the newest data actually present after restore;
+- the elapsed time from declared recovery start to successful application validation;
+- excluded components and data gaps;
+- any manual reconciliation or unavailable integrations.
+
+Calculate achieved RPO from the difference between the failure point and the latest recoverable data timestamp. Calculate achieved RTO from recovery start to the point at which the agreed application validation set passes. Do not use export completion time as a substitute for recoverable-data time, and do not stop the RTO clock at SQL import completion.
+
+If Auth, attachments, or a required integration remains unavailable, record a partial recovery and the unmet objective. Do not average component results into a misleading single percentage.
+
+### 46.6 Restore safety and environment isolation
+
+Keep the existing isolated restore-drill checklist as the authoritative operational runbook. Before a drill:
+- identify and confirm the approved non-production recovery project and region;
+- pin the source commit, migration version, CLI version, and backup manifests;
+- verify encryption and key-recovery procedures separately from the backup destination;
+- disable or redirect FCM, email, SMS, webhooks, routing, and any integration that could affect real people;
+- use dedicated synthetic test identities and synthetic incident data;
+- ensure the test client cannot accidentally point at production;
+- confirm the restore operator and independent reviewer;
+- preserve the pre-restore target state and stop on project-reference mismatch.
+
+After restoration, validate schema, roles, RLS, grants, triggers, RPC execution privileges, Storage policies, Auth/MFA sign-in, incident creation/read, assignment and release authorization, chat and attachment retrieval, audit visibility, and notification suppression. Record failures and deviations. Only a separately authorized, reviewed production change may promote or repoint the live application.
+
+A provider clone to a new project is a useful isolation primitive, but the beta feature still needs eligibility checks, manual configuration, Storage byte transfer, and application smoke tests.
+
+### 46.7 Admin UX: keep the current two-view information architecture
+
+The existing Data & Continuity page already has the correct scope and navigation. Do not add another permanent sidebar item, duplicate a backup dashboard inside Security, or turn the Admin portal into a raw file browser.
+
+Retain the two current views:
+- **Backup & recovery:** database, Auth/configuration, Storage bytes, Render deployment, last component drill, measured RPO/RTO, and unresolved gaps.
+- **Attachment safeguards:** private bucket configuration, object inventory freshness, integrity/retention evidence, and authorized retrieval controls.
+
+When trusted evidence becomes available, present a compact component table with:
+- evidence state (not connected, procedure only, export produced, integrity verified, off-site protected, component restored, application validated);
+- source/project and component identity;
+- last successful timestamp and age;
+- backup/manifest identifier and schema/commit version;
+- destination class (never credential, URL, or path);
+- checksum/integrity result;
+- last restore drill and reviewer;
+- measured RPO/RTO and known exclusions;
+- next safe operator action.
+
+Use explicit labels such as **Not connected**, **Procedure documented**, **Last evidence stale**, **Partial restore**, **Restore validated in isolated environment**, and **Production promotion not approved**. “No data returned” is not the same as “no backup exists”; a provider API failure is not a missing backup; a missing integration is not a failed backup.
+
+Do not show user/incident object paths, private attachment contents, signed URLs, database dumps, passwords, service-role keys, decryption keys, raw provider errors, or full backup manifests in the browser. The Admin portal may display safe evidence metadata only.
+
+### 46.8 Future integration contract and authorization
+
+A future live recovery feed must be written by a trusted server-side operator/worker path, not by the browser using privileged credentials. It should accept append-only evidence events with:
+- component and source identity;
+- environment/project reference (non-secret);
+- operation ID and operation type;
+- start/end timestamps and outcome;
+- backup/manifest ID, bytes, digest result, schema/migration commit;
+- destination class and encryption/key-recovery status (never key material);
+- restore target class and isolation verification;
+- validation suite version and per-component result;
+- RPO/RTO measurements and excluded scope;
+- operator and reviewer identity in their correct identity namespace;
+- approval reference and audit event.
+
+The evidence writer must be authenticated, narrowly authorized, idempotent, and append-only. It must not allow the Admin browser to submit arbitrary “success” claims or forge a restore result. A failed or incomplete operation remains visible as such. Any destructive restore control requires a separately approved server-side execution design, fresh target verification, explicit impact preview, authorization, audit outcome, and tested recovery plan; it is not part of the current Admin UI.
+
+### 46.9 Render recovery boundary
+
+The connected TACResQ Render service is a Free Docker web service and has no persistent disk shown in its returned configuration. This is appropriate for an application container whose durable data resides in Supabase and Git; do not add a disk just to hold backups.
+
+Current Render documentation states that persistent disks are available to paid web services/private services/background workers, are service-local, and have operational limitations. Render disk snapshots are daily and retained for seven days in the same region; adding a disk disables zero-downtime deploys. These are not a replacement for application-consistent database backups or an off-site Supabase/Storage backup. The current TACResQ service is not a disk-backed data store.
+
+Render portal recovery should focus on reproducible Git source, Docker build, deployment identity, secure re-provisioning of environment variables, health/smoke checks, and documented DNS/URL configuration. Do not export secret values into Admin UI or commit them into backup manifests.
+
+### 46.10 Acceptance criteria
+
+- Admin Data & Continuity remains two focused views and preserves the current theme and information architecture.
+- The UI does not imply a live backup, schedule, destination, restore, or RPO/RTO until trusted evidence is connected.
+- Database logical dumps, Supabase provider backups, beta project clone, Auth settings, Storage metadata, and Storage object bytes are represented as distinct recovery mechanisms/components.
+- The new Supabase beta clone path is evaluated only after paid-plan/physical-backup eligibility is confirmed; Auth data transfer is not confused with full Auth project configuration.
+- Storage bytes are independently backed up and restored; a database restore or project clone alone cannot mark attachment recovery complete.
+- Manifests prove only local file integrity and inventory, never application recoverability.
+- Component-level partial restores are labeled partial; full recovery requires the agreed isolated application test suite.
+- RPO/RTO values are measured from drill evidence, not copied from proposed targets.
+- Restore drills are isolated, side effects are suppressed, and production promotion remains separately approved.
+- Admin browser receives no backup bytes, credentials, signed URLs, or unrestricted restore action.
+- Render ephemeral filesystem is not used as a backup destination; no persistent disk is added without a separate justified decision.
+- No production backup, restore, provider configuration, schema, credential, or paid service is changed by this research.
+
+**Evidence boundary:** This section uses repository source and operator-procedure inspection plus read-only connected Supabase and Render configuration. Supabase currently reports TACResQ as active on PostgreSQL 17, and Render reports the service as Free Docker with no persistent disk in the returned configuration. Supabase billing/backup entitlement, actual backup existence/retention, off-site copy, Auth clone eligibility, and completed restore success remain unverified. The new Supabase restore-to-new-project feature is documented as beta and paid-plan/physical-backup dependent; no eligibility or successful TACResQ restore is claimed.
