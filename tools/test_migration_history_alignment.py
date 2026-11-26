@@ -114,6 +114,8 @@ PENDING = {
     # PR #365: staged read-only-safe account profile RLS correction; not yet in live migration ledger.
     "20261125120000_read_only_account_profile_rls.sql",
     "20261125130000_remove_legacy_fcm_active_account_policy.sql",
+    # PR #370: revoke direct EXECUTE on a trigger-only incident invariant function.
+    "20261126100000_revoke_incident_trigger_function_client_execute.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -306,6 +308,15 @@ for required in (
 ):
     assert required in location_fallback, f"Missing required SOS location database guard: {required}"
 assert "security definer" not in location_fallback
+trigger_grant_revoke = (
+    MIGRATIONS / "20261126100000_revoke_incident_trigger_function_client_execute.sql"
+).read_text().lower()
+for required in (
+    "revoke all on function public.tacresq_require_incident_location()",
+    "from public, anon, authenticated, service_role",
+    "trigger-only incident input invariant",
+):
+    assert required in trigger_grant_revoke, f"Missing trigger-only function privilege hardening: {required}"
 print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
 
 signup_validation = (MIGRATIONS / "20261112215734_require_requester_signup_contact.sql").read_text().lower()
