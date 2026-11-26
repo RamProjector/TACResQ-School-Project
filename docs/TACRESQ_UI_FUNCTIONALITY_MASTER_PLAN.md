@@ -2275,3 +2275,77 @@ The connected migration ledger's latest observed version is 20261125030354, whic
 - [ ] Keep Storage HTTP tests, Edge Function provider-spy tests, and Laravel/Sanctum cross-domain tests as separate release gates.
 
 **Evidence boundary:** This is a live catalog snapshot, not an application penetration test. No user data was selected, no function was invoked, no migration was applied, and no production account or operational record was changed.
+
+---
+
+## 32. Screenshot-informed Admin IPS layout direction — Quicken reference, TACResQ implementation
+
+**Reference interpretation:** The user supplied a Quicken desktop dashboard screenshot as a structural/layout reference. It is not a request to copy Quicken's finance product, brand, palette, typography, or data model. The screenshot informs spatial organization and information hierarchy only. The existing TACResQ theme and Admin IPS product boundaries remain authoritative.
+
+### 32.1 Structural patterns worth adapting
+
+| Screenshot pattern | TACResQ Admin IPS adaptation | Guardrail |
+|---|---|---|
+| Narrow, persistent icon rail at the far left | A compact primary navigation rail for the existing Admin destinations, using the planned original TACResQ administrative SVG icon family | Do not create new destinations or duplicate the existing route tree. Every icon needs an accessible name; tooltips supplement, not replace, labels. |
+| Separate, full-height Accounts pane | A secondary navigation/context pane that can hold grouped Admin navigation or page-specific filters when that improves the current task | This is not a second permanent navigation system on every page. Use it only where it provides real context. |
+| Large workspace to the right | Main Admin work area that receives the width released by collapsing the secondary pane | The CSS grid/flex layout must resize the actual columns and content; hiding labels alone is not a collapse. |
+| Unequal, content-led card grid | Responsive overview and analytics composition where high-priority summaries receive more room than supporting panels | Do not force all pages into a dashboard grid. Record directories and investigation feeds remain table/list-first. |
+| Compact cards with a clear value and short supporting line | Concise metric/status panels for verified Admin aggregates and dependency state | Only show values supported by current RPC/source contracts. Include period, unit, freshness, and scope where material. |
+| Persistent left navigation with icon-only compact state | Preserve the current route and active destination while reducing navigation width | Do not make the compact state ambiguous; use active indicator, tooltip, keyboard focus, and accessible label. |
+| Strong separation between navigation and workspace | Keep navigation visually distinct from page content while consuming the existing TACResQ surface, border, and accent tokens | No Quicken logo, purple accent, finance iconography, or copied palette. |
+
+### 32.2 Recommended shell composition
+
+The reference suggests a useful three-part desktop shell, but the Admin implementation should remain simpler than a financial application:
+
+1. **Primary icon rail:** a narrow, persistent rail for top-level Admin workspaces. Use the existing eight verified destinations and their route compatibility. If the current implementation already uses a full sidebar, treat the rail as the collapsed state of that sidebar rather than introducing an unrelated navigation layer.
+2. **Secondary navigation/context pane:** an independently collapsible pane for grouped destination labels, sub-navigation, or page-specific filters. It must not duplicate the icon rail's purpose. On pages that do not need a contextual pane, let the main workspace use the full available width.
+3. **Main workspace:** page header and task-specific content. The workspace should own scrolling where appropriate; navigation panes should maintain their own stable behavior and must not create nested scroll traps.
+
+**Important:** The screenshot's separate icon rail and Accounts pane are a visual reference, not a mandate to add two always-visible sidebars. The current TACResQ shell's route structure, existing collapse bug, and available viewport width must decide whether the secondary pane is shown, collapsed, or omitted for a page. At narrow widths, navigation should become an accessible drawer or compact navigation pattern rather than squeezing all three columns.
+
+### 32.3 Page composition rules derived from the reference
+
+- **Overview:** Use a deliberate asymmetric grid for a small number of verified administrative summaries, recent recorded activity, and dependency status. Prioritize actionable attention items over decorative metric tiles. Do not duplicate the full Activity Log or Analytics page.
+- **User management:** Use the workspace width for the paginated user directory. Filters belong in a compact toolbar or contextual pane only if their state remains visible and easy to clear. Account details should appear in a detail panel/drawer or dedicated route, not as a permanent finance-style hierarchy.
+- **Security:** Keep current administrator assurance/session controls separate from investigation events and operational telemetry. Security detections, if/when backed by trusted sources, need severity, time, principal, rule, evidence source, and response state—not generic KPI cards.
+- **Activity log:** Prefer a dense, readable event table with a filter toolbar and expandable evidence details. Do not use small dashboard cards for every event. Preserve source labels, pagination, coverage warnings, and the distinction between empty results and unavailable sources.
+- **Analytics & reports:** Use an asymmetric grid only for verified aggregates and charts. Keep date range, timezone, unit, source, and export scope explicit. Charts must have accessible text/table equivalents.
+- **Data & continuity:** Use evidence/inventory rows and dated inspection summaries. Do not imitate the screenshot's account tree or imply that an inventory, backup, or restore operation is live when it is not.
+- **Settings and Help:** Prefer grouped sections and searchable reference content over dashboard cards.
+
+### 32.4 Density, hierarchy, and visual restraint
+
+The screenshot works because navigation is quiet, content regions are clearly separated, and the largest panel receives the most space. Translate that into these rules:
+
+- Reserve large typography for the page title and genuinely important values. Keep section titles and card headings compact.
+- Put the key value or state first; keep its explanation to one short line when necessary.
+- Use one primary heading per page and avoid repeating the same wording in a subtitle, panel title, and explanatory paragraph.
+- Use existing theme tokens for every surface, border, text, and semantic status. Do not copy the screenshot's light gray background, white-card treatment, cyan/green chart colors, purple controls, or black footer as new TACResQ tokens.
+- Use cards only for independent summary units. Prefer tables, lists, grouped forms, and whitespace for operational content.
+- Keep card heights content-driven. Avoid fixed heights that clip text at browser zoom or with longer translated/user-provided values.
+- Align values and metadata consistently; use tabular numerals for counts, durations, IDs, and timestamps where helpful.
+- Do not add a persistent branded footer modeled on the screenshot. Use the existing TACResQ header/brand placement and available viewport height for work.
+
+### 32.5 Collapse and adaptive behavior acceptance
+
+The current source already contains a desktop sidebar collapse state and a mobile off-canvas drawer. The screenshot must not be interpreted as permission to bypass or replace that behavior without testing. Validate these states:
+
+1. Expanded desktop navigation: all intended labels and groups are visible; the content column starts at the correct grid boundary.
+2. Collapsed desktop navigation: the rail reaches its actual compact width, the secondary pane (if present) independently changes width or closes, and the workspace expands by the reclaimed width.
+3. Re-expansion: active route, scroll position where appropriate, keyboard focus, and filter state are preserved.
+4. Mobile/tablet: the drawer opener remains reachable outside the closed drawer; backdrop, Escape, focus return, and scroll locking work.
+5. Intermediate widths: panes collapse or reflow based on available content width, not only named device categories.
+6. Browser zoom and text scaling: no clipped labels, inaccessible controls, horizontal page overflow, or forced tiny table text.
+7. Short viewports and split-screen: headers and navigation remain usable without hiding the primary task actions.
+
+Instrument the layout test with actual computed grid columns and bounding rectangles for the rail, optional context pane, and workspace. A class name or hidden text is not sufficient evidence that the layout physically collapsed.
+
+### 32.6 Decision and implementation boundary
+
+**Adopt:** compact icon-led navigation, an optional independent context pane, asymmetric content allocation where appropriate, concise value-first cards, and a spacious task-specific workspace.
+
+**Do not adopt:** Quicken branding, logo, finance terminology, account hierarchy, budget/spending charts, transaction cards, purple/cyan palette, typography, footer, or any financial information architecture.
+
+This section is a design specification based on the supplied screenshot and the repository's already documented Admin capabilities. It does not claim that the layout has been implemented, visually tested, or deployed. Before implementation, inspect the current branch's actual Admin shell and route composition; preserve all existing routes, authorization, RPC/API contracts, data semantics, and working interactions.
+
