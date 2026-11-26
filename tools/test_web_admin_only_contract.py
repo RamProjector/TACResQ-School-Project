@@ -174,6 +174,24 @@ assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
 assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
 
+# Overview workspace uses the available content width, keeps activity primary, and preserves honest scope disclosures.
+assert '<div className="admin-overview-summary" hidden={activeSection !== "overview"}>' in admin_console
+assert 'className="admin-overview-grid" aria-label="Overview workspace"' in admin_console
+assert admin_console.index('className="admin-panel admin-overview-activity"') < admin_console.index('className="admin-panel admin-health-panel"')
+assert '<nav className="admin-overview-shortcuts" aria-label="Additional Admin workspaces"' in admin_console
+assert '<details className="admin-overview-disclosure">' in admin_console
+assert 'id="admin-health-limitations" className="admin-overview-disclosure admin-health-limitations"' in admin_console
+assert "exact count returned by the protected investigation feed since Manila midnight" in admin_console
+assert "not a complete record of every action or denied attempt" in admin_console
+assert "This preview includes only recorded events available through the protected investigation feed." in admin_console
+assert "Provider acceptance, device delivery, and user receipt are different outcomes." in admin_console
+assert ".admin-overview-grid" in admin_resolution_css
+assert "container-name: admin-workspace;" in admin_resolution_css
+assert "@container admin-workspace (min-width: 1080px)" in admin_resolution_css
+assert "grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);" in admin_resolution_css
+assert ".admin-overview-shortcuts button:focus-visible" in admin_resolution_css
+assert ".admin-overview-disclosure summary:focus-visible" in admin_resolution_css
+
 # Dependency diagnostics count the same three probes, expose loading limits, and avoid noisy live announcements.
 assert 'aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading}' in admin_console
 assert 'id="admin-health-limitations"' in admin_console
