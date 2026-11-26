@@ -7192,3 +7192,102 @@ These nested checks reduce reliance on wrapper-only assumptions. The wrappers st
 - If Dashboard settings confirm `private` is exposed, run direct authenticated PostgREST RPC tests for all 13 helpers. If it is not exposed, record that authoritative setting and add a configuration drift check.
 
 **Disposition:** retain the current per-function grants pending the authoritative Data API exposed-schema setting and runtime test evidence. Do not blanket-revoke authenticated EXECUTE: the grants are used by policy and wrapper dependencies. No SQL, migration, grant, schema exposure, Storage policy, application code or production setting was changed by this section.
+
+
+## 57 — Cross-layer authorization verification matrix
+
+**Assessment date:** 2026-11-26. **Scope:** Android Supabase transport, optional Render bridge, Admin web Supabase client, public RPCs, private helpers, RLS/Storage policies and existing repository regression fixtures. **Method:** source call-site inspection and test-file review, cross-referenced with live catalog/policy findings in Sections 53–56. This section defines an evidence-backed verification plan; it does not claim that every scenario was executed against a live JWT or deployed client.
+
+### 57.1 End-to-end authorization contract
+
+Every sensitive workflow must be evaluated as a chain, not as an isolated UI or SQL function:
+
+1. **Client:** identify the exact Android/Admin entry point and whether it uses direct Supabase or Render.
+2. **Identity:** resolve the Auth UUID and session namespace; do not substitute a profile ID, email, display name, Laravel user ID or client-supplied role.
+3. **Boundary:** identify the exact public RPC, Laravel/Sanctum route, Edge Function, Storage endpoint or direct table request.
+4. **Enforcement:** identify the public wrapper, private helper, row/column grants, RLS policies, trigger, Storage policy and/or Laravel middleware that actually enforces the rule.
+5. **State:** specify the only permitted authoritative state transition and its concurrency/idempotency rules.
+6. **Evidence:** identify which audit/domain/provider stream records success, denial, or provider failure; do not infer a missing event means no action occurred.
+7. **Outcome:** specify the caller-visible success, denial, stale-state, timeout or uncertain outcome without leaking another user's record.
+
+The same invariant must hold for direct Supabase calls and any alternate supported transport. A client-side disabled button is never an authorization control.
+
+### 57.2 Transport and caller map from current source
+
+**Android** `SupabaseTacApi.kt` selects the optional bridge for a defined subset of operations. The default/release transport remains direct Supabase; release configuration sets `USE_RENDER_BRIDGE=false`. Even when the bridge is enabled, several sensitive methods remain direct:
+- direct Supabase: assignment release, field-unit claim, claimable incident retrieval/claimability update, notifications/read marker, FCM registration/unregistration, assignment history, chat, image reservation/finalization and Storage upload/download;
+- optional Render bridge: profile, duty status, incident list/queue, units, active responder locations, create/cancel/edit incident, dispatcher progress, assignment/team assignment and location recording;
+- Auth sign-in/sign-up/sign-out remains Supabase Auth.
+
+**Admin web** `backend/web/src/lib/supabase.ts` creates a standard Supabase JS client and directly invokes public RPCs for profile, directory, role/status changes, analytics, audit/investigation feeds, units and active responder locations. These browser-to-Supabase calls do not pass through Laravel's API operation logger.
+
+**Render/Laravel** is a separate authenticated boundary. The Supabase bridge validates the caller's Supabase access token and forwards only allowlisted operations with the caller JWT. Laravel Sanctum/Eloquent accounts remain a distinct identity/token namespace; there is no established universal profile mapping. Never interpret a Laravel-authenticated request as a Supabase Auth principal without an explicit verified mapping.
+
+**Implication:** enabling the bridge does not mean all Android operations are monitored or enforced by Laravel. Any test plan that exercises only the bridge misses the direct-Supabase and Storage surfaces.
+
+### 57.3 Cross-layer verification matrix
+
+| Sensitive operation | Supported caller/path | Authoritative enforcement to verify | Required negative cases | Evidence/outcome expectation |
+|---|---|---|---|---|
+| Admin profile, directory, analytics and audit reads | Admin web → direct Supabase public RPC | Admin MFA helper: Auth UUID, active profile, Admin role, AAL2 and TOTP; bounded reader and source-specific RLS | requester/responder/dispatcher; Admin AAL1; missing TOTP; suspended Admin; malformed bounds/filter; cross-user target | Protected read denied; no partial sensitive result; read-audit coverage remains a documented gap unless a source records it |
+| Admin role change | Admin web → `api_admin_set_user_role` | Admin MFA helper, allowlisted non-Admin target role, reason, target lock, lifecycle/assignment guard, atomic audit | non-Admin caller; AAL1; suspended Admin; self-target; Admin target; stale role; active assignment; concurrent changes | No role mutation on denial; successful mutation and audit commit atomically |
+| Admin account suspend/reactivate | Admin web → `api_admin_set_account_status` | Admin MFA helper, compare-and-set expected status, locks, self/Admin target restrictions, active-assignment guard, lifecycle audit | stale expected state; self/Admin target; active assignment; concurrent transition; suspended Admin session | No partial state/audit; stale conflict is explicit; existing access JWT behavior must not be misrepresented as immediate revocation |
+| Requester incident create | Android → direct Supabase `api_create_incident_v4` (bridge source also has v4) | Auth UUID to active requester; validated fields/location; idempotency key; one-active-request and concurrency guard | anonymous; other role; suspended same-valid-JWT; duplicate client request ID; malformed coordinates; concurrent create | Exactly one authoritative incident; denied/duplicate requests create no extra incident; current legacy v1/v2/v3 paths separately traced |
+| Requester edit/cancel own pending incident | Android → direct or bridge public RPC | Active requester, ownership, allowed state, row lock, cooldown/review policy, edit/status history | other requester; non-requester; suspended same-valid-JWT; non-pending; stale version; cancel/assignment race | No cross-owner mutation; history/state atomic; conflict does not silently overwrite |
+| Responder/driver claim | Android → direct Supabase `api_claim_incident` | Active role, duty/availability, claimable status, assignment capacity/membership, locks and recheck | requester; dispatcher where not allowed; suspended same-valid-JWT; off-duty; duplicate claim; competing claim; inactive target | At most one valid claim; loser receives conflict; assignment history matches persisted state |
+| Dispatcher assign/release/team assignment | Android direct/optional bridge public RPC | Active dispatcher; guarded private helper; target role/active/duty/capacity; assignment lock and history | non-dispatcher; suspended dispatcher; suspended/off-duty target; duplicate IDs; over-capacity; concurrent release/reassign | No partial team; assignment table cannot be directly mutated by authenticated; event history matches final state |
+| Dispatcher progress and claimability | Android direct/optional bridge public RPC | Active dispatcher helper; allowed state-transition graph; incident lock; claimability guard | requester/responder/driver; suspended dispatcher; invalid transition; stale state; concurrent transition | Denied transitions leave status/claimability unchanged; status history is consistent |
+| Duty status | Android direct/optional bridge `api_set_duty_status` | Active responder/driver; profile lock; valid status; no incompatible active assignment | requester/dispatcher; suspended same-valid-JWT; invalid status; race with assignment | State change only when invariant holds; no client-side role/status spoof |
+| Responder location write and dispatcher location read | Android direct/optional bridge write; dispatcher direct RPC read | Active assigned responder/driver for write; active dispatcher for read; incident assignment; validated coordinate/time fields | unrelated user; requester; suspended user; wrong incident; stale/invalid coordinate; dispatcher without role | No location write outside assigned incident; location read is dispatcher-only; avoid over-collecting coordinates |
+| Incident chat text and history | Android direct Supabase RPC | Active profile; incident membership; requester own incident, assigned responder/driver, dispatcher policy; bounded history; idempotency | unrelated user; unassigned field unit; suspended same-valid-JWT; invalid incident; replayed message ID; oversized/rate-limit | No cross-incident message disclosure; duplicate send is idempotent; chat content not copied into generic security logs |
+| Incident image upload/download | Android direct Storage + reservation/finalization RPC | Private bucket; Storage RLS; chat membership; deterministic path; MIME/size; reservation ownership/expiry/rate limit when enforcement enabled | anon; unrelated user; wrong incident/profile path; unreserved upload with enforcement on; expired/reused reservation; oversized/wrong MIME; non-member download | No public object; no path traversal or cross-member read; reservation switch and deployed HTTP behavior explicitly verified |
+| Notifications/read marker | Android direct Supabase RPC | Recipient-scoped read; active profile for list/detail; active-profile check also required for mark-read | other user ID; suspended same-valid-JWT; malformed/nonexistent ID; stale token | Non-owned IDs indistinguishable from missing; mark-read active-account gap from Section 54 remains open until fixed and tested |
+| FCM register/unregister | Android direct Supabase RPC | Register requires active caller; unregister is a narrow Auth-derived self-token cleanup exception | register while suspended; delete another profile's token; malformed token; account switch; duplicate token | User can remove only own exact token; don't block legitimate suspended-account cleanup |
+| Laravel Sanctum API operations | Android optional/other API clients → Render/Laravel | Sanctum token, Laravel user/role middleware, account status and route-specific ownership; explicit mapping only if crossing to Supabase | expired/revoked token; wrong Laravel role; suspended Laravel user; profile/email collision; replay | Laravel identity remains distinct; operation logger records metadata where configured, but absence of a log is not proof of absence |
+| Edge notification dispatch | Authenticated caller → Edge Function → service-role provider calls | Validate bearer and active caller; derive incident/recipient membership; explicit checks before service-role use | invalid token; suspended caller; wrong incident/recipient; malformed payload; provider error; replay | Service-role key never reaches client; no unauthorized recipient; distinguish accepted, provider attempted and delivered |
+| Private helper direct invocation | Authenticated PostgREST only if `private` is exposed | Dashboard exposed-schema configuration + schema USAGE + function EXECUTE + helper's own checks | each helper under normal/suspended/unauthorized principal; direct mutation helper call | No conclusion until exposed-schema setting is verified; preserve grants needed by RLS/Storage/wrappers |
+
+### 57.4 Existing automated source-contract evidence
+
+The repository already contains useful SQL regression fixtures:
+- `tools/test_account_lifecycle_foundation.sql` asserts active-profile helpers are SECURITY DEFINER, pinned, VOLATILE and share-locking; checks client access to lifecycle audit data and lifecycle column grants; and requires RLS on public tables with authenticated privileges.
+- `tools/test_authenticated_incident_write_boundary.sql` uses the authenticated database role and JWT subject to prove direct incident UPDATE is denied while supported RPC behavior works; it also checks responder denial of dispatcher-owned progress.
+- `tools/test_incident_assignment_privileges.sql` checks assignment-table RLS, no client mutation grants, expected public RPC grants and private guarded helper exposure ACL.
+- `tools/test_incident_chat_storage_policies.sql` exercises synthetic chat/image membership, private bucket constraints, legacy upload compatibility, reservation enforcement behavior and unrelated-user denial paths.
+
+These are **repository test definitions**, not evidence that they have passed against the current live deployment. The image policy fixture explicitly tests the reservation switch both disabled and enabled; production enforcement remains unverified until the deployed value and actual Storage HTTP path are checked.
+
+### 57.5 Confirmed gaps and highest-priority follow-ups
+
+1. **Mark-read active-account inconsistency:** live `api_mark_notification_read` still lacks the active-profile guard (Section 54). This is a narrow policy inconsistency, not cross-user access. Fix with a CLI-generated migration and same-valid-JWT test only after source/branch and clean replay reconciliation.
+2. **Private schema exposure:** Dashboard Data API exposed-schema list remains unverified (Section 56). Do not treat private helpers as definitely hidden or exposed.
+3. **Trigger-only EXECUTE:** `public.tacresq_require_incident_location()` remains directly executable by client roles despite trigger-only intent (Section 53). Validate trigger bindings and legitimate callers before isolated revocation.
+4. **Legacy incident creation:** v1/v2/v3 invoker functions have no explicit active-account predicate in their own bodies. Verify no supported app release calls them, and test actual RLS/table-grant behavior with suspended same-valid-JWT accounts.
+5. **Read/search audit completeness:** Admin reads and many app read/search operations lack durable per-action audit coverage in reviewed call sites. Do not claim full IDS/IPS audit completeness.
+6. **Storage rollout:** reservation enforcement default is false in the test fixture; deployed switch and HTTP enforcement need verification.
+7. **Sanctum separation:** Laravel user lifecycle and Supabase profile lifecycle must be independently tested; do not infer that Supabase suspension revokes a Sanctum token or vice versa.
+8. **Edge and provider failure:** service-role Edge Function checks and notification provider outcomes need isolated integration tests, including provider failure and duplicate delivery.
+
+### 57.6 Required test execution order
+
+**Gate A — Source/config baseline:** freeze exact branch SHA, inspect current migrations and deployed migration ledger, confirm release Android transport flag, identify supported app versions, record Data API exposed schemas and Render/Sanctum configuration. No policy change before this inventory.
+
+**Gate B — Database contracts:** clean migration replay; catalog assertions for functions, overloads, schema/table/column/sequence grants, RLS and trigger bindings; run the existing SQL fixtures. Resolve historical migration-ledger drift before interpreting a replay as representative.
+
+**Gate C — Authenticated identity matrix:** use separate real test users and same-valid-JWT cases for active/suspended profiles, each app role, AAL1/AAL2 Admin, token expiry/revocation and stale claims. Never substitute service-role SQL for an authenticated request.
+
+**Gate D — Cross-transport equivalence:** run equivalent supported actions through Android direct Supabase and optional Render bridge where both exist; separately exercise Admin browser direct RPC, Laravel Sanctum and Edge endpoints. Confirm paths that intentionally remain direct.
+
+**Gate E — Storage and provider boundaries:** authenticated Storage HTTP upload/download/delete tests, reservation enabled/disabled cases, membership and expiry, Edge provider spies, FCM outcome handling. A database shim alone does not establish Storage service behavior.
+
+**Gate F — State/concurrency/recovery:** duplicate/retry, simultaneous claim/assignment, suspend-vs-write, stale status, timeout after commit, provider partial failure and safe retry. Verify persisted state and event evidence after each outcome.
+
+**Gate G — Admin UI acceptance:** only after the relevant backend contract passes, expose the corresponding Admin screen/control. Verify truthful loading/empty/stale/denied/partial/unavailable states, keyboard/zoom/accessibility and manual workflow acceptance.
+
+### 57.7 Release decision rule
+
+A workflow is **verified** only when its caller identity, transport, deployed policy/migration state, positive case, negative case, concurrency behavior, persisted state and expected evidence are all recorded against an exact build/commit/environment. Otherwise label it **source-reviewed**, **test-defined**, **partially verified**, or **unknown**.
+
+No feature should be presented as fully protected merely because the Admin UI hides it, the RPC is SECURITY DEFINER/INVOKER, a SQL fixture exists, or the bridge returns success. A single tested path does not certify alternate direct paths.
+
+**Change boundary:** this section documents the verification matrix and existing test evidence. No migration, RPC, grant, policy, account, Storage object, Render setting, Android release configuration or production data was changed.
