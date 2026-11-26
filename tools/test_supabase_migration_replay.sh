@@ -2012,6 +2012,34 @@ END;
 $account_suspension_privilege_baseline$;
 SQL
 
+# PostgreSQL 17 adds MAINTAIN to table ACLs. PG16 keeps this test conditional;
+# the same replay on PG17 must prove authenticated clients cannot run maintenance
+# commands while retaining their normal read and narrowly scoped duty updates.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $pg17_maintain_privilege_contract$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    IF has_table_privilege('authenticated', 'public.profiles', 'MAINTAIN')
+       OR has_table_privilege('authenticated', 'public.incidents', 'MAINTAIN')
+       OR has_table_privilege('anon', 'public.profiles', 'MAINTAIN')
+       OR has_table_privilege('anon', 'public.incidents', 'MAINTAIN') THEN
+      RAISE EXCEPTION 'Supabase client roles must not retain PostgreSQL 17 MAINTAIN on profiles/incidents';
+    END IF;
+
+    IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+       OR NOT has_table_privilege('authenticated', 'public.incidents', 'SELECT')
+       OR NOT has_column_privilege('authenticated', 'public.profiles', 'duty_status', 'UPDATE')
+       OR NOT has_column_privilege('authenticated', 'public.profiles', 'updated_at', 'UPDATE') THEN
+      RAISE EXCEPTION 'PostgreSQL 17 MAINTAIN reduction must preserve the normal profile/incident client workflow';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Skipping PostgreSQL 17 MAINTAIN assertion on server version %',
+      current_setting('server_version');
+  END IF;
+END;
+$pg17_maintain_privilege_contract$;
+SQL
+
 # Preserve the audit-log MFA gate as a RESTRICTIVE policy. A second
 # PERMISSIVE policy would be OR-combined with the Admin-role policy and
 # silently let role membership bypass the AAL2/TOTP requirement.
