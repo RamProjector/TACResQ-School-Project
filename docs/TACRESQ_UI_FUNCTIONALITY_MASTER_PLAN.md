@@ -9327,3 +9327,80 @@ The public-schema default ACLs are a major source of grant drift. A migration th
 **Change boundary:** documentation only. The review did not alter default privileges, function ACLs, schema exposure, migration history, trigger definitions, function bodies, service-role keys, application code or production behavior. The MFA bypass is a conditional attack path inferred from live ACLs and function bodies; no unauthorized execution was attempted or observed.
 
 **References:** live pg_proc/proacl/has_function_privilege catalog; live pg_default_acl; pg_auth_members; supabase_migrations.schema_migrations; trigger binding for incidents_require_location_before_write; 20261126100000_revoke_incident_trigger_function_client_execute.sql; 20261125020844_admin_account_lifecycle_audit_reader.sql; Admin MFA wrapper migrations; FCM worker migrations; Sections 27–29 and 53–63.
+
+
+## Section 64 — Targeted Admin service-role privilege reduction and regression contracts
+
+**Objective:** convert the strongest low-risk Section 63 finding into a forward migration and automated regression contract, while leaving the FCM worker and legacy Edge Function privileges unchanged until their request paths have dedicated least-privilege interfaces.
+
+### 64.1 Decision and scope
+
+The current Admin website uses the signed-in Admin's Supabase Auth session and publishable client key. Admin RPCs enforce the authenticated actor, active Admin profile and MFA/AAL2 requirements in their own database boundary. The reviewed Laravel bridge explicitly excludes Admin RPCs; the Laravel metadata logger and FCM worker do not write to or read from `admin_audit_logs`.
+
+The live catalog showed:
+- `public.admin_audit_logs` is owned by `postgres`, has RLS enabled, and grants service_role SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER.
+- Its identity sequence `public.admin_audit_logs_id_seq` grants service_role USAGE, SELECT and UPDATE.
+- The reviewed Admin role-change and audit-reader functions are SECURITY DEFINER and owned by postgres. The transactional role-change function inserts the audit row as its owner; it does not need the caller to have direct table or sequence privileges.
+- Thirteen public `api_admin_*` functions had service_role EXECUTE in the live catalog. The reviewed Admin browser calls use authenticated RPC execution; internal helper functions are called by postgres-owned SECURITY DEFINER wrappers.
+
+**Decision:** add a narrow forward migration revoking service_role's direct privileges on the existing Admin audit table, its identity sequence, and the current 13-function Admin RPC family. Preserve the authenticated Admin grants, the postgres owner privileges, RLS and all function bodies. This is a repository migration only; it has not been applied to the hosted database.
+
+### 64.2 Forward migration
+
+Added `supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql`.
+
+The migration:
+1. Revokes all table-level privileges from service_role on `public.admin_audit_logs`.
+2. Revokes all sequence privileges from service_role on `public.admin_audit_logs_id_seq`.
+3. Revokes service_role EXECUTE on the 13 existing `public.api_admin_*` functions, using their exact argument signatures.
+4. Does not grant any new privilege, alter RLS/policies, change function definitions, drop objects, modify audit rows, or affect authenticated/anon grants.
+5. Leaves the Admin website's authenticated Admin calls and postgres-owned SECURITY DEFINER internals intact.
+
+The table and sequence revocations are intentionally paired: removing table INSERT while leaving identity-sequence USAGE/UPDATE would leave an unnecessary direct capability behind. The runtime contract checks all three sequence privileges and column-level ACLs as well as the table-level privileges.
+
+The Admin function EXECUTE reduction is intentionally scoped to the current `api_admin_*` family. The function owner retains EXECUTE so nested calls from the SECURITY DEFINER wrappers continue to work. The authenticated Admin API grants are separately asserted rather than inferred from the absence of service_role grants.
+
+### 64.3 Regression coverage
+
+Added `tools/test_service_role_admin_audit_privileges.sql` and wired it into the end of `tools/test_supabase_migration_replay.sh`. It checks the effective catalog after the complete migration sequence:
+
+- `admin_audit_logs` remains postgres-owned with RLS enabled.
+- service_role has no table-level SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER privilege.
+- service_role has no column-level privilege on any audit-table column.
+- service_role has no USAGE, SELECT or UPDATE privilege on the audit identity sequence.
+- service_role cannot EXECUTE any of the 13 enumerated Admin functions.
+- service_role cannot EXECUTE any current or future public function whose name begins `api_admin_*`; this catches default-ACL regrant on a newly added Admin RPC during replay.
+- postgres retains EXECUTE on each enumerated function.
+- the existing authenticated Admin RPC grants remain present.
+- authenticated retains only the existing direct SELECT table grant; direct audit-table writes remain unavailable.
+
+Extended `tools/test_rpc_grants.py` with a source-level contract that verifies the forward migration contains the table, sequence and exact function revocations, adds no grants, and is included in migration replay. The source contract is not a substitute for the SQL catalog test; both are required.
+
+### 64.4 Explicitly deferred privilege work
+
+This migration does **not** narrow `fcm_delivery_attempts`, `fcm_tokens`, `profiles`, `incidents`, operational history tables, Storage/Vault objects, or any Supabase-managed schema. The Laravel FCM worker still directly PATCHes delivery-attempt rows, and the deployed Edge Function remains a separate legacy direct-send consumer. Removing those privileges before replacing their direct operations would break or weaken live delivery behavior.
+
+It also does not alter `ALTER DEFAULT PRIVILEGES`. Live default ACLs are broader than the intended future application privilege boundary, but changing them can affect future tables, sequences and functions created by particular migration owners. That work needs a separate owner/schema-by-owner inventory, explicit grants for every server consumer, and PostgreSQL 17 replay. The new replay assertion for `api_admin_*` functions provides a fail-closed guard against new Admin functions inheriting service_role EXECUTE, but it does not fix broad default privileges for other object families.
+
+The migration also does not remove service_role SELECT from `api_operation_logs`; the logger itself only inserts, but independent readers and retention/diagnostic jobs still need a complete call-site check.
+
+### 64.5 Validation and deployment gates
+
+Before merge, require:
+1. The static source contract to pass.
+2. The full clean migration replay to apply the new migration in order.
+3. The new SQL privilege contract to pass after replay.
+4. Existing Admin MFA, role-change, audit pagination and lifecycle runtime tests to pass.
+5. A PostgreSQL 17 disposable replay to catch hosted-version differences; the existing replay lane's PostgreSQL version must be checked rather than assumed equivalent to hosted PG17.
+6. A read-only comparison against the hosted catalog to confirm the expected pre-migration state and exact migration-history status.
+7. Explicit approval before applying this forward migration to the hosted project; after approval, re-read the exact effective grants and run the Admin regression suite.
+
+No hosted migration push, repair, key rotation, production SQL mutation, Edge deployment, Render change or FCM scheduling change is part of this task.
+
+### 64.6 Change record
+
+**Repository changes:** one forward SQL migration; one runtime SQL catalog contract; migration-replay wiring; static RPC-grant source-contract extension; this documentation section.
+
+**Not claimed:** no CI run has yet been treated as passed for the new exact head; no local PostgreSQL replay has been executed by this authoring step; no hosted grant has been changed; no Admin browser or Android runtime test has been performed.
+
+**References:** Sections 21–23, 25, 27–29, 33–36, 53–63; `20261112215653_admin_role_audit_foundation.sql`; `20261122050811_api_operation_audit_and_fk_indexes.sql`; `backend/src/app/ApiOperationAuditLogger.php`; `backend/src/app/FcmNotificationDispatcher.php`; `tools/test_rpc_grants.py`; `tools/test_supabase_migration_replay.sh`; `tools/test_service_role_admin_audit_privileges.sql`.
