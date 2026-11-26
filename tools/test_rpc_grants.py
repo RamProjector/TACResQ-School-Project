@@ -244,6 +244,43 @@ assert re.search(
 # identity. Keep service_role away from the append-only audit relation, its
 # identity sequence, and Admin-only RPCs. The disposable replay adds catalog
 # assertions for the effective privileges and preserves authenticated grants.
+SERVICE_ROLE_SEQUENCE_MIGRATION = Path(
+    "supabase/migrations/20261126180000_restrict_device_registry_sequences.sql"
+).read_text()
+RPC_OWNED_SEQUENCES = (
+    "fcm_delivery_attempts_id_seq",
+    "fcm_tokens_id_seq",
+    "incident_assignment_events_id_seq",
+    "incident_claimability_logs_id_seq",
+    "incident_messages_id_seq",
+    "incident_request_edit_logs_id_seq",
+    "incident_status_logs_id_seq",
+    "incidents_id_seq",
+    "location_logs_id_seq",
+    "profiles_id_seq",
+    "user_notifications_id_seq",
+)
+for sequence_name in RPC_OWNED_SEQUENCES:
+    assert re.search(
+        rf"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+SEQUENCE\\s+"
+        rf"public\\.{sequence_name}\\s*,?",
+        SERVICE_ROLE_SEQUENCE_MIGRATION,
+        re.IGNORECASE,
+    ), f"Missing sequence privilege reduction for {sequence_name}"
+assert re.search(
+    r"GRANT\\s+USAGE,\\s*SELECT\\s+ON\\s+SEQUENCE\\s+"
+    r"public\\.api_operation_logs_id_seq\\s+TO\\s+service_role\\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "ApiOperationAuditLogger must retain its direct service-role sequence grant"
+assert re.search(
+    r"GRANT\\s+USAGE,\\s*SELECT\\s+ON\\s+SEQUENCE\\s+"
+    r"public\\.device_security_events_id_seq,\\s*"
+    r"public\\.device_integrity_checks_id_seq\\s+TO\\s+service_role\\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Trusted device registry writers must retain their minimum sequence grants"
+
 SERVICE_ROLE_ADMIN_MIGRATION = Path(
     "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
 ).read_text()
