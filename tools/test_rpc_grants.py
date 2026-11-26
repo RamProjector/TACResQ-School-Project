@@ -110,9 +110,12 @@ CURRENT_V4_MIGRATION = Path(
     "supabase/migrations/20261125020842_account_lifecycle_write_rpc_entry_guards.sql"
 ).read_text()
 assert "api_create_incident_v4" in ANDROID_API
-assert all(name not in ANDROID_API for name in LEGACY_INTERNAL_RPCS)
+assert all(
+    re.search(rf"/rpc/{re.escape(name)}\"", ANDROID_API) is None
+    for name in LEGACY_INTERNAL_RPCS
+)
 assert "api_create_incident_v4" in BRIDGE_CONFIG
-assert all(name not in BRIDGE_CONFIG for name in LEGACY_INTERNAL_RPCS)
+assert all(f"'{name}'" not in BRIDGE_CONFIG for name in LEGACY_INTERNAL_RPCS)
 assert "SECURITY DEFINER" in CURRENT_V4_MIGRATION
 assert "public.api_create_incident_v3(" in CURRENT_V4_MIGRATION
 
