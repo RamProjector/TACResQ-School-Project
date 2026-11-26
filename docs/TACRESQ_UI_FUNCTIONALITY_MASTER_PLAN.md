@@ -1855,7 +1855,7 @@ The current migration sequence adds explicit active-profile gates to several SEC
 
 The clean-replay and source-contract tooling has been extended to check selected exact signatures, source fragments, function volatility/search path, active-state predicates, profile locks, and grant boundaries. These are useful drift guards, but string-based source checks and migration replay assertions do not prove every nested call path is authorized correctly.
 
-**Do not overstate coverage:** the repository crosswalk itself still describes 75 public callable functions (24 definers and 51 invokers) plus twelve authenticated-callable private SECURITY DEFINER helpers. The exact effective catalog must be regenerated from a clean replay at the candidate commit. A callable inventory is not equivalent to proving that every one of those entry points and its transitive helpers is safe. The remaining public invoker surface, direct table/view/sequence grants, trigger paths, and role/policy composition still require full reconciliation.
+**Historical count correction:** the earlier raw 75 public callable / 24 definer / 51 invoker aggregate and twelve-private-helper wording are superseded by Section 30. The connected Supabase catalog shows 38 authenticated-callable public application API functions (24 definers and 14 invokers), 13 callable private definers, and one separate trigger-only public function. Keep the exact-head clean replay and runtime denial tests as release gates; the live catalog is not a substitute for them.
 
 ### 28.4 Supabase Storage: shared helper guard is implemented, HTTP integration remains open
 
@@ -1989,7 +1989,7 @@ A function name match or a public schema location alone does not establish that 
 ### 29.5 Required exact-head evidence and release gate
 
 - [ ] Run the full migration replay at the exact PR head and archive the resulting public/private callable catalog.
-- [ ] Confirm the 75/24/51 and 13 contracts against the actual replay output, not only source assertions.
+- [ ] Confirm the extension-schema-independent 38/24/14 application API contract and 13 private callable helper contract against exact-head replay output.
 - [ ] Reconcile all 51 invoker signatures individually, separating application and extension functions.
 - [ ] Inspect view owner/options, materialized-view contents and refresh authority, direct grants, RLS policy composition, triggers, and nested helper calls.
 - [ ] Confirm no unexpected anon/PUBLIC execution, client schema CREATE, elevated role inheritance, or unsafe default ACL.
