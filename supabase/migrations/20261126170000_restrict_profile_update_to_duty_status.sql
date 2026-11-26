@@ -23,7 +23,7 @@ DO $revoke_client_maintain$
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
     EXECUTE
-      'REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated';
+      'REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated, service_role';
   END IF;
 END;
 $revoke_client_maintain$;
