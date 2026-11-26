@@ -309,11 +309,17 @@ PG17_MAINTAIN_MIGRATION = Path(
 ).read_text()
 assert "server_version_num" in PG17_MAINTAIN_MIGRATION
 assert re.search(
-    r"EXECUTE\s+'REVOKE MAINTAIN ON TABLE public\.profiles, public\.incidents "
+    r"EXECUTE\s+'REVOKE MAINTAIN ON ALL TABLES IN SCHEMA public "
     r"FROM PUBLIC, anon, authenticated, service_role'",
     PG17_MAINTAIN_MIGRATION,
     re.IGNORECASE | re.DOTALL,
-), "PG17 MAINTAIN revoke must remain version-gated dynamic SQL"
+), "PG17 MAINTAIN revoke must cover every existing public table"
+assert re.search(
+    r"EXECUTE\s+'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public "
+    r"REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated, service_role'",
+    PG17_MAINTAIN_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "PG17 MAINTAIN revoke must cover future postgres-owned public tables"
 
 SERVICE_ROLE_ADMIN_MIGRATION = Path(
     "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
