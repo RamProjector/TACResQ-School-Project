@@ -245,7 +245,7 @@ for required in (
     "postgres/public",
     "supabase_admin/public",
     "20 public tables",
-    "do not revoke service_role from all public tables in one migration",
+    "do not revoke `service_role` from all public tables in one migration",
     "no hosted acl, default privilege, table data, migration ledger, or deployment was changed",
 ):
     assert required in admin_plan, f"Service-role ACL research boundary is incomplete: {required}"
