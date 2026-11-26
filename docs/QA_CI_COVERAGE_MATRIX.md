@@ -72,6 +72,8 @@ The failed source step was `tools/test_admin_overview_analytics_separation_contr
 
 A test-only correction was committed as `23d6815a0d2c55b30469e526ac1fbe23a8801fa5`, updating the expected copy to match the current source. It does not change application behavior. **The corrected contract and the full CI suite must rerun on the new exact head; no pass is claimed for that repair yet.**
 
+The next PR run (45842444081) passed the repaired Overview assertion and advanced to `tools/test_admin_recovery_workspace_contract.py`, where a second stale expectation assumed the Data & continuity navigation label was wrapped in `<strong>`; the current semantic navigation markup uses `<span>`. A test-only correction was committed as `b2c28dc80dc85ccaeacbaa3f8279e88d09a2028c`, updating the assertion to match the existing `<span>Data &amp; continuity</span>`. This does not alter application behavior. The workflow must rerun again on the latest exact head; downstream Laravel and migration jobs remain unverified until they execute.
+
 ## 5. Database testing distinction
 
 The repository's `rpc-grant-contract.yml` starts a disposable PostgreSQL service and runs `tools/test_supabase_migration_replay.sh`. That script replays the repository's SQL migrations and runs many SQL contracts, including SOS idempotency/concurrency, assignment, claim, FCM queue, notification security, Storage policy and privilege checks. This is real SQL execution against isolated PostgreSQL.
