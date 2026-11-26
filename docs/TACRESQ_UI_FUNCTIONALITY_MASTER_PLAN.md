@@ -8246,3 +8246,202 @@ The Admin UI should not expose destructive audit controls. Any approved retentio
 **Change boundary:** read-only catalog/settings and source/documentation review. No grants, roles, policies, triggers, functions, extensions, audit rows, retention jobs, backups, WAL settings, provider configuration, application source or production data were changed.
 
 **References:** PostgreSQL documentation on [row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [TRUNCATE](https://www.postgresql.org/docs/current/sql-truncate.html), [database roles and attributes](https://www.postgresql.org/docs/current/role-attributes.html), and [continuous archiving and point-in-time recovery](https://www.postgresql.org/docs/current/continuous-archiving.html); Supabase [Database backups](https://supabase.com/docs/guides/platform/backups), [Logs in Studio](https://supabase.com/docs/guides/observability/logs), and [PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit); OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+
+## Section 61 — Detection-to-evidence traceability and investigation lifecycle
+
+### 61.1 Objective and governing principles
+
+This section connects the previously specified detection, audit, incident-response, evidence and reporting models into one traceable process:
+
+**source event → detection signal → validated finding → investigation → evidence package → authorized decision → verified outcome → lessons learned.**
+
+These are related but distinct objects. An alert is not automatically an incident; a detection is not proof of malicious intent; an investigation is not a finding of wrongdoing; and a recommended action is not an authorized action. The workflow must permit benign, duplicate, inconclusive and unsubstantiated outcomes without distorting the evidence.
+
+NIST SP 800-61 Rev. 3 (April 2025) is the current NIST incident-response publication and supersedes Rev. 2. It places incident response within the broader CSF 2.0 risk-management lifecycle. CISA's federal playbooks provide operational process examples, but their federal agency scope does not automatically establish TACResQ institutional policy. Apply the principles proportionately and obtain local authority for actual response decisions.
+
+### 61.2 Canonical object model and relationships
+
+Use separate, versioned records rather than one overloaded incident or alert table. Proposed conceptual objects:
+
+| Object | Meaning | Minimum traceability |
+|---|---|---|
+| Source event | A source-produced record or observation | Source namespace/instance, source-qualified ID, original time, provenance |
+| Detection evaluation | A rule evaluation against eligible source data | Rule ID/version, evaluator version, input window, prerequisites, result |
+| Detection signal | A candidate pattern that may warrant review | Signal ID, triggering evaluation, source prerequisites, severity, confidence |
+| Finding | A reviewed statement about what evidence supports | Finding ID/version, statement type, evidence references, confidence, reviewer |
+| Investigation | A scoped inquiry into one or more related findings | Investigation ID, purpose, coordination, scope, status and history |
+| Evidence item/package | Preserved source artifact, extract or derivative | Acquisition ID, source, digest if computed, classification, custody history |
+| Decision | An authorized disposition or response decision | Decision ID, authority, rationale, scope, time, approval and constraints |
+| Response action | A requested/approved/attempted operational change | Action ID, target, executor, preconditions, result and verification |
+| Review/improvement item | A lesson, control gap or corrective action | Owner, due/review date, target control/rule, evidence of closure |
+
+Relationships are many-to-many where appropriate:
+- One source event can support multiple detections or investigations.
+- One detection can reference multiple events and multiple rule evaluations.
+- One investigation can examine several detections, and a detection can be linked to more than one investigation if justified.
+- One evidence item can support or contradict multiple findings.
+- One decision can authorize a bounded set of response actions.
+- One response action can address several findings, but must preserve its own target, authority and outcome.
+
+Every relationship must record its type, creation time, author/source and rationale where it is not mechanically deterministic. Do not duplicate raw evidence merely to attach it to another case; reference the preserved source item and record the relationship. Do not merge records solely because they share an IP, email, device label, timestamp or similar text.
+
+### 61.3 Detection-to-investigation lifecycle
+
+Use explicit state transitions with entry criteria, exit criteria and recorded actor/time. Proposed lifecycle:
+
+1. **Evaluated** — a versioned rule was evaluated against an identified source scope. Evaluation may produce no signal.
+2. **Signal created** — a candidate event/pattern is emitted with rule version, source prerequisites, input window and coverage state.
+3. **Triage pending** — signal awaits review; queue age and source freshness are visible.
+4. **Triage in progress** — reviewer checks source validity, duplication, context, scope, confidence and potential impact.
+5. **Dispositioned** — signal is classified as false positive, benign expected activity, duplicate/related signal, insufficient evidence, needs monitoring, or investigation warranted.
+6. **Investigation open** — a scoped inquiry has been created and linked to relevant signals/findings.
+7. **Evidence gathering** — sources and time windows are acquired; gaps and custody state are visible.
+8. **Assessment** — facts, inferences, contradictions, alternatives and uncertainty are recorded.
+9. **Decision pending** — an authorized decision-maker is required for a response or formal closure.
+10. **Response authorized / not authorized / deferred** — the decision and its limits are recorded; a recommendation alone cannot move a system into an authorized state.
+11. **Action pending / attempted / succeeded / failed / outcome unknown** — action execution is tracked independently from authorization.
+12. **Verification pending / verified / failed / inconclusive** — a separate check confirms whether the intended effect occurred and whether adverse effects arose.
+13. **Closed** — closure rationale, disposition, outstanding risks, evidence completeness and required follow-up are documented.
+14. **Reopened** — new evidence, recurrence, correction or failed verification justifies reopening; previous closure remains in history.
+15. **Improvement tracked** — lessons become separately owned corrective actions with target, due/review date and closure evidence.
+
+False-positive, benign, duplicate and insufficient-evidence dispositions may end signal triage without opening an investigation. A confirmed incident is a later authorized classification based on documented criteria, not a synonym for any alert. Do not require every investigation to reach a confirmed-incident state.
+
+### 61.4 State transition and integrity rules
+
+- State changes are append-only history events; current state is a projection of recorded transition history.
+- Each transition stores prior state, new state, actor namespace/ID, event/recorded time, reason, relevant policy/rule version and linked evidence/decision.
+- Validate legal transitions on the server. UI hiding or disabling a button is not authorization.
+- Require a reason for material dispositions, severity changes, closure, reopening, exception, suppression and response decisions.
+- A stale concurrent update must fail safely and show current state; never silently overwrite another reviewer's decision.
+- Corrections append a superseding record with reason and author; do not erase a prior disposition, finding or approved report.
+- Reopening creates a new review cycle or explicit reopening event, preserving prior closure and report versions.
+- A duplicate signal retains its own source/evaluation history and links to the canonical related signal; do not delete it or collapse distinct attempts.
+- Suppression must be scoped, justified, versioned, time-bounded/reviewable and auditable. Suppression of notifications must not silently disable evidence capture.
+- If required source coverage is unavailable, state remains partial/indeterminate where relevant; absence of an event is not proof that behavior did not occur.
+
+### 61.5 Triage and finding quality
+
+Triage should consider:
+- rule maturity/version and whether prerequisites were satisfied;
+- source provenance and source health at event time;
+- data completeness, collection delay, pagination and retention window;
+- event uniqueness, retries, duplicates and expected application behavior;
+- actor/resource context, without unsafe identity stitching;
+- potential confidentiality, integrity, availability, privacy and operational impact;
+- confidence, severity and urgency as separate dimensions;
+- alternative explanations and contradictory evidence;
+- whether further collection could expire, mutate or destroy relevant evidence.
+
+A finding must declare its statement type:
+- **Observed:** directly present in an identified source.
+- **Derived:** reproducible calculation from identified source items and method.
+- **Inferred:** interpretation supported by evidence but not directly recorded.
+- **Hypothesis:** explanation still requiring validation.
+- **Contradicted:** material evidence conflicts with the statement.
+- **Unresolved:** evidence is insufficient or unavailable.
+
+Confidence describes evidentiary support, not impact. Severity describes potential/observed impact, not certainty. Urgency describes how quickly review/action may be needed, not proof of maliciousness. Avoid a single opaque risk score that blends these dimensions.
+
+### 61.6 Evidence linkage and completeness
+
+Every investigation should have an evidence register referencing Section 60 acquisition manifests and custody records. For each item, show:
+- source-qualified identifier and source namespace;
+- event/object time, acquisition time and recorded/ingested time separately;
+- acquisition scope, query/rule version and collector;
+- item status: planned, acquired, unavailable, expired, partial, rejected or superseded;
+- integrity digest and verification status only if measured;
+- classification, access restrictions and custody status;
+- relation to a finding (supports, contradicts, contextualizes, duplicates or unrelated);
+- known limitations, redactions and derivative/parent references.
+
+An investigation completeness summary must list expected sources and whether each is available, collected, partial, not configured, not monitored, expired or unknown. This is not a percentage score unless denominator and weighting are explicitly defined and justified. A missing source must not be silently treated as a clean result.
+
+Preserve source namespace separation: Supabase Auth/Postgres/Storage, Android direct-Supabase paths, Admin direct-Supabase paths, Render/Laravel, Sanctum, Edge Functions and external providers have different event visibility and principal identifiers. Correlate only through actual identifiers and documented confidence. Never assume Laravel telemetry covers direct Supabase operations.
+
+### 61.7 Decisions, approvals and response-action traceability
+
+Separate four stages:
+1. **Recommendation:** analyst proposes a response and explains expected benefit, risk, alternatives and evidence.
+2. **Authorization:** appropriate authority approves, rejects, defers or narrows the action.
+3. **Execution:** named authorized executor performs the approved operation through its authoritative backend.
+4. **Verification:** a separate check confirms actual effect, residual exposure and unintended impact.
+
+The application must record exact target, action, scope, preconditions, expiry/review condition, rollback/recovery plan, approver, executor, timestamps and outcome. If executor is also approver, record that fact; do not invent a second application role to satisfy a separation-of-duties ideal. Governance may require independent review for high-impact actions, but that policy must be approved and supported by actual authorized personnel.
+
+For TACResQ, potential actions such as account suspension, session revocation, role change, token invalidation, incident access restriction, service isolation, data deletion or provider configuration changes must use existing authoritative controls and their actual semantics. Supabase Auth and Laravel Sanctum are separate identity/session domains. Global sign-out may not instantly invalidate already-issued access JWTs. A successful RPC response alone is not proof that every downstream session, device, provider or cached state has been contained.
+
+No automated containment, account suspension, session revocation, evidence deletion, external-authority notification or production configuration change should be triggered solely by a detection rule. Require explicit authorization and action-specific preconditions. Where an emergency exception is institutionally approved, its scope, time limit, rationale, retrospective review and rollback must be recorded.
+
+### 61.8 Closure, reopening and post-incident learning
+
+Closure requires a documented disposition, scope reviewed, evidence coverage/limitations, unresolved risks, response decisions and outcomes, communication obligations where authorized, and follow-up ownership. Closure does not mean all evidence sources were complete or recurrence is impossible.
+
+Possible closure dispositions include confirmed security incident, substantiated policy/control violation, benign expected behavior, false positive, duplicate/related investigation, inconclusive/insufficient evidence, transferred to an authorized external process, or closed with accepted residual risk by an authorized decision-maker. Use only dispositions approved by the institution; this list is a design proposal, not a currently adopted TACResQ policy.
+
+A case transferred elsewhere must retain transfer authority, recipient, scope and acknowledgement status. It must not be marked fully resolved merely because a handoff was sent.
+
+Post-incident review should ask what happened, which controls and data sources worked or failed, what uncertainty remained, which response actions were effective, what harm or disruption occurred, and what should change. Corrective actions should link to specific rules, source contracts, controls, tests, training or operational procedures. Each action has an accountable owner, priority, target/review date, verification method and closure evidence. Do not equate recommendation recorded with improvement implemented.
+
+### 61.9 Admin IPS workspace and navigation implications
+
+Keep the existing eight Admin destinations and existing website theme. Do not add a new application role or make the Admin IPS a generic SOC product. A future investigation workspace can be reached from Security detections and linked from Activity log and evidence reports, while preserving the established navigation model.
+
+Recommended page composition:
+- **Detection queue:** compact list with state, severity, confidence, urgency, rule/version, source coverage, first/last observed time and age. Filters expose their scope.
+- **Signal detail:** rule logic summary, prerequisites, matched source references, duplicate links, source health and disposition history.
+- **Investigation workspace:** scope, linked detections/findings, evidence register, timeline, analyst notes, unresolved questions and completeness gaps.
+- **Decision panel:** recommendation, authority, approval/rejection/deferment, constraints and rationale. Keep recommendation visually distinct from authorized action.
+- **Action verification:** requested/approved/attempted result and independent verification state.
+- **Closure/review:** disposition, residual risk, communication status where authorized, lessons and corrective actions.
+
+Use master/detail layouts that adapt to available width. On narrow screens, move secondary metadata into disclosure sections without losing critical state or evidence provenance. Preserve keyboard navigation, focus management, zoom/reflow, accessible status announcements and the site's current color/theme tokens. Do not use color alone to distinguish severity, confidence, state or authorization.
+
+The current Admin IPS must not display these as functioning case controls until data contracts, backend authorization, audit-of-audit, retention and evidence storage are implemented and tested. Until then, present research/design documentation only; do not fabricate detections, case counts, source health or response outcomes.
+
+### 61.10 Verification and acceptance matrix
+
+| Scenario | Required result |
+|---|---|
+| Rule evaluation emits no match | Evaluation is traceable; no alert or incident is fabricated |
+| One event matches multiple rules | Distinct rule evaluations/signals are retained and linked to the shared source event |
+| Repeated delivery/retry | Duplicate handling is idempotent where source identity permits; distinct attempts remain distinguishable |
+| False-positive disposition | Reason, reviewer, rule version and evidence references are retained; no confirmed incident is implied |
+| Insufficient source coverage | Triage shows missing/expired/unavailable source; no clean/all-clear conclusion |
+| Supabase and Sanctum identifiers collide | Principals remain namespace-separated without trusted mapping |
+| Detection promoted to investigation | Investigation records scope, initiator, linked signals and initial evidence completeness |
+| Contradictory evidence appears | Finding is revised or qualified through a new version; original statement remains in history |
+| Concurrent reviewers update state | Stale transition is rejected and current state returned without lost updates |
+| Suppression rule is applied | Scope, owner, reason, version and review/expiry are visible; evidence capture is not silently disabled |
+| High-impact response proposed | Proposal is not executed until required authority and preconditions are satisfied |
+| Authorized action partially fails | Partial/unknown outcome is explicit; retries do not create misleading success |
+| Action reports success but downstream state differs | Verification fails or remains inconclusive; no complete-containment claim |
+| Investigation is closed then new evidence arrives | Reopening preserves prior closure and report versions |
+| Case is transferred externally | Recipient, authority, scope and acknowledgement are recorded; transfer is not mistaken for resolution |
+| Corrective action is marked complete | Verification evidence is attached; recommendation-only status is insufficient |
+| Audit/evidence access is denied | Backend enforces denial; record it where observable without exposing sensitive evidence |
+| UI is narrow/zoomed/keyboard-only | Critical status, provenance, transitions and evidence links remain operable and understandable |
+
+### 61.11 Implementation dependencies and current-state limitations
+
+Before implementing this workflow, reconcile and approve:
+1. Canonical event/detection/investigation/evidence/decision/action schema and stable IDs.
+2. Rule registry, rule-version lifecycle, evaluation history and source prerequisites.
+3. Source coverage/health contracts across direct Supabase, Auth, Storage, Edge, Render/Laravel, Sanctum and providers.
+4. Evidence acquisition, custody and retention contracts from Sections 59–60.
+5. Existing Admin MFA, active-account and backend authorization controls, plus action-specific authorization.
+6. Audit coverage for signal review, investigation reads/searches, evidence access/export, state changes, approvals and response attempts.
+7. Institutional authority, approval policy, escalation contacts, disclosure policy and retention schedule.
+8. Synthetic test fixtures, concurrency tests, negative authorization tests and staging end-to-end verification.
+
+The reviewed repository and prior live read-only snapshots do not establish a production detection engine, case-management service, universal event ingestion, complete audit coverage, approved incident-response authority, response automation or end-to-end verified evidence workflow. These remain design requirements and validation gaps, not implemented capabilities.
+
+**Research references**
+- NIST SP 800-61 Rev. 3 (final, April 2025), current incident-response guidance: https://csrc.nist.gov/pubs/sp/800/61/r3/final
+- NIST CSRC Incident Response publications and status: https://csrc.nist.gov/Projects/incident-response/publications
+- CISA Federal Government Cybersecurity Incident and Vulnerability Response Playbooks (operational examples for federal agencies): https://www.cisa.gov/sites/default/files/2024-08/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf
+- Sigma Rules Specification 2.1.0 (rule metadata, status, logsource and detection structure): https://sigmahq.io/sigma-specification/specification/sigma-rules-specification.html
+- NIST CSF 2.0: https://www.nist.gov/cyberframework
+
+This section is a research and verification specification only. No detection engine, case-management table, response automation, notification integration, role, permission, RPC, retention setting, evidence store, production configuration or live data was changed.
