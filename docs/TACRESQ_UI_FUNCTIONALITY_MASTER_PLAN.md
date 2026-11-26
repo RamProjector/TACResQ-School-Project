@@ -3184,3 +3184,219 @@ For each, inspect:
 - [Intelligence Community Design System — Typography](https://design.sis.gov.uk/styles/typography/)
 
 **Evidence boundary:** Section 39 is a researched visual specification. It does not claim that the Admin UI has been restyled, that accessibility testing has passed, or that any theme tokens or application code have changed.
+
+
+## 40. Admin IPS overview, operational information, and attention hierarchy
+
+**Research date:** 2026-11-26.  
+**Scope:** Define what the Admin IPS Overview should communicate, how operational evidence should be prioritized, and how it should differ from Analytics, Activity Log, and Security. Preserve the existing TACResQ theme, eight-destination information architecture, current backend boundaries, and source-backed capability limits. This is a design and evidence specification, not authorization to add monitoring infrastructure, alert delivery, or new backend capabilities.
+
+### 40.1 The Overview is an orientation and triage surface
+
+The Overview should answer, in order:
+
+1. Is there a verified condition that needs administrator attention?
+2. Which connected system or capability is affected?
+3. How current and complete is the evidence?
+4. What is the safest next place to investigate?
+
+It should not attempt to answer every analytical or forensic question on one page. Google SRE guidance distinguishes dashboards used to summarize service health from logs and detailed analysis used to investigate causes. It also recommends metrics that serve a defined operational purpose rather than collecting and displaying measurements merely because they are available. See [Google SRE — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) and [Google SRE Workbook — Monitoring](https://sre.google/workbook/monitoring/).
+
+For TACResQ, the Overview is an administrator's orientation surface, not a dispatch control room, not a live map, and not a promise of comprehensive IDS/IPS monitoring.
+
+### 40.2 Keep four information jobs distinct
+
+| Destination | Primary question | Appropriate content |
+|---|---|---|
+| Overview | What needs attention now, and where should I go next? | Verified high-priority conditions, concise dependency readiness, recent confirmed noteworthy events, and links to the responsible workspace |
+| Analytics & reports | What patterns or changes occurred over a defined period? | Aggregated metrics, definitions, periods, source provenance, comparisons and export where supported |
+| Activity log | What recorded action or investigation event occurred? | Source-qualified event records, actor/target/time/context, filters, pagination and event detail |
+| Security | What security assurance and administrator security controls are currently evidenced? | Admin MFA assurance, supported authenticator controls, and clearly separated provider/application security evidence |
+
+Do not duplicate full tables, charts, or event streams on Overview. A small recent-event preview may link to Activity Log, but must identify the stream and its coverage limitations. A dependency summary may link to the relevant diagnostics or Settings/Help explanation; it must not become a second health-monitoring product.
+
+### 40.3 Evidence-first dependency summary
+
+The existing health panel's source-level scope is limited:
+- Render Laravel service health through the `/up` endpoint.
+- Supabase Auth health.
+- A fixed-result database health RPC.
+
+These checks do not prove FCM delivery, routing-provider availability, Supabase Storage integrity, background worker health, Android end-to-end functionality, or successful user workflows. A successful component probe is evidence only for that probe at the time it ran.
+
+Present each dependency as an independent row with:
+- component/provider name;
+- exact check performed (not a vague “system health” label);
+- last successful check time;
+- most recent attempt time and outcome;
+- freshness state;
+- source and scope;
+- a link to relevant troubleshooting or provider details when supported.
+
+Use bounded labels:
+- **Healthy (probe):** the named check succeeded.
+- **Degraded:** the named check returned a known partial/failure condition.
+- **Unavailable:** the check could not be completed or the dependency is not reachable.
+- **Stale:** the last result is too old to represent current state.
+- **Not monitored:** no telemetry/check exists for this component.
+- **Not configured / not connected:** the integration is known not to be connected in this environment.
+- **Unknown:** evidence is absent or inconclusive.
+
+Never convert missing telemetry into “healthy”, “offline”, or “no incidents”. Do not aggregate several independent components into one green “All systems operational” indicator when unmonitored dependencies remain. If a summary is necessary, it must say “3 checks passed; 4 components not monitored” or equivalent exact accounting, not claim full-system health.
+
+The source-backed baseline is that FCM, routing, Storage integrity, worker execution and end-to-end workflows are not proven by the current three-check health panel. Retain explicit “not monitored / not verified” states until a real source is implemented and validated.
+
+### 40.4 Attention hierarchy: urgency, confidence, and actionability
+
+Use a restrained hierarchy rather than a wall of colored cards:
+
+1. **Immediate attention:** a verified, current condition with material security or service impact and a clear authorized response.
+2. **Needs investigation:** a credible discrepancy, repeated failure, stale critical check, or unresolved event that requires review but is not proven to be an active incident.
+3. **Needs review:** lower-risk changes, policy/configuration drift, or a non-urgent source limitation.
+4. **Informational:** successful administrative changes, routine events, and historical context.
+
+Each attention item should answer:
+- What was observed?
+- Which source reported it?
+- Which principal, component, or operation is affected, if known and authorized?
+- When did it occur, and when was it last observed?
+- Is the event confirmed, suspected, stale, or unresolved?
+- Why does it matter?
+- What is the safe next action, and which page owns that action?
+
+Severity is not confidence. A potentially severe but unverified signal should be labelled as suspected/unconfirmed, not presented as a confirmed breach. Confidence is not impact either. Keep evidence confidence and impact/severity as separate attributes in the data contract if the backend supports them.
+
+Do not invent detections from ordinary audit events. A role change, login event, failed probe, or empty log result is not automatically an intrusion. Use a security detection only when a defined, versioned rule identifies a specific policy violation and the event has a traceable source.
+
+Google SRE recommends human alerts be simple, actionable, and tied to a real or imminent user-visible problem; its monitoring workbook also describes severity levels and alert suppression to reduce noise. Apply these principles to administrator attention without adding paging or notification delivery that the current system does not support. See [Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) and [Monitoring](https://sre.google/workbook/monitoring/).
+
+### 40.5 Overview content order and layout
+
+Recommended page composition:
+
+**A. Page heading and context**
+- Compact “Overview” title.
+- Optional last-updated indicator for the data currently displayed.
+- No oversized hero, decorative illustration, or generic welcome paragraph.
+- No universal global search field.
+
+**B. Attention queue (only when supported)**
+- Show verified, actionable items first.
+- Keep each item concise and source-labelled.
+- If no qualifying item exists, show a neutral “No verified items currently require attention” only when the underlying detection source was successfully checked. If no detection source is connected, say “Security detection feed not connected” instead.
+- Do not fabricate an empty “alerts” panel simply to fill space.
+
+**C. Dependency readiness**
+- A compact list/table of the actual probes and their evidence states.
+- Keep the Render, Supabase Auth and database checks distinct.
+- Show unmonitored components as explicit coverage gaps, not green statuses.
+- Avoid large colored status tiles; status text and a restrained semantic icon are sufficient.
+
+**D. Recent noteworthy activity**
+- A small, bounded preview of an existing event source only.
+- Show source, timestamp, actor/target when authorized, and concise action.
+- Label the preview's source and known coverage boundary.
+- Link to Activity Log for full filtering and investigation.
+- Do not imply the preview includes every Android, Supabase Auth, Storage, Edge Function, Laravel Sanctum, or direct Supabase event.
+
+**E. Analytical context only when useful**
+- At most a small number of source-backed trends that support an administrator decision.
+- Every metric needs definition, unit, period, source, freshness and a link to its detailed report.
+- Do not duplicate Analytics & reports or use arbitrary KPI tiles.
+
+Use a responsive two-region composition on wide screens only when the attention queue and dependency summary have a clear relationship. On narrower screens, stack them in priority order. Do not create a fixed grid of identical cards irrespective of content.
+
+### 40.6 Metrics: no vanity counts and no unsupported real-time claims
+
+Before showing a metric, define:
+- name and business/operational meaning;
+- numerator, denominator and exclusions where relevant;
+- unit and aggregation;
+- time window and timezone;
+- source table/API/provider;
+- freshness and known ingestion delay;
+- permission and privacy scope;
+- whether the metric is a count, rate, snapshot, or estimate.
+
+Examples of metrics that may be useful only if a trustworthy source and definition exist:
+- request/API success and failure rates;
+- latency percentiles separated by successful and failed requests;
+- volume of specific recorded security detections by rule and period;
+- unresolved investigation items by severity and age;
+- dependency probe success rate over a defined interval.
+
+Do not display:
+- fabricated “active users” from a paginated subset;
+- total incidents derived from only the current page;
+- “online responders” based on stale GPS locations or a narrow query;
+- total security events by summing overlapping streams;
+- zero for a missing or unavailable source;
+- real-time labels for cached or delayed data;
+- capacity/saturation metrics without a real measured resource and denominator.
+
+Google SRE's four golden signals—latency, traffic, errors and saturation—are a useful service-monitoring framework, but they should not be pasted into the TACResQ Admin Overview unless each metric is actually instrumented for the relevant service and has a clear operational use. For the current portal, source-specific dependency checks and evidence limitations take precedence over generic golden-signal tiles.
+
+### 40.7 Security events versus routine activity
+
+Keep three concepts distinct:
+
+- **Administrative activity:** an action occurred, such as a role change or account lifecycle transition.
+- **Security-relevant event:** an event may affect assurance or authorization, such as a failed privileged operation or authentication-provider event.
+- **Security detection:** a defined rule has evaluated evidence and classified a policy discrepancy or suspected violation.
+
+The UI must not silently promote one category into another. For example:
+- A successful ordinary role change is administrative activity and may be security-relevant for review; it is not inherently an intrusion.
+- A failed request may be a client error, stale state, missing permission, or malicious attempt; it needs a classified reason before it is described as an attack.
+- A missing audit row may indicate absent coverage or telemetry failure; it does not prove no action occurred.
+- A valid multi-role assignment is not a discrepancy where the approved role-applicability matrix permits it.
+
+Display event source, event type, outcome, and rule/version when applicable. Keep raw event records and derived detections linked but distinct so investigators can inspect the evidence behind a classification. Do not expose tokens, secrets, MFA material, private attachment paths, message contents, or unnecessary precise location data in overview previews.
+
+### 40.8 Freshness, partial failure, and aggregation rules
+
+- Timestamp every provider check and every data aggregation with an explicit timezone.
+- Distinguish event occurrence time from ingestion/observation time where both are available.
+- Use a source-specific freshness threshold; do not invent one universal threshold for all providers.
+- If one source fails, retain successful results from other sources but mark the overall view partial.
+- Never silently replace a failed refresh with old data presented as current.
+- If stale values remain visible for continuity, label them stale and show the last successful observation.
+- Keep counts tied to the exact query scope and pagination semantics.
+- Avoid combining event streams with different retention, completeness, identity namespaces, or time semantics into one total.
+- Show “not available” separately from zero.
+- Make refresh behavior explicit; avoid a fake live indicator or automatic polling that the current backend does not support.
+
+The Google SRE Workbook notes that stale monitoring data can lead operators to make incorrect decisions and recommends planning freshness requirements around the operational use of the data. Its exact timing examples are not a TACResQ SLA; define and validate thresholds for each actual source rather than copying them.
+
+### 40.9 Dashboard interaction and navigation
+
+- Overview items should deep-link to the existing page and filter/detail context that owns the task.
+- Preserve the selected event, user, or filter when navigating to a detail pane and back where practical.
+- Do not put privileged mutation controls on Overview when the canonical action belongs in User management or Security.
+- Do not introduce a generic “Resolve” button unless a backend workflow defines what resolution means, who may do it, and how it is audited.
+- Do not create an Alerts destination or notification center solely to host hypothetical alerts.
+- A refresh control must indicate which sources are refreshed and whether each succeeded.
+- Use skeleton/loading states only while a request is pending; do not use animated placeholders as permanent decoration.
+- Every item must have an accessible text label and keyboard-operable destination.
+
+### 40.10 Acceptance criteria
+
+- Overview answers what needs attention and where to investigate without duplicating Analytics, Activity Log or Security.
+- Every displayed status or metric has a traceable source, scope, freshness and meaning.
+- Current Render, Supabase Auth and database probes are represented independently and accurately.
+- FCM, routing, Storage integrity, workers, Sanctum identity and end-to-end workflows are not presented as monitored unless verified telemetry is added.
+- Missing, stale, partial, unavailable, and zero values are distinguishable.
+- No unverified event is labelled a confirmed intrusion.
+- Security detections identify their rule/version and preserve a path to underlying evidence.
+- No unsupported global search, alert delivery, automatic remediation, or privileged mutation is introduced.
+- Responsive composition preserves priority and readable content without a generic all-card grid.
+- The page remains useful with no qualifying alerts, partial source failure, and no telemetry configured.
+- No existing theme, route, role, permission, API contract, or backend behavior changes as a result of this design specification.
+
+### 40.11 Research references
+
+- [Google SRE — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
+- [Google SRE Workbook — Monitoring](https://sre.google/workbook/monitoring/)
+- [Google SRE — The Four Golden Signals](https://sre.google/sre-book/monitoring-distributed-systems/#monitoring)
+- [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/)
+
+**Evidence boundary:** Section 40 is a researched design specification grounded in the documented repository and backend audits. It does not claim that new monitoring, detection, alerting, or metrics pipelines exist; it does not assert that every source is complete or live; and it does not change application code, backend services, database schema, permissions, theme tokens, or production configuration.
