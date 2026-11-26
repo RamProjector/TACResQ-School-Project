@@ -222,5 +222,6 @@ Consult the canonical master plan for detailed evidence and acceptance requireme
 - Section 43: rule lifecycle, deterministic test strategy, false-positive control, severity/confidence/notification separation, alert fatigue, and degraded-source handling.
 - Section 44: human-led security investigation lifecycle, triage dispositions, evidence provenance, append-only decisions, containment authority boundaries, and closure/lessons learned.
 - Section 45: monitoring assurance, telemetry freshness, explicit source inventory and coverage, independent monitor-of-monitor paths, liveness/readiness separation, alert health, and truthful status presentation.
+- Section 46: backup/recovery evidence levels, Supabase beta project clone limitations, independent Auth and Storage recovery, measured RPO/RTO, isolated restore drills, Admin Data & Continuity UX, and Render ephemeral-filesystem boundaries.
 
 If the master plan has additional sections beyond this map, read and apply them as well. The canonical document always wins over this summary when it contains more precise or newer evidence.
