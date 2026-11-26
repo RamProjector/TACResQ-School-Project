@@ -287,10 +287,6 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const visiblePages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstVisiblePage + index);
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
-  const notificationReadCount = events.filter((event) =>
-    event.source === "app_action_audit_logs" && event.event_type === "notification_marked_read"
-  ).length;
-
   return (
     <section className="audit-page" aria-labelledby="audit-page-title" aria-busy={loading}>
       <div className="audit-page__intro">
@@ -418,7 +414,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <div className="audit-page__summary" role="status" aria-live="polite">
         <span>{loading ? "Loading activity…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
-        <span>{loading || error ? "Notification reads: —" : "Notification reads on this page: " + notificationReadCount.toLocaleString()}</span>
+        <span>Notification-read changes are not included in this feed.</span>
         <span className="admin-data-freshness" data-state={error ? "error" : loading ? "loading" : lastSuccessfulRefresh ? "success" : "empty"}>{error ? "Unavailable" : loading ? "Refreshing…" : lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
