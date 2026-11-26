@@ -7435,3 +7435,72 @@ Recommended sequence:
 6. Validate completeness and ingestion health with synthetic fixtures before exposing compliance claims or broad Admin UI controls.
 
 This section is research and a verification specification only. It does not add an event table, trigger, outbox, logger, policy, retention schedule, dashboard control or production instrumentation. No database, provider, account, token, attachment, deployment or production setting was changed.
+
+
+## 58 — Security configuration drift prevention and CI enforcement design
+
+**Assessment date:** 2026-11-26. **Scope:** repository workflow and migration source review at `929ed7fe0aa57a3e3a9595b708c17c40f666e19f`, with live-catalog findings from Sections 53–57. This section distinguishes existing automated checks from controls still missing; it does not claim a new test has been implemented or run.
+
+### 58.1 Existing controls worth preserving
+
+The repository already has a meaningful PostgreSQL security regression lane:
+
+- `.github/workflows/rpc-grant-contract.yml` runs `tools/test_rpc_grants.py`, account-lifecycle foundation assertions, clean migration replay, and SQL privilege/runtime contracts for assignments, operational tables, core tables, device registry and location RPCs.
+- `tools/test_supabase_migration_replay.sh` replays every checked-in Supabase migration into disposable PostgreSQL and invokes public/private SECURITY DEFINER inventory checks, Storage bucket inventory, lifecycle foundation and read-only profile-RLS tests.
+- `.github/workflows/ci.yml` runs callable-inventory, notification, Storage, migration-history, account-lifecycle, Admin MFA, Sanctum-boundary and other source-contract checks.
+- `.github/workflows/security.yml` runs repository security guardrails and CodeQL for Android, web and GitHub Actions.
+- `tools/test_workflow_security.py` checks explicit workflow permissions, pinned external actions, pull-request trust boundaries, secret handling and selected privileged workflow constraints.
+
+These are source/replay assertions in disposable CI. They do not automatically inspect hosted PostgREST configuration, effective deployed grants, the live migration ledger or runtime behavior.
+
+### 58.2 Confirmed gaps and configuration boundaries
+
+1. **Data API exposed schemas:** Dashboard/API configuration is external to ordinary migration SQL. The current review has not obtained authoritative evidence that `private` is absent from the exposed-schema list. PostgreSQL `USAGE` and function EXECUTE do not by themselves prove PostgREST reachability.
+2. **Private schema grants:** authenticated currently has `USAGE` and EXECUTE on 13 reviewed private helpers. Some helpers are deliberately called by RLS policies and guarded wrappers. A blanket revoke could break legitimate authorization dependencies; preserve per-function contracts.
+3. **Trigger-only function EXECUTE:** the live catalog previously showed `public.tacresq_require_incident_location()` executable by PUBLIC, anon, authenticated and service_role despite being trigger-only. A branch revocation draft exists, but live application was not authorized or performed. CI must verify both trigger binding and absence of direct client/PUBLIC execution after clean replay.
+4. **Default privileges and future objects:** current-object ACL checks do not guarantee future functions/tables inherit safe defaults. Effective grants must be checked after migrations, and default ACLs reviewed separately by schema and object creator.
+5. **Inherited privileges and role membership:** checking only explicit ACL text is insufficient. Assertions should use effective privilege functions and inspect role membership, PUBLIC grants, ownership and BYPASSRLS.
+6. **Migration ledger/config drift:** clean replay verifies the branch migration set, not whether hosted migration history and schema match it. Reconcile known ledger/version discrepancies before any hosted migration.
+7. **Function inventory drift:** new public/private functions can be introduced without updating a manually curated expected list. CI should compare catalog output to a reviewed manifest, with explicit approval/update rather than silently accepting a changed count.
+
+### 58.3 Required CI contract
+
+Extend the existing disposable PostgreSQL replay lane with a dedicated configuration-drift SQL contract. Do not create a second independent migration replay service if the current RPC-grant job can run assertions in its existing database.
+
+The contract should fail on:
+
+- Unexpected anon or PUBLIC EXECUTE on client-reachable public functions, except a narrowly documented allowlist such as the fixed-result health endpoint.
+- Unexpected anon, authenticated or PUBLIC EXECUTE on trigger-only functions, including `tacresq_require_incident_location()`; verify the function remains bound to its expected trigger(s).
+- Any private function absent from the reviewed manifest, or a changed signature, owner, SECURITY DEFINER flag, `search_path`, or effective EXECUTE set without an explicit manifest update.
+- Private implementation routines becoming executable by anon/authenticated/PUBLIC when intended only for guarded wrappers.
+- Unexpected schema CREATE privileges, role membership, BYPASSRLS, default ACLs or direct table/sequence privileges.
+- Missing RLS on an expected protected relation, unexpected policy removal/change, or a table-owner/FORCE-RLS assumption changing.
+- Migration replay producing a different effective privilege inventory from the approved contract.
+
+The manifest should record schema, signature, owner, security mode, pinned settings, intended caller roles, purpose, trigger/policy dependency and review rationale. Prefer querying `pg_proc`, `pg_namespace`, `pg_roles`, `pg_auth_members`, `pg_default_acl`, `pg_class`, `pg_policies`, `information_schema` and effective `has_*_privilege` functions. Avoid brittle ACL-string matching as sole proof.
+
+### 58.4 What CI cannot prove
+
+- Whether Supabase Dashboard's Data API exposed-schema list includes `private`; capture this as a controlled environment configuration assertion or authenticated PostgREST reachability test against a disposable Supabase stack.
+- Whether the hosted database has exactly the same migration set and effective catalog as clean replay.
+- Whether a real JWT with a suspended profile can still call an endpoint through every transport.
+- Whether Storage HTTP, Edge Functions, FCM, Render and direct Android paths behave as expected.
+- Whether a denied request is durably logged and creates the intended Admin-visible evidence.
+
+These require separate environment-specific checks. Do not put production credentials into pull-request jobs or turn a CI configuration check into an automatic production mutation.
+
+### 58.5 Safe implementation order
+
+1. Freeze the reviewed catalog manifest from clean branch replay and reconcile expected counts with actual SQL output.
+2. Add the trigger-only grant/binding assertion and default-privilege/role-membership checks to the existing SQL contract.
+3. Add per-function private-helper assertions without revoking legitimate RLS/wrapper dependencies.
+4. Add a controlled Supabase configuration check for exposed schemas; keep secrets out of logs and use read-only credentials.
+5. Run the entire disposable replay and existing RPC-grant suite on the exact commit.
+6. Compare a read-only hosted catalog/config snapshot with the manifest; report drift, do not auto-repair it.
+7. Only after reviewed evidence, prepare a separate migration for any required grant correction and test effects on triggers, RLS, Storage and RPC wrappers.
+
+### 58.6 Release gate
+
+Security configuration is **CI-enforced** only when the test runs on pull requests, fails on a deliberately introduced unsafe grant/configuration in a disposable fixture, passes on the reviewed baseline and produces an inspectable inventory. Hosted configuration is **verified** only when the actual project setting and authenticated endpoint reachability are independently checked. A source assertion or clean local replay alone is not hosted verification.
+
+**Change boundary:** design and source-audit documentation only. No CI workflow, test, migration, ACL, role membership, Data API exposed-schema setting, Storage policy, Render configuration or production resource was changed.
