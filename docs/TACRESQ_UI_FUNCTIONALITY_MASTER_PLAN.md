@@ -8570,3 +8570,99 @@ Do not fetch, print, copy, test, or ask the user to paste any secret value. If e
 **Change boundary:** repository source and migration review plus read-only live role/grant catalog inspection. No secrets were retrieved; no credential was rotated; no role, grant, function, policy, provider setting, workflow secret or production data was changed.
 
 **References:** Supabase [API keys](https://supabase.com/docs/guides/api/api-keys), [Edge Function secrets](https://supabase.com/docs/guides/functions/secrets), [Secure Data API](https://supabase.com/docs/guides/api/securing-your-api), [Database functions](https://supabase.com/docs/guides/database/functions), and OWASP [Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html).
+
+
+## Section 62 — Migration-history reconciliation and clean-replay reliability
+
+### 62.1 Current inventory snapshot
+
+A fresh read-only comparison on 2026-11-26 found **104 migration files in the branch** and **104 entries in the connected Supabase migration ledger**. Equal totals do not mean the histories are aligned.
+
+| Classification | Branch source files | Live ledger entries | Interpretation |
+|---|---:|---:|---|
+| Exact version-and-name matches | 101 | 101 | Same timestamp and migration name |
+| Version aliases | 2 | 2 | Same logical migration name, different timestamp |
+| Live source gap | 0 | 1 | Applied ledger entry has no matching checked-in source file |
+| Unapplied branch draft | 1 | 0 | Source file is not recorded as applied live |
+| **Total** | **104** | **104** | Different membership despite equal counts |
+
+The two aliases are:
+
+| Branch migration file | Live ledger identity | Current evidence |
+|---|---|---|
+| `20261125120000_read_only_account_profile_rls.sql` | `20261125025825_read_only_account_profile_rls` | Live stable non-locking account predicate and restrictive active-account read policies are present |
+| `20261125130000_remove_legacy_fcm_active_account_policy.sql` | `20261125030010_remove_legacy_fcm_active_account_policy` | Live FCM operation-specific restrictive policies are present; the legacy all-operations policy is absent |
+
+The source files were introduced in repository history through the changes associated with PRs #365 and #366. Their names correspond to the live ledger names, but their timestamps differ. The live catalog confirms the intended current effects; it does **not** prove that the exact checked-in SQL bytes are identical to the SQL originally applied under the older ledger versions.
+
+The remaining live-only entry is `20261125030354_make_actor_role_lookup_read_only_safe`. No matching migration source file or path history was found in the repository. The live `private.tacresq_actor_role()` function is currently `STABLE SECURITY DEFINER`, owned by the trusted database owner, with `search_path=pg_catalog`; its body returns the active profile role. The checked-in `20261021103158_restrict_actor_helper_search_path.sql` only pins the helper's search path and is not the missing volatility-change migration. Do not reconstruct a historical migration from its filename or from the present-day function definition.
+
+The branch-only draft remains `20261126100000_revoke_incident_trigger_function_client_execute.sql`. Section 59 records that the corresponding live trigger function still has the client/service EXECUTE grants, and that the draft is not in the live ledger.
+
+### 62.2 What the current alignment test proves
+
+`tools/test_migration_history_alignment.py` previously divided the branch inventory into an expected applied-source set, pending files and a live source-gap note. That was useful as a repository inventory guard, but it did not encode the exact alias pairs.
+
+The test now explicitly records:
+- the two reviewed branch-filename to live-version aliases;
+- the separate unapplied trigger-grant draft;
+- the live-only actor-role migration source gap;
+- assertions that the alias source names match their live logical names, their timestamps are different, and the live timestamps do not also exist as local migration filenames.
+
+This is a **static repository contract**. It does not query the hosted migration ledger, prove historical SQL equivalence, validate live schema state or authorize a migration repair. The CI runner has no reason to receive production database credentials merely to validate this frozen mapping.
+
+### 62.3 Clean replay is not hosted migration-history parity
+
+The current `tools/test_supabase_migration_replay.sh` applies every SQL file in `supabase/migrations/` in filename order to a disposable plain PostgreSQL database. This is valuable for proving that the current checked-in files can build a test schema and satisfy the SQL assertions that follow.
+
+It does not reproduce the connected project's migration ledger. In particular, the clean replay applies both alias-named files and the trigger-grant draft as if they were the branch's local migration sequence. The hosted ledger instead records the older alias timestamps, has the actor-role source gap, and does not include the trigger-grant draft.
+
+The existing RPC-grant workflow runs its disposable PostgreSQL service on PostgreSQL 16.15, while the connected Supabase project reports PostgreSQL 17.0. The current replay also uses minimal Auth/Storage stand-ins rather than the full Supabase-managed Auth, PostgREST, Storage, Realtime and Edge runtime. Therefore:
+- a successful clean replay is evidence for that disposable PostgreSQL test environment only;
+- it does not prove hosted migration ordering or timestamp parity;
+- it does not prove the same behavior against PostgreSQL 17 or the full Supabase stack;
+- it does not prove that `supabase db push` would be safe against the connected project.
+
+### 62.4 Supabase migration semantics and operational risk
+
+Supabase documents that local migration files and the remote `supabase_migrations.schema_migrations` table are separate histories. The CLI's migration-list comparison uses timestamps to identify differences. `db push` applies local migrations that the remote history does not record. `migration repair` changes migration-history records only; it does not run or reverse the SQL.
+
+For this repository, blindly pushing the two renamed alias files could cause the CLI to treat them as unapplied even though the corresponding live schema effects are already present. Conversely, blindly marking timestamps as applied could hide an actual source/schema mismatch. The missing actor-role source file is a separate provenance problem, not something a same-name alias automatically resolves.
+
+**Do not run** `supabase db push`, `supabase migration repair`, `supabase db pull`, or any hosted migration command as part of this research pass. A future controlled reconciliation requires an approved plan and a separate explicit deployment authorization.
+
+The current repository also has no checked-in `supabase/config.toml` or `supabase/config.jsonc`, and no pinned Supabase CLI installation was found in the reviewed workflow inventory. Current Supabase CLI releases have changed initialization defaults to `config.jsonc`; CLI v3 also changed the default target behavior of database commands to local unless remote is explicitly requested. Any future CLI integration must pin a reviewed version, inspect its `--help`, use explicit local/remote flags, and keep hosted credentials out of routine CI.
+
+### 62.5 Safe reconciliation sequence
+
+1. **Freeze and export the evidence baseline.** Preserve the live migration list, branch commit SHA, migration filenames, source checksums, relevant live function/policy/trigger definitions and the time of inspection.
+2. **Recover provenance.** Search repository history, PR artifacts, approved backups and deployment records for the exact SQL originally associated with the two older alias versions and the missing actor-role version. Keep recovered SQL and source identity separate from a current-state reconstruction.
+3. **Compare effects, not just names.** For each candidate migration, compare its intended postconditions with live functions, volatility, ownership, grants, policies, triggers, constraints and indexes. Record any difference or unverifiable component.
+4. **Choose one canonical history strategy.** Prefer restoring the original versioned source filenames when exact source is recoverable and consistent with the repository. If history repair is considered instead, first prove the relevant schema effect already exists, enumerate exactly which ledger rows would be inserted/deleted, review the CLI dry-run/list output and obtain explicit authorization. Do not mix renaming and repair without a documented mapping.
+5. **Resolve the missing actor-role source gap.** Recover the original migration or create a clearly identified forward reconciliation migration from a verified schema diff. Never pretend a newly reconstructed file is the original historical SQL.
+6. **Keep the trigger-grant draft pending.** Generate its final migration filename with the Supabase CLI only after the branch/ledger baseline is reconciled; retain the runtime replay assertion from Section 59.
+7. **Test both database targets.** Retain the fast PostgreSQL 16 replay, add a PostgreSQL 17 compatibility run, and complete the separate local Supabase CLI reset/integration stage described in Section 53 before relying on PostgREST/Auth/Storage behavior.
+8. **Verify hosted state read-only after any approved deployment.** Re-read the migration ledger and exact catalog postconditions; a ledger row alone is not proof that the intended grants or policies exist.
+9. **Protect the deployment path.** Serialize migration deployment, review exact pending versions, inspect dry-run output, back up according to the approved recovery plan, and retain the operator/time/result evidence.
+
+### 62.6 Release gates and acceptance criteria
+
+| Gate | Required evidence | Current status |
+|---|---|---|
+| Branch inventory classification | 101 exact source identities, two explicit aliases, one draft, one live-only source gap | <badge color="success">Mapped</badge> |
+| Alias effect verification | Live predicate and FCM policy postconditions observed | <badge color="success">Observed</badge> |
+| Historical SQL identity | Original SQL for both alias ledger versions recovered and compared | <badge color="warning">Unverified</badge> |
+| Missing actor-role migration source | Exact source recovered or an approved forward reconciliation plan | <badge color="warning">Open</badge> |
+| Static alias guard | Source alignment test contains explicit alias and draft assertions | <badge color="info">Committed; CI pending</badge> |
+| Clean replay runtime | Exact-head replay completes with all catalog/runtime contracts | <badge color="warning">Pending</badge> |
+| PostgreSQL 17 parity | Migration replay and critical contracts pass on PG17 | <badge color="warning">Not tested</badge> |
+| Full local Supabase parity | CLI config, pinned version, Auth/PostgREST/Storage integration reset and tests | <badge color="warning">Not implemented</badge> |
+| Hosted deployment readiness | Approved migration plan, dry-run, backup/recovery and explicit authorization | <badge color="warning">Not authorized</badge> |
+
+### 62.7 Documentation integrity note
+
+The master plan currently contains repeated numeric section labels from earlier parallel research additions (including 44, 45, 58, 59, 60 and 61). This section uses a new Section 62 label and does not renumber existing headings or rewrite cross-references. Before the document is treated as a final controlled specification, generate a heading/reference index and normalize the numbering in one reviewed editorial pass.
+
+**Change boundary:** read-only hosted migration-ledger and catalog review; a static alias-classification assertion was added to `tools/test_migration_history_alignment.py`; this section records the baseline and safe reconciliation plan. No migration SQL was applied, no hosted history row was repaired, no production grant/schema/data changed, no CLI link or deployment was performed, and no production credential was added to CI.
+
+**References:** Supabase [Deploy database migrations](https://supabase.com/docs/guides/deployment/database-migrations), [migration list CLI reference](https://supabase.com/docs/reference/cli/supabase-migration-list), [Supabase CLI releases](https://github.com/supabase/cli/releases); repository PRs #365 and #366; `tools/test_migration_history_alignment.py`; `tools/test_supabase_migration_replay.sh`; `.github/workflows/rpc-grant-contract.yml`; Sections 53 and 59.
