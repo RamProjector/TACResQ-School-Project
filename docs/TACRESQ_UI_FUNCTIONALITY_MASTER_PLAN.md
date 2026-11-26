@@ -3400,3 +3400,244 @@ The Google SRE Workbook notes that stale monitoring data can lead operators to m
 - [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/)
 
 **Evidence boundary:** Section 40 is a researched design specification grounded in the documented repository and backend audits. It does not claim that new monitoring, detection, alerting, or metrics pipelines exist; it does not assert that every source is complete or live; and it does not change application code, backend services, database schema, permissions, theme tokens, or production configuration.
+
+
+## 41. Security detection presentation, investigation workflow, and evidence traceability
+
+**Research date:** 2026-11-26.  
+**Scope:** Specify how the TACResQ Admin IPS should present a security-relevant event, a derived detection, and the evidence behind an investigation. Preserve the current theme, existing routes and authorization boundaries, and the source-coverage limitations recorded in Sections 19–35. This is a design and governance specification; it does not claim that a complete detection engine, case-management workflow, immutable evidence store, or centralized logging platform currently exists.
+
+### 41.1 Distinguish event, signal, detection, and incident
+
+These terms must not be interchangeable:
+
+- **Event:** a recorded occurrence from a named source, such as a database audit row, an authentication-provider event, or a Laravel operation record.
+- **Signal:** an observation or pattern that may be relevant to security, but has not necessarily met a detection rule.
+- **Detection:** the output of an identified rule evaluated against available evidence and a defined policy/version.
+- **Investigation:** a human review of a detection and its supporting evidence.
+- **Security incident:** a confirmed or formally declared security event requiring response under an approved process.
+
+A single failed RPC is an event. Several related failures may become a signal. A versioned rule may classify a sequence as a detection. An authorized reviewer may then investigate and determine whether it is a false positive, expected behavior, policy violation, or incident. Do not skip these distinctions in labels, counters, filters, or reports.
+
+OWASP recommends separating process/audit/transaction trails from security-event logging because their purposes and event details differ. Keep source records intact and create explicit relationships between them rather than flattening everything into one timeline. See [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+### 41.2 Current evidence coverage: what the portal can and cannot claim
+
+The current source audit documents multiple separate evidence domains:
+- `admin_audit_logs`: successful ordinary-role changes, not a complete Admin action history.
+- Account lifecycle ledger: successful suspension/reactivation history, separate from investigation feed.
+- Investigation feed: a bounded set of source-specific records; seven configured source families do not prove every writer is active or every action is captured.
+- Supabase Auth audit events: provider-derived authentication evidence with persistence/retention and cross-client completeness still unverified.
+- `app_action_audit_logs`: reviewed message-sent, notification-read, and duty-status event families only.
+- Laravel `api_operation_logs`: selected Laravel-mediated operations; direct Android and Admin browser calls to Supabase bypass this logger.
+- Incident status, assignment and requester-edit histories: domain-specific histories, not a universal security audit.
+- Supabase Storage, Edge Functions, FCM, Android direct-Supabase traffic, and Laravel Sanctum: separate coverage boundaries requiring independent verification.
+
+Therefore:
+- Never call the current Activity Log a complete security timeline.
+- Never infer that an action did not occur because a particular stream has no matching row.
+- Never combine these sources into one total without documented overlap, retention, time semantics, and completeness.
+- Display source coverage and source availability alongside any investigation result.
+- Distinguish “no matching records found” from “source unavailable”, “source not connected”, “query incomplete”, and “coverage not established”.
+
+This is a direct consequence of the current repository transport and telemetry architecture: multiple clients and identity namespaces do not pass through one universal logger.
+
+### 41.3 Detection record: minimum explainable fields
+
+If a future approved backend detection pipeline is implemented, each detection should expose a stable, versioned record contract. At minimum, consider:
+
+| Field | Purpose |
+|---|---|
+| Detection ID | Stable identifier for the derived detection |
+| Rule ID and version | Exact policy logic that produced the result |
+| Detection type | Bounded category, such as invalid role assignment or repeated authorization denial |
+| First observed / last observed | Event time range, not merely dashboard display time |
+| Detection created time | When the rule engine created the result |
+| Source namespace | Supabase Auth, Postgres/RPC, Laravel API, Sanctum, Edge Function, Storage, or another verified source |
+| Source record references | Stable source-qualified IDs or references to supporting events |
+| Principal reference | Authenticated identity namespace and identifier when known; never infer identity by email |
+| Target reference | Affected account, resource, operation, or component where authorized |
+| Policy context | Applicable role/action matrix and version, when relevant |
+| Outcome and confidence | What the rule concluded and how strong the evidence is |
+| Impact/severity | Potential consequence, separate from confidence |
+| Status | Detection lifecycle state, only if a governed workflow exists |
+| Evidence coverage | Which relevant sources were checked, unavailable, or not monitored |
+
+Do not display empty fields as zero or invent values for unavailable source metadata. Keep the coursework's exact seven log fields (`session_id`, `log_id`, `actions`, `description`, `ip_address`, `timestamp`, `device_used`) as a separate compatibility requirement from this richer detection projection. A detection record is not itself a replacement for the source event log.
+
+### 41.4 Explain why a detection exists
+
+The detail view must make a detection reviewable without requiring the administrator to reverse-engineer the rule.
+
+Recommended layout:
+
+**Detection summary**
+- Human-readable title and concise explanation.
+- Severity/impact and confidence displayed independently.
+- Current state and first/last observed times.
+- Rule identifier and version.
+- Affected source and principal namespace.
+
+**Why it matched**
+- Plain-language rule condition.
+- Relevant observed values, thresholds, and time window.
+- Policy version or role/action applicability context.
+- Which conditions matched and which were unavailable.
+- Whether the result is deterministic or heuristic.
+
+**Supporting evidence**
+- Source-qualified event references.
+- Event time and ingestion/observation time where both exist.
+- Event outcome and bounded reason code.
+- Correlation/interaction identifier when present.
+- Source coverage and known missing telemetry.
+- Links to the original authorized record detail, not copied sensitive payloads.
+
+**Next action**
+- A safe navigation path to the page that owns the action.
+- No automatic block, suspension, permission change, session revocation, or data deletion merely because a detection was opened.
+- No “Resolve” or “Dismiss” control until a backend state transition, permission, audit record, and policy are defined.
+
+A reviewer must be able to answer: “What evidence supports this result, which rule interpreted it, and what important evidence is missing?”
+
+### 41.5 Investigation workspace: preserve evidence context
+
+For a future governed investigation workflow, use a master/detail composition:
+
+- **Queue:** bounded list of detections with source, severity, confidence, age, status (if implemented), and concise title.
+- **Investigation pane:** selected detection summary, explanation, supporting evidence and source coverage.
+- **Related records:** links to underlying audit/domain/provider records within their existing authorization scope.
+- **History:** recorded investigator actions and state changes, only if a durable backend workflow exists.
+
+Interaction requirements:
+- Preserve queue filters, sort, pagination, selected detection and scroll context when opening and closing a detail pane.
+- On constrained widths, open a dedicated detail view with a clear return-to-queue action.
+- Never rely on color alone to distinguish severity, confidence, source, or state.
+- Keep event time separate from detection time and investigation-action time.
+- Do not present a merged chronological sequence as authoritative if source clocks, ingestion delays, or timestamp confidence differ.
+- Provide a visible indication when evidence is incomplete or a source query failed.
+- Do not allow the detail panel to reveal records the current Admin principal is not authorized to inspect.
+
+This follows the evidence-oriented approach in NIST incident handling guidance: evidence collection and handling need documented accountability, and transfers between handlers should be recorded when chain-of-custody requirements apply. See [NIST SP 800-61 Rev. 2 — Evidence Gathering and Handling](https://nvlpubs.nist.gov/nistpubs/specialpublications/nist.sp.800-61r2.pdf). This design reference does not by itself establish legal admissibility or a legally sufficient chain of custody.
+
+### 41.6 Evidence integrity and provenance
+
+The interface should make the origin and trust boundary of every evidence item visible.
+
+Requirements for any future evidence pipeline:
+- Preserve the source record and its original source identifier.
+- Store a source namespace and source system identifier; do not rely on an unqualified numeric ID that can collide across databases.
+- Record event time and collection/ingestion time separately where possible.
+- Record collection method and query/snapshot scope.
+- Record whether the source was directly trusted, provider-supplied, client-supplied, or derived.
+- Validate and safely encode untrusted values before logging or rendering.
+- Use stable correlation IDs where available; do not invent session IDs or interaction identifiers.
+- Record any transformation, normalization, enrichment, or redaction applied to the evidence.
+- Restrict modification and deletion of evidence records through server/database authorization, not UI hiding.
+- If integrity controls such as checksums or append-only storage are added, describe precisely what they protect and what they do not prove.
+- If evidence is exported, record who exported it, when, the selected scope, and the export outcome where the approved audit contract supports it.
+
+A checksum can detect changes relative to a trusted checksum; it does not prove that the original event was truthful, complete, or collected from an uncompromised source. A UI badge saying “verified” must name the actual verification mechanism.
+
+OWASP specifically recommends recording when, where, who and what, correlating related interactions, treating data from other trust zones as untrusted, and testing logging for injection, access-control and failure behavior. See [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) and [OWASP Developer Guide — Security Logging and Monitoring](https://devguide.owasp.org/en/04-design/02-web-app-checklist/09-logging-monitoring/).
+
+### 41.7 Detection rule governance and false-positive handling
+
+Every rule must have:
+- Stable rule ID and semantic version.
+- Owner and purpose.
+- Explicit source prerequisites.
+- Required fields and their trust level.
+- Condition, threshold, time window and aggregation logic.
+- Severity/impact mapping.
+- Confidence method and limitations.
+- Known false-positive scenarios.
+- Suppression/deduplication behavior and expiry.
+- Effective date and retirement/replacement history.
+- Test fixtures for true-positive, false-positive, boundary, missing-source and malformed-input cases.
+
+Rules must not be edited silently after a detection is generated. Preserve the rule version that produced each historical detection.
+
+For the TACResQ role-applicability rules:
+- Multiple roles are permitted where the approved policy matrix says they are applicable.
+- A role mismatch is a discrepancy only when the assignment is invalid for the actor, target, action, context, or policy version.
+- Distinguish attempted unauthorized action from a successful privilege change.
+- Do not automatically “repair” a role assignment without an approved remediation policy and audit trail.
+- A rule with missing source data should return an indeterminate/insufficient-evidence result rather than a false clean bill of health.
+
+The joint government best-practices guidance emphasizes event quality, approved logging policy, source coverage, centralized correlation, secure storage/integrity, and detection strategy. It also warns that high-volume logs alone do not guarantee useful detection. See [Best Practices for Event Logging and Threat Detection](https://media.defense.gov/2024/Aug/21/2003530453/-1/-1/0/JOINT-CSI-BEST-PRACTICES-EVENT-LOGGING-THREAT-DETECTION.PDF).
+
+### 41.8 Investigation lifecycle: do not imply workflow that is not implemented
+
+A possible future lifecycle, subject to an approved backend contract, is:
+
+1. **New:** a rule produced a detection.
+2. **Acknowledged:** an authorized reviewer accepted responsibility for review.
+3. **Under review:** evidence and source coverage are being examined.
+4. **Escalated:** an approved incident-response owner/process has been engaged.
+5. **False positive:** the reviewer documented why the rule result did not represent the suspected condition.
+6. **Confirmed:** the reviewer documented the policy violation or security incident determination.
+7. **Closed:** required review and response steps are complete under the approved procedure.
+
+This is a proposed state model, not a description of current TACResQ behavior. Do not add these statuses to the live UI until ownership, permissions, concurrency, audit history, reopening, retention, and notification requirements are implemented and tested.
+
+Any state transition should record actor namespace/ID, prior and new state, timestamp, reason, linked evidence references, and outcome. Use server-side compare-and-set or equivalent concurrency protection so two reviewers cannot silently overwrite each other's work. A failed network response must show outcome-unconfirmed and require a safe refresh/reconciliation before retry.
+
+### 41.9 Privacy and least-privilege evidence display
+
+Investigation access does not imply unrestricted access to all source data.
+
+- Keep message contents, private attachment paths, signed URLs, tokens, password material, MFA secrets, and unnecessary precise coordinates out of detection summaries.
+- Show a minimum necessary preview and require an independently authorized detail action for sensitive source records.
+- Scope every evidence query server-side to the current Admin principal and approved investigation permission.
+- Do not expose a target's existence or metadata through an error response when the caller lacks access.
+- Record sensitive evidence access if the approved audit architecture supports it; do not claim such read auditing currently exists.
+- Separate evidence access from permission to change the underlying account, incident, assignment, or policy.
+- Use retention and deletion rules approved for each source; do not create an indefinite duplicate evidence store by default.
+
+### 41.10 Failure states and investigator safeguards
+
+The interface must distinguish:
+- **Evidence available:** source query succeeded and returned records.
+- **No matching evidence:** source query succeeded and returned no records within the displayed scope.
+- **Partial evidence:** some relevant sources succeeded and others failed or are not connected.
+- **Stale evidence:** data exists but is older than its source-specific freshness requirement.
+- **Unavailable source:** provider/query failed.
+- **Coverage unknown:** source completeness or retention is not established.
+- **Access denied:** the current principal cannot inspect the requested evidence.
+- **Outcome unconfirmed:** a requested investigation-state mutation may have reached the server but its result was not confirmed.
+
+Safeguards:
+- Never silently substitute cached data for a failed refresh.
+- Never treat a logging failure as proof that the underlying operation failed.
+- Never treat a missing log record as proof that an operation did not happen.
+- Do not automatically block users based solely on an unverified heuristic or a client-supplied value.
+- Rate-limit expensive searches and bound page sizes.
+- Sanitize untrusted descriptions and identifiers before rendering; prevent log injection and stored cross-site scripting.
+- Ensure investigation search and export do not become a new path for bulk disclosure.
+
+### 41.11 Acceptance and verification plan
+
+Before claiming the Admin IPS supports security investigations:
+- [ ] Inventory every event source and producer, including Android direct Supabase, Admin browser direct Supabase, Laravel API/bridge, Sanctum, Auth, Postgres/RPC, Storage, Edge Functions and provider integrations.
+- [ ] Map source identity namespace, event types, stable IDs, timestamp semantics, retention and known coverage gaps.
+- [ ] Verify that each detection links to exact source-qualified evidence and a versioned rule.
+- [ ] Test true-positive, false-positive, boundary, duplicate, out-of-order, delayed, malformed and missing-source cases.
+- [ ] Verify evidence rendering safely encodes hostile input and redacts sensitive values.
+- [ ] Test per-source authorization and cross-user/cross-tenant denial at the trusted boundary.
+- [ ] Verify concurrent reviewer transitions, stale-state conflicts, failed writes and outcome-unconfirmed recovery if a case workflow is introduced.
+- [ ] Verify event ordering does not imply precision unsupported by source clock/ingestion data.
+- [ ] Verify export access, scope, redaction and audit behavior if export is introduced.
+- [ ] Test logging failure, provider outage, partial query, retention expiry and high-volume conditions.
+- [ ] Perform an authorized end-to-end exercise with synthetic records in an isolated environment; do not manufacture production detections or alter live user records.
+- [ ] Document the remaining blind spots and do not describe the result as complete IDS/IPS coverage while direct-client and provider gaps remain.
+
+### 41.12 Research references
+
+- [OWASP — Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+- [OWASP Developer Guide — Implement Security Logging and Monitoring](https://devguide.owasp.org/en/04-design/02-web-app-checklist/09-logging-monitoring/)
+- [NIST SP 800-61 Rev. 2 — Computer Security Incident Handling Guide](https://nvlpubs.nist.gov/nistpubs/specialpublications/nist.sp.800-61r2.pdf)
+- [Joint Cybersecurity Agencies — Best Practices for Event Logging and Threat Detection](https://media.defense.gov/2024/Aug/21/2003530453/-1/-1/0/JOINT-CSI-BEST-PRACTICES-EVENT-LOGGING-THREAT-DETECTION.PDF)
+- [CISA — Logging Reference Architecture](https://www.cisa.gov/resources-tools/resources/logging-reference-architecture)
+
+**Evidence boundary:** Section 41 is a researched design and governance specification. It does not claim that TACResQ currently has a complete detection engine, case-management lifecycle, immutable evidence repository, universal audit coverage, or legally sufficient chain of custody. It does not add new database tables, RPCs, permissions, alert delivery, remediation actions, or provider integrations.
