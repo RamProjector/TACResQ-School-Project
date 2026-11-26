@@ -1566,11 +1566,24 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <p className="admin-panel__footnote">The aggregate Reports CSV is not a personal-data access or portability response. No personal-data export, correction, deletion, blocking, or retention operation is performed from this page.</p>
                 <p className="admin-panel__footnote">Reference: <a href="https://privacy.gov.ph/data-subject-rights/" target="_blank" rel="noreferrer">National Privacy Commission — Rights of Data Subjects</a> · <a href="https://privacy.gov.ph/implementing-rules-regulations-data-privacy-act-%202012/" target="_blank" rel="noreferrer">Implementing Rules and Regulations</a>.</p>
               </div>}
-              {settingsPage === "notifications" && <div className="admin-settings-subsection">
-                <p className="admin-eyebrow">NOTIFICATIONS</p>
-                <h3>Delivery preferences</h3>
-                <p>Emergency notification preferences are not configurable from this Admin portal. This section intentionally provides no quiet-hours or suppression toggle, because no verified preference-enforcement workflow is connected here.</p>
-                <div className="admin-settings-status"><span>Preference controls</span><strong>Unavailable — no verified settings service</strong></div>
+              {settingsPage === "notifications" && <div className="admin-settings-subsection admin-notifications-workspace">
+                <p className="admin-eyebrow">NOTIFICATIONS & DELIVERY ASSURANCE</p>
+                <h3>Emergency alert delivery</h3>
+                <p>Use this section to understand the current delivery boundary. It does not change recipient eligibility, mute alerts, or control emergency dispatch.</p>
+                <div className="admin-settings-status"><span>Persistent in-app notification inbox</span><strong>Primary notification record</strong></div>
+                <div className="admin-settings-status"><span>Firebase Cloud Messaging sender and retry ledger</span><strong>Implemented — delivery remains best-effort</strong></div>
+                <div className="admin-settings-status"><span>Automatic queue execution</span><strong>Not enabled in the current deployment</strong></div>
+                <div className="admin-settings-status"><span>Physical-device delivery verification</span><strong>Not verified for this release</strong></div>
+                <div className="admin-settings-card">
+                  <h4>Operational safeguards</h4>
+                  <ul>
+                    <li>The in-app notification inbox is authoritative. A push attempt is not proof that a person received, opened, or acted on an alert.</li>
+                    <li>Push messages are supplemental and should remain generic; incident details must be fetched again through the authenticated app.</li>
+                    <li>The current Render web-service startup does not run the dispatcher. Free-tier spin-down can delay a wake-up, so do not treat push as a guaranteed emergency channel.</li>
+                    <li>Do not enable quiet hours, suppression, or per-role delivery switches until server-side enforcement, emergency exceptions, audit history, and device tests are approved.</li>
+                  </ul>
+                </div>
+                <div className="admin-settings-status"><span>Recipient preference controls</span><strong>Not connected — no server-enforced preference service</strong></div>
               </div>}
 
             </section>
