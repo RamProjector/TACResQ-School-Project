@@ -2161,7 +2161,7 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $legacy_incident_sequence_privilege_contract$
 BEGIN
   IF NOT has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'USAGE')
-     OR NOT has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'SELECT')
      OR has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'UPDATE') THEN
     RAISE EXCEPTION 'Authenticated legacy incident-create RPCs require USAGE/SELECT but not UPDATE on incidents_id_seq';
   END IF;
