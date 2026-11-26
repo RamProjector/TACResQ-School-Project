@@ -1865,3 +1865,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Commits: `1760a8db6d0c29bf53a755b4650319560163ee40` and `2f05899021438c3e3933bef583222c57e910b574`.
 - Re-synchronizing PR #344 against the latest `main` while preserving PR #342's newer CI and task-handoff changes. The website visual-foundation contract is retained in CI.
 - Automated validation and browser/device acceptance must pass before merge; no production deployment or database changes are included.
+
+
+## 2026-11-26 — Admin IPS security investigation lifecycle research (Section 44)
+
+- **Scope:** Continued the Admin IPS blueprint on the existing docs/admin-ips-ui-master-plan branch and PR #370. Reviewed the current security-event coverage, trusted-denied-action evidence, authentication collection boundaries, Admin Security status component, Activity Log page, Laravel operation audit writer, and existing correlation/detection research (Sections 42–43).
+- **Finding:** The repository supports protected browsing of a bounded set of event sources, but it does not establish a persistent security-investigation case registry, evidence vault, case assignment workflow, formal forensic chain of custody, or staffed escalation process. A source event or rule match must not be described as a confirmed security incident.
+- **Change:** Added Section 44 to docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md, specifying the distinction between source events, detections, security investigation records, and TACResQ emergency incidents; proposed human triage dispositions and lifecycle; source-qualified evidence provenance; append-only decision history; explicit human authority/containment boundaries; investigation workspace composition; and closure/lessons learned.
+- **Design invariants:** Keep one Admin portal role; preserve existing theme, eight-section information architecture, collapsible sidebar, current backend authorization and emergency workflows. No automated account/session/device/network enforcement, no new top-level navigation, and no case-management controls until persistence and authorization contracts exist.
+- **Research basis:** NIST SP 800-61 Rev. 3 (2025), NIST Incident Response project, ACSC incident response planning guidance, and OWASP Logging Cheat Sheet.
+- **Commits:** To be recorded after the sequential documentation updates complete.
+- **Validation boundary:** Repository source and documentation review plus external standards research. No application code, database schema, RPC, grants, provider settings, notifications, production deployment, or merge changed. Exact-head CI must be rechecked after the documentation commits; existing workflow results are not transferable to a new head.
+- **Next:** Verify the three updated documentation files and exact PR head/checks. Keep PR #370 open and unmerged until all required checks pass on one exact head and outstanding review/acceptance requirements are satisfied.
