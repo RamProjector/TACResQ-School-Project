@@ -120,6 +120,22 @@ PENDING = {
     # PR #370: unapplied draft; must be regenerated with `supabase migration new`.
     "20261126100000_revoke_incident_trigger_function_client_execute.sql",
 }
+# These two source files use new local timestamps, while the connected
+# project's migration ledger records the same logical migration names under
+# earlier versions. This is a reviewed alias map, not proof of byte-identical SQL.
+LIVE_VERSION_ALIASES = {
+    "20261125120000_read_only_account_profile_rls.sql": (
+        "20261125025825",
+        "read_only_account_profile_rls",
+    ),
+    "20261125130000_remove_legacy_fcm_active_account_policy.sql": (
+        "20261125030010",
+        "remove_legacy_fcm_active_account_policy",
+    ),
+}
+UNAPPLIED_DRAFTS = {
+    "20261126100000_revoke_incident_trigger_function_client_execute.sql",
+}
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
 LIVE_LEDGER_SOURCE_GAPS = {
@@ -135,6 +151,34 @@ assert EXPECTED <= actual, (
 assert actual <= EXPECTED | PENDING, (
     f"Untracked migration files found. Unexpected={sorted(actual - (EXPECTED | PENDING))}"
 )
+
+# Keep three distinct classes separate: exact applied-source baseline,
+# version aliases already represented in the live ledger, and genuinely
+# unapplied drafts. This test is static; it does not query the hosted ledger.
+assert PENDING == set(LIVE_VERSION_ALIASES) | UNAPPLIED_DRAFTS, (
+    "Pending migration inventory must be exactly the reviewed version aliases "
+    "plus explicitly unapplied drafts"
+)
+local_versions = {path[:14] for path in actual}
+for source_file, (live_version, live_name) in LIVE_VERSION_ALIASES.items():
+    assert source_file in actual, f"Missing migration source for live alias: {source_file}"
+    source_version = source_file[:14]
+    source_name = source_file[15:-4]
+    assert source_name == live_name, (
+        f"Alias name mismatch for {source_file}: expected {live_name}"
+    )
+    assert source_version != live_version, (
+        f"Alias {source_file} unexpectedly uses the live version {live_version}"
+    )
+    assert live_version not in local_versions, (
+        f"Live alias version {live_version} must not also exist as a local migration"
+    )
+
+for live_identity in LIVE_LEDGER_SOURCE_GAPS:
+    live_version = live_identity.split("_", 1)[0]
+    assert live_version not in local_versions, (
+        f"Source-gap version {live_version} unexpectedly has a checked-in migration"
+    )
 
 master_plan = (ROOT / "docs" / "TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8")
 for migration_name, gap in LIVE_LEDGER_SOURCE_GAPS.items():
