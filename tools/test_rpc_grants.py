@@ -45,9 +45,6 @@ ACTIVE_CLIENT_RPCS = {
     "api_all_incidents",
     "api_assign_incident",
     "api_assign_incident_team",
-    "api_create_incident",
-    "api_create_incident_v2",
-    "api_create_incident_v3",
     "api_create_incident_v4",
     "api_cancel_my_incident",
     "api_update_my_incident",
@@ -79,6 +76,45 @@ for name in ACTIVE_CLIENT_RPCS:
     assert grant.search(MIGRATION_SQL), (
         f"Missing explicit authenticated EXECUTE grant across migrations for {name}"
     )
+
+
+# Legacy requester-create RPCs are retained only as an internal implementation
+# boundary. Current Android and Laravel callers use v4; v4 calls v3 under its
+# SECURITY DEFINER owner context. Do not re-grant the old invoker signatures.
+LEGACY_INTERNAL_RPCS = {
+    "api_create_incident": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real\)",
+    "api_create_incident_v2": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real,\s*text,\s*timestamptz\)",
+    "api_create_incident_v3": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real,\s*text,\s*timestamptz,\s*text\)",
+}
+LEGACY_REVOKE_MIGRATION = Path(
+    "supabase/migrations/20261127010000_revoke_legacy_incident_create_rpc_execute.sql"
+).read_text()
+for name, signature in LEGACY_INTERNAL_RPCS.items():
+    revoke = re.compile(
+        rf"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+FUNCTION\s+public\.{name}{signature}\s+"
+        rf"FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert revoke.search(LEGACY_REVOKE_MIGRATION), (
+        f"Legacy RPC {name} must be retained but not executable by API roles"
+    )
+    assert not re.search(
+        rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{name}{signature}\s+TO\s+(?:authenticated|service_role)",
+        LEGACY_REVOKE_MIGRATION,
+        re.IGNORECASE | re.DOTALL,
+    ), f"Legacy RPC {name} must not regain a client/server-role EXECUTE grant"
+
+ANDROID_API = Path("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+BRIDGE_CONFIG = Path("backend/src/config/tacru.php").read_text()
+CURRENT_V4_MIGRATION = Path(
+    "supabase/migrations/20261125020842_account_lifecycle_write_rpc_entry_guards.sql"
+).read_text()
+assert "api_create_incident_v4" in ANDROID_API
+assert all(name not in ANDROID_API for name in LEGACY_INTERNAL_RPCS)
+assert "api_create_incident_v4" in BRIDGE_CONFIG
+assert all(name not in BRIDGE_CONFIG for name in LEGACY_INTERNAL_RPCS)
+assert "SECURITY DEFINER" in CURRENT_V4_MIGRATION
+assert "public.api_create_incident_v3(" in CURRENT_V4_MIGRATION
 
 # Per-responder progress is intentionally retired: the dispatcher owns the
 # shared incident milestone. Keep the historical RPC names revoked rather than
