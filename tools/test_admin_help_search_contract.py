@@ -12,5 +12,6 @@ assert source.count("hidden={!matchesAdminHelp(normalizedHelpQuery") >= 6, "Help
 assert "No guidance matched that search." in source
 assert ".admin-help-card[hidden] { display:none; }" in styles
 assert ".admin-help-search input:focus-visible" in styles
+assert '["notifications", "push", "fcm", "delivery", "alert", "inbox"]' in source[source.index('normalizedHelpQuery && !['):], "Help Centre empty state must recognize notification search terms"
 
 print("Admin Help Centre search contract: passed")
