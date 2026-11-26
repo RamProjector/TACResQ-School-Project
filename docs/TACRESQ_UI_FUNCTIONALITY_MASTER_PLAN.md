@@ -9586,3 +9586,41 @@ The device sequence migration is repository-only. No live sequence ACL, default 
 **Next task:** reconcile the remaining client sequence grants against all table-specific server/trigger/RPC write paths, then build a single explicit sequence-grant inventory test. Preserve the logger's identity sequence requirement for `api_operation_logs`; distinguish server-side INSERT from read-only and trigger-only tables. Follow with a PG17-specific MAINTAIN review.
 
 **References:** Sections 20–23, 26, 33, 53–66; `20261122050845_device_security_registry_foundation.sql`; `20261122050841_restrict_operational_table_writes.sql`; `20261122050843_restrict_core_table_destructive_privileges.sql`; `20261125020846_account_lifecycle_fcm_token_guards.sql`; `20261126180000_restrict_device_registry_sequences.sql`; `tools/test_device_security_privileges.sql`; PostgreSQL [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
+
+
+## Section 68 — Replay default-ACL fixture alignment and PG17 maintenance privilege inventory
+
+**Objective:** resolve the exact-head migration-replay failure without changing the hosted default-ACL posture, then record the current PG17 MAINTAIN boundary separately from the PG16 replay lane.
+
+### 68.1 Exact-head replay failure
+
+The latest PR #370 replay run on head `50dadd2f0dd10b0680a4c47bf81463890f9e0fe8` completed with failure in the final privilege-baseline block of `tools/test_supabase_migration_replay.sh`. The failing assertion rejected every default ACL row granting privileges to PUBLIC, anon or authenticated, regardless of whether the row was global or schema-scoped.
+
+That assertion contradicted the live catalog evidence in Section 65: the hosted project has no global default ACL rows, but it does have owner- and schema-scoped defaults, including broad `postgres/public` defaults. The replay fixture intentionally reproduces the `postgres/public` defaults so migration replay can reveal inherited grants on newly created objects. A blanket rejection of all scoped defaults would force a global security change that this review explicitly does not recommend and would make the replay fixture cease to represent the hosted owner/schema boundary.
+
+### 68.2 Test-only correction
+
+Updated `tools/test_supabase_migration_replay.sh` to reject only default ACL rows with `defaclnamespace = 0` (global defaults) when they grant PUBLIC, anon or authenticated. Schema-scoped defaults remain represented in the fixture and are checked through the effective privileges on created application objects and the explicit object-level privilege contracts.
+
+This is a test-harness correction only. It does not change any migration, hosted ACL, role membership, default privilege, table, sequence, function, or user data. It also does not claim that broad schema-scoped defaults are intrinsically safe; Section 65's owner-provenance and future-object risk analysis remains in force.
+
+The correction was committed as `c75e0f1ab0c3277f9c7ff92cebbfb6bfa647d732`. A new exact-head clean replay is required before treating it as validated.
+
+### 68.3 Refreshed PostgreSQL 17 MAINTAIN inventory
+
+A read-only hosted catalog query confirms the following effective `MAINTAIN` grants:
+
+- `authenticated`: `public.profiles`, `public.incidents`.
+- `service_role`: `public.admin_audit_logs`, `public.fcm_delivery_attempts`, `public.fcm_tokens`, `public.incident_assignment_events`, `public.incident_assignments`, `public.incident_claimability_logs`, `public.incident_messages`, `public.incident_request_edit_logs`, `public.incident_status_logs`, `public.incident_submission_keys`, `public.incidents`, `public.location_logs`, `public.profiles`, and `public.user_notifications`.
+
+No anon MAINTAIN grant was returned. The two authenticated grants are not required by the reviewed client workflows and are candidates for a PG17-specific least-privilege migration. Service-role MAINTAIN is broader and must not be revoked globally until the full set of worker, maintenance, backup, and platform consumers is classified. No MAINTAIN privilege was changed.
+
+### 68.4 Sequence call-path review status
+
+The live sequence inventory confirms the expected split: `api_operation_logs_id_seq` is service_role-only; the device registry, Admin audit, operational history, identity, and incident-related sequences retain inherited ACL entries for one or more client roles. Sequence grants do not themselves confer table DML, but USAGE permits `nextval` and UPDATE permits `setval`; each sequence therefore needs an explicit writer-path justification.
+
+The existing source search identifies the Laravel `ApiOperationAuditLogger` as a direct server-side writer for `api_operation_logs`; its service_role USAGE/SELECT grants must be preserved. Trigger/RPC-owned history tables and identity tables should not be treated as direct client writers merely because their sequences inherited grants. A complete migration must be based on each table's actual write function, function owner, and same-valid-JWT regression—not on sequence names alone.
+
+**Verification boundary:** this section records a test-only replay correction and read-only hosted catalog observations. The new replay has not yet completed. No hosted default ACL, sequence ACL, MAINTAIN grant, or production data was modified.
+
+**Next task:** rerun exact-head replay, then complete the table-by-table sequence writer map and PG17-only authenticated MAINTAIN reduction design. Keep service_role MAINTAIN untouched pending consumer review.
