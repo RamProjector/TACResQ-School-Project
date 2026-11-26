@@ -285,6 +285,13 @@ assert re.search(
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Trusted device registry writers must retain their minimum sequence grants"
+assert re.search(
+    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
+    r"public\.api_operation_logs_id_seq,\s*public\.incidents_id_seq,\s*"
+    r"public\.location_logs_id_seq\s+TO\s+service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Logger and legacy service-role incident/location RPCs must retain minimum sequence access"
 
 PG17_MAINTAIN_MIGRATION = Path(
     "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
