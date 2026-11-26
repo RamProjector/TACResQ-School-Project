@@ -90,6 +90,27 @@ BEGIN
     RAISE EXCEPTION 'Authenticated clients must not directly update account lifecycle fields';
   END IF;
 
+  IF has_table_privilege('authenticated', 'public.profiles', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated users must not retain table-level UPDATE on profiles';
+  END IF;
+  IF NOT has_column_privilege('authenticated', 'public.profiles', 'duty_status', 'UPDATE')
+     OR NOT has_column_privilege('authenticated', 'public.profiles', 'updated_at', 'UPDATE') THEN
+    RAISE EXCEPTION 'The SECURITY INVOKER duty-status RPC lost its narrow profile column grants';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_attribute AS profile_column
+    WHERE profile_column.attrelid = 'public.profiles'::regclass
+      AND profile_column.attnum > 0
+      AND NOT profile_column.attisdropped
+      AND profile_column.attname NOT IN ('duty_status', 'updated_at')
+      AND has_column_privilege(
+        'authenticated', 'public.profiles', profile_column.attname, 'UPDATE'
+      )
+  ) THEN
+    RAISE EXCEPTION 'Authenticated profile UPDATE must be limited to duty_status and updated_at';
+  END IF;
+
   -- No directly granted public table may bypass RLS entirely.
   IF EXISTS (
     SELECT 1
