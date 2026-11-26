@@ -558,10 +558,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
-    if (url.searchParams.get("adminPage") !== route) {
-      url.searchParams.set("adminPage", route);
-      if (section !== "settings") url.searchParams.delete("adminSettings");
-      else if (url.searchParams.get("adminSettings") === "security") url.searchParams.set("adminSettings", "general");
+    const currentSettingsPage = url.searchParams.get("adminSettings");
+    if (url.searchParams.get("adminPage") !== route) url.searchParams.set("adminPage", route);
+    if (section !== "settings") {
+      url.searchParams.delete("adminSettings");
+    } else if (currentSettingsPage === "security") {
+      url.searchParams.set("adminSettings", "general");
+    }
+    if (url.toString() !== window.location.href) {
       window.history.pushState({}, "", url.toString());
     }
   }
