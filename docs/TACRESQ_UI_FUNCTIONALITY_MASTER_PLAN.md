@@ -3769,3 +3769,274 @@ Do not expose internal account IDs as the only identity cue. Retain a stable ref
 - [OWASP Authorization Patterns Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Patterns_Cheat_Sheet.html) — enforcement close to protected resources and separation of policy decision from enforcement.
 
 **Evidence boundary:** Section 41 records existing repository behavior and a recommended UX/security contract. It does not claim formal NIST compliance, a complete account-management program, or a new Admin role model. No application code, database, authorization grant, or production configuration is changed by this research section.
+
+
+## 42. Cross-source event correlation, identity resolution, and detection-rule design
+
+**Research date:** 2026-11-26.  
+**Scope:** Define a safe event-correlation model for the TACResQ Admin IPS across Supabase, Android direct-Supabase operations, the Admin browser, Laravel/Render, Laravel Sanctum, provider authentication events, Storage, and Edge Functions. Preserve the existing architecture and the source-coverage limitations documented in Sections 20–35. This section is a design and verification specification; it does not claim that a central event collector, cross-system identity map, distributed trace, or production detection engine currently exists.
+
+### 42.1 Correlation must preserve uncertainty
+
+Correlation is a conclusion about relationships between records. It is not a license to merge records because they look similar.
+
+A correlation result must distinguish:
+- **Directly linked:** records share a trusted, explicitly propagated correlation/request identifier or a verified source foreign key.
+- **Strongly associated:** a documented rule links records using multiple independently reliable attributes and a bounded time window.
+- **Possibly related:** evidence suggests a relationship but is incomplete or ambiguous.
+- **Not correlated:** no supported relationship has been established.
+- **Indeterminate:** a required source, identity mapping, timestamp, or field is unavailable.
+
+The UI must not convert “possibly related” or “indeterminate” into a confirmed multi-stage attack. Preserve original source records and show why the relationship was made.
+
+The joint cybersecurity-agency logging guidance recommends consistent structured event formats, normalization, reliable time sources and unique event identifiers where possible; it also emphasizes source coverage and log quality over collecting volume alone. See [ASD ACSC / CISA / FBI / NSA / NCSC — Best Practices for Event Logging and Threat Detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection).
+
+### 42.2 TACResQ identity domains must remain separate
+
+The source audit identifies at least two independent identity namespaces:
+- **Supabase Auth + `public.profiles`:** used by Android's direct Supabase path and the Admin browser portal.
+- **Laravel Sanctum + Eloquent users/tokens:** a separate Laravel identity and token lifecycle.
+
+Do not correlate these identities by email, display name, phone number, or matching role. Those values can change, be duplicated, be absent, or be controlled by a user.
+
+Safe correlation rules:
+1. Keep the source namespace on every principal reference (for example, `supabase_auth` versus `laravel_sanctum`).
+2. Use the immutable provider principal identifier within that namespace.
+3. Join the two namespaces only through an explicit, trusted, reviewed mapping with provenance, effective dates, and revocation behavior.
+4. If no such mapping exists, show two principals as separate identities even if their email addresses match.
+5. Do not infer a shared human identity from a shared device, IP address, user-agent, or similar timestamps.
+6. Record service principals and background workers as their own actors; do not attribute them to the last human user without verified delegation context.
+
+The current source review has not established a universal immutable mapping between Sanctum users and Supabase profiles. Therefore, cross-domain user correlation must remain disabled/unknown until an approved mapping is verified.
+
+### 42.3 Event identity, source qualification, and deduplication
+
+Every normalized event should retain:
+- source namespace and source system/environment;
+- source-native event ID, where available;
+- normalized event ID, namespaced to avoid collisions;
+- event type and schema version;
+- actor principal namespace and identifier, if known;
+- target/resource namespace and identifier, if applicable;
+- original event timestamp and its timezone/precision;
+- collector/ingestion timestamp;
+- correlation/request/interaction ID only when actually supplied or propagated;
+- source record reference and collection status.
+
+Recommended normalized identity:
+`<source_namespace>:<source_instance>:<source_event_id>`
+
+Do not treat a numeric `log_id` from one database as globally unique across Supabase and Laravel. A source-qualified identifier prevents accidental collisions and preserves provenance.
+
+Deduplication policy:
+- Prefer an exact source-native event ID plus source instance.
+- For sources without stable IDs, use a documented deterministic fingerprint over a carefully selected set of stable fields and retain the fingerprint version.
+- Keep the original records even when a normalized projection groups duplicates.
+- Record the reason and method for deduplication.
+- Do not deduplicate solely because actor, action, target and timestamps look similar.
+- Do not merge retries with successful operations unless the source proves they share one idempotency/request identity.
+- A repeated event may represent repeated attempts, a replay, duplicate delivery, or separate legitimate actions. Preserve attempt count and source occurrences.
+
+The joint agency guidance recommends unique event identifiers for correlation where possible and structured key/value records for consistent extraction. See [Best Practices for Event Logging and Threat Detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection).
+
+### 42.4 Correlation identifiers and distributed request context
+
+Use a request/trace identifier only when the system can propagate it across the actual request path.
+
+- A browser-to-Supabase RPC may carry a client-generated request ID only if the trusted server/database boundary validates and records it safely.
+- A Laravel API request can generate a server-owned request/correlation ID and include it in its own operation telemetry.
+- A Laravel bridge request can preserve a correlation ID across the bridge and the downstream RPC only if both sides explicitly support and validate that propagation.
+- Android direct-Supabase calls do not automatically pass through Laravel; do not assign them a Laravel request ID.
+- Supabase Auth provider events, Postgres logs, Storage events, Edge Function logs and FCM provider results may have independent identifiers. Join them only when a verified reference exists.
+- Never accept a client-supplied correlation ID as proof of actor identity or authorization.
+- Treat correlation IDs as metadata, not secrets or access tokens.
+
+If a request crosses a service boundary but the downstream service does not preserve the ID, show the trace as partial. Do not fabricate a complete trace by matching timestamps.
+
+The OWASP Logging Cheat Sheet recommends recording interaction identifiers where possible and using consistent event formats so records can be correlated and analyzed. See [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+### 42.5 Time normalization and ordering
+
+Store normalized times in UTC using ISO 8601/RFC 3339-compatible representations, with precision appropriate to the source. Preserve the source timestamp rather than overwriting it.
+
+At minimum distinguish:
+- `event_time`: when the source says the action occurred;
+- `observed_at`: when the collector or receiving service observed it;
+- `ingested_at`: when the normalized event became available to the correlation system;
+- `time_source` and `time_confidence`: whether the time came from a trusted server/provider or an untrusted client device;
+- `clock_offset_ms` or a bounded uncertainty indicator, only when measured or otherwise supportable.
+
+Rules:
+- Normalize known timezone offsets to UTC, but retain the original timestamp and offset.
+- Do not silently assume a timezone for a naive timestamp.
+- A mobile device's local clock is not authoritative; use server observation time as a separate fact.
+- Do not claim millisecond accuracy if the source only records seconds.
+- Do not order two events as definitively sequential when their time uncertainty overlaps.
+- Preserve late-arriving and out-of-order events; correlation should support bounded re-evaluation rather than silently discarding them.
+- Display ingestion delay when it materially affects an investigation.
+- Use a source-specific correlation window justified by the behavior being detected; do not use one arbitrary global time window.
+
+The joint agency guidance recommends synchronized trustworthy clocks and UTC/ISO 8601 formatting for cross-system analysis. OWASP cautions that timestamps from devices outside the operator's control may be unreliable and that time offset/confidence should be considered. See [Best Practices for Event Logging and Threat Detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection) and [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+### 42.6 Correlation graph and normalized event model
+
+A future correlation layer should model relationships explicitly rather than flattening all records into a single table with guessed foreign keys.
+
+Core conceptual objects:
+- **Event:** immutable reference to one source occurrence.
+- **Principal:** source-qualified user, service, worker, or system identity.
+- **Resource:** source-qualified account, incident, assignment, token, file/object, API operation, or system component.
+- **Session:** source-specific authenticated session/token lifecycle reference; not a universal cross-provider session.
+- **Request/interaction:** a bounded execution context with a trusted correlation identifier where available.
+- **Detection:** versioned rule output with evidence references.
+- **Relationship:** typed edge between records with method, confidence, provenance and time validity.
+
+Possible relationship types:
+- `same_source_request`
+- `same_provider_session`
+- `same_verified_principal`
+- `same_resource`
+- `caused_by`
+- `retry_of`
+- `derived_from`
+- `temporally_associated`
+- `identity_mapping_verified`
+
+A relationship should carry:
+- relationship type;
+- source and target event IDs;
+- correlation method/rule version;
+- confidence or evidence class;
+- creation/observation time;
+- supporting fields;
+- any unresolved assumptions.
+
+Do not create a `same_verified_principal` edge from email or display-name equality. Do not create `caused_by` from temporal proximity alone.
+
+### 42.7 Candidate TACResQ detection scenarios and evidence gates
+
+The following are candidate detection use cases, not claims that the current system can already detect them. Each requires the listed telemetry to be implemented and tested before it can be enabled.
+
+| Candidate | Correlation logic | Required evidence and limitation |
+|---|---|---|
+| Suspended account continues attempting protected actions | Link a verified account lifecycle transition to later authorization denials for the same Supabase principal | Needs durable denial events across direct Supabase RPC, RLS, Storage and relevant Edge Functions; current coverage is incomplete |
+| Role/permission applicability discrepancy | Compare a role/action/target/context against the effective versioned applicability matrix | Needs a trusted policy version and complete actor/target/action context; multiple roles alone are not suspicious |
+| Privileged role change followed by unusual access | Link a successful role change to subsequent actions by the same verified principal and check whether the actions are allowed | Existing role-change audit is partial; read/search coverage is incomplete; temporal proximity alone is not a violation |
+| Repeated authorization failures | Group repeated denials by principal, operation, target, source and bounded time window | Requires normalized denial reason codes and protection against client-controlled identity fields; distinguish stale state and ordinary permission errors |
+| Unexpected cross-domain identity activity | Detect attempts to use an unapproved Supabase/Sanctum identity mapping | Requires a governed identity mapping and events from both domains; no email-based matching |
+| Audit/telemetry interruption | Detect expected source heartbeat or ingestion gaps against an approved source inventory and freshness objective | Requires source health/heartbeat telemetry; absence of rows alone cannot distinguish inactivity from collection failure |
+| Attachment authorization anomaly | Correlate reservation, Storage upload, finalization and membership state | Requires Storage/provider outcome events and correlation IDs; current inventory SQL is report-only and not a live transfer event feed |
+| Admin session assurance anomaly | Correlate Admin privileged RPC attempts with current AAL2/TOTP assurance and account state | Requires safe, durable authorization outcome events; provider Auth audit alone is not a complete session/RPC history |
+
+Do not enable a candidate rule until its source prerequisites, expected coverage, false-positive cases, privacy impact, and response owner are documented.
+
+### 42.8 Correlation rules must be explainable and deterministic where possible
+
+Every rule specification should define:
+- stable rule ID and version;
+- source prerequisites and required fields;
+- principal/resource namespaces;
+- event types and outcomes included/excluded;
+- exact matching keys and relationship types;
+- time window and timestamp uncertainty handling;
+- deduplication method;
+- threshold and aggregation;
+- severity/impact mapping, separate from confidence;
+- behavior when one source is missing or stale;
+- expected false positives and legitimate workflows;
+- suppression and re-notification policy;
+- test fixtures and retirement criteria.
+
+Prefer deterministic joins based on trusted identifiers and policy state. Heuristic association may be useful for analyst leads, but must be labelled as a hypothesis and never silently upgraded into a confirmed identity or causal relationship.
+
+A rule must return **insufficient evidence** when a required source or field is missing. It must not interpret unavailable telemetry as a clean result.
+
+### 42.9 Source coverage and ingestion-health correlation
+
+The correlation layer itself needs monitoring. Otherwise, a broken collector can create a false impression that the system is quiet.
+
+For each source, define:
+- expected event families and critical event types;
+- whether collection is enabled and configured;
+- last successful collection time;
+- last observed event time;
+- last ingestion time;
+- collection lag and query failures;
+- known retention and pagination limits;
+- schema/version changes;
+- expected cadence or heartbeat, where applicable;
+- owner and remediation route.
+
+Do not set an expected event rate for sources whose activity is naturally intermittent. Use a verified heartbeat or scheduled collector check where a meaningful availability signal exists.
+
+A source-health detection should say “telemetry source not reporting” or “ingestion delayed”, not “no attacks detected”. Keep source health separate from threat detections.
+
+The joint agency guidance explicitly treats logging policy, centralized access/correlation, integrity, and detection strategy as separate requirements, and identifies missing relevant logs as a limitation on detection effectiveness. See [Best Practices for Event Logging and Threat Detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection).
+
+### 42.10 Privacy, security, and performance controls
+
+- Do not centralize message bodies, private attachment bytes, signed URLs, MFA secrets, passwords, access/refresh tokens, or unnecessary precise coordinates for correlation.
+- Use the minimum stable identifier required to establish a supported relationship.
+- Restrict raw event access separately from aggregate detection access.
+- Enforce authorization in the trusted query/API/database layer; a UI filter is not a security boundary.
+- Validate and sanitize untrusted event fields before indexing, joining, or rendering.
+- Bound event payload size, query ranges, fan-out, and correlation windows.
+- Index only fields that support defined queries; do not add broad indexes without query-plan and workload evidence.
+- Avoid N+1 cross-source lookups; materialize a bounded normalized projection only when its refresh, provenance, deletion and retention semantics are defined.
+- Make correlation failure visible without blocking the underlying application operation unless a separately approved prevention control explicitly requires fail-closed behavior.
+- A detection must not automatically suspend an account, revoke a token, block a device, or delete an object without a separately approved and tested enforcement policy.
+- Retention and deletion must follow the source-specific approved policy; centralization does not justify indefinite duplicate retention.
+
+OWASP recommends consistent application event logging, safe handling of untrusted data, access control, testing of logging failure modes, and proportionate event collection. See [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+### 42.11 Implementation sequence and release gates
+
+**Phase A — Inventory, no schema changes**
+1. Reconfirm every active producer and direct/bridged request path from current source.
+2. Record source-native identifiers, timestamps, principal namespaces, event families and retention.
+3. Identify where existing request/correlation identifiers already exist; do not invent propagation claims.
+4. Mark unavailable or unverified sources.
+
+**Phase B — Contract and test design**
+1. Define normalized event schema and schema versioning.
+2. Define source-qualified identifiers and deduplication.
+3. Define the explicit identity mapping governance, if cross-domain correlation is genuinely required.
+4. Define time semantics and source-specific uncertainty.
+5. Write deterministic fixtures for true relationships, non-relationships, duplicates, retries, late events and missing sources.
+
+**Phase C — Isolated prototype**
+1. Use synthetic events only.
+2. Implement one deterministic correlation use case at a time.
+3. Verify the source links and rule explanation shown in the Admin UI.
+4. Measure query cost, indexing, ingestion delay and failure behavior.
+5. Verify privacy and cross-principal access denial.
+
+**Phase D — Controlled production consideration**
+- Requires an approved logging policy, source-owner sign-off, retention decision, data-protection review, operational ownership, rollback plan, and evidence that the isolated tests pass.
+- Do not add a paid SIEM or external service without explicit approval.
+- Do not change the current Android/Supabase/Render architecture simply to make correlation easier.
+- Do not enable automatic prevention as part of a correlation-only rollout.
+
+### 42.12 Acceptance criteria
+
+- Supabase Auth and Laravel Sanctum identities remain distinct unless a verified mapping exists.
+- Email, display name, IP, device, and timestamp similarity never establish identity.
+- Every event retains source namespace and source-qualified identity.
+- Correlation IDs are propagated only across paths that demonstrably support them.
+- Event time, observation time, ingestion time and clock confidence remain distinguishable.
+- Duplicate delivery, retries and repeated legitimate actions are not silently collapsed.
+- Correlation relationships show method, provenance, confidence and rule version.
+- Missing sources produce indeterminate/coverage-gap states, not “no threat”.
+- Candidate rules have explicit evidence prerequisites and false-positive tests.
+- Detection presentation links to original source records without expanding data access.
+- Correlation does not automatically mutate accounts, sessions, assignments, incidents, Storage or policy.
+- No production schema, telemetry provider, paid dependency, API, permission, or app transport change occurs without separate approval.
+
+### 42.13 Research references
+
+- [ASD ACSC / CISA / FBI / NSA / NCSC — Best Practices for Event Logging and Threat Detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection)
+- [OWASP — Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+- [NIST SP 800-61 Rev. 2 — Computer Security Incident Handling Guide](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r2.pdf)
+- [NIST SP 800-92 — Guide to Computer Security Log Management](https://csrc.nist.gov/pubs/sp/800/92/final)
+
+**Evidence boundary:** Section 42 is a researched architecture and rule-design specification. It does not claim TACResQ has centralized log ingestion, cross-domain identity mapping, universal trace propagation, reliable telemetry from every provider, or production-ready correlation rules. It does not change schema, app transport, backend behavior, retention, permissions, theme, or production configuration.
