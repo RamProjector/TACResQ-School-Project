@@ -33,6 +33,16 @@ FROM PUBLIC, anon, authenticated, service_role;
 -- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
 -- INSERT. Two legacy service-role invoker RPCs also still allocate incident
 -- and location IDs; preserve their minimum sequence access until retirement.
+-- Client roles never call these legacy server-only paths.
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.incidents_id_seq,
+  public.location_logs_id_seq
+FROM PUBLIC, anon, authenticated;
+REVOKE UPDATE ON SEQUENCE
+  public.incidents_id_seq,
+  public.location_logs_id_seq
+FROM service_role;
+
 GRANT USAGE, SELECT ON SEQUENCE
   public.api_operation_logs_id_seq,
   public.incidents_id_seq,
