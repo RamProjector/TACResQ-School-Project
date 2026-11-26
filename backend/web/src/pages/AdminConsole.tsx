@@ -1145,7 +1145,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? (continuityPage === "recovery" ? "Review backup, restore, and continuity evidence." : "Review private incident attachment safeguards and storage evidence.") : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "Monitor recorded activity and configured service reachability." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? (continuityPage === "recovery" ? "Review backup, restore, and continuity evidence." : "Review private incident attachment safeguards and storage evidence.") : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
@@ -1168,11 +1168,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
           )}
 
-          <section className="admin-metrics" aria-label="Operational snapshot" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
-            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Exact directory total for the current search and role filters</small></article>
-            <article><span>RECORDED EVENTS TODAY</span><strong>{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()}</strong><small>Protected investigation-feed records since Manila midnight</small></article>
-          </section>
-          <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Matching accounts follows the active directory search and role filters. Today's activity is an exact count from the protected investigation feed, not a count of the five preview rows; it covers only the event sources currently integrated into that feed and is not a complete record of every action or denied attempt.</p>
+          <div className="admin-overview-summary" hidden={activeSection !== "overview"}>
+            <section className="admin-metrics" aria-label="Operational snapshot" aria-describedby="admin-overview-metrics-context">
+              <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Current directory filters</small></article>
+              <article><span>RECORDED EVENTS TODAY</span><strong>{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()}</strong><small>Integrated investigation sources · Manila day</small></article>
+            </section>
+            <p id="admin-overview-metrics-context" className="admin-overview-metrics__scope">Counts are scoped: directory totals follow active filters, and activity covers only integrated investigation sources.</p>
+            <details className="admin-overview-disclosure">
+              <summary>About these counts</summary>
+              <p>Matching accounts follows the active directory search and role filters. Today's activity is the exact count returned by the protected investigation feed since Manila midnight, not a count of the five preview rows. It covers only the event sources currently integrated into that feed and is not a complete record of every action or denied attempt.</p>
+            </details>
+          </div>
+          <div className="admin-overview-grid" aria-label="Overview workspace">
           <section className="admin-panel admin-overview-activity" aria-labelledby="admin-overview-activity-title" aria-busy={todayActivityLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">TODAY · ASIA/MANILA</p><h2 id="admin-overview-activity-title"><Activity size={18} /> Recent recorded activity</h2></div>
@@ -1198,21 +1205,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ))}
               </ol>
             )}
-            <p className="admin-panel__footnote">This preview includes only recorded events available through the protected investigation feed. It does not represent complete authentication, API failure, device-security, or notification-delivery monitoring.</p>
+            <details className="admin-overview-disclosure admin-overview-activity__coverage">
+              <summary>Activity coverage</summary>
+              <p>This preview includes only recorded events available through the protected investigation feed. It does not represent complete authentication, API failure, device-security, or notification-delivery monitoring.</p>
+            </details>
           </section>
 
-          <section className="admin-panel admin-overview-shortcuts" aria-labelledby="admin-overview-shortcuts-title" hidden={activeSection !== "overview"}>
-            <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">WORKSPACE SHORTCUTS</p><h2 id="admin-overview-shortcuts-title">Go to a workspace</h2></div>
-              <span className="admin-count">Quick access</span>
-            </div>
-            <div className="admin-overview-shortcuts__grid">
-              <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Analytics &amp; reports</strong><small>Review request trends and dispatch performance</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={18} /><span><strong>Data &amp; continuity</strong><small>Review backup, restore, and attachment safeguards</small></span><span aria-hidden="true">→</span></button>
-            </div>
-          </section>
+          <nav className="admin-overview-shortcuts" aria-label="Additional Admin workspaces" hidden={activeSection !== "overview"}>
+            <button type="button" onClick={() => navigateToSection("users")}><Users size={15} /><span>User management</span></button>
+            <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={15} /><span>Analytics &amp; reports</span></button>
+            <button type="button" onClick={() => navigateToSection("audit")}><History size={15} /><span>Activity log</span></button>
+            <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={15} /><span>Data &amp; continuity</span></button>
+          </nav>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
@@ -1248,7 +1252,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </div>
               </>
             )}
-            <p id="admin-health-limitations" className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
+            <details id="admin-health-limitations" className="admin-overview-disclosure admin-health-limitations">
+              <summary>Probe coverage and limitations</summary>
+              <p>Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
             <section className="admin-health-coverage" aria-labelledby="admin-health-coverage-title">
               <div className="admin-health-coverage__heading"><div><p className="admin-eyebrow">MONITORING BOUNDARIES</p><h3 id="admin-health-coverage-title">Not covered by these probes</h3></div><span>Not monitored here</span></div>
               <ul>
@@ -1260,7 +1266,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </ul>
               <p>“Not monitored here” means this page has no verified probe for that capability. It does not mean the provider or workflow is down, healthy, or configured.</p>
             </section>
+            </details>
           </section>
+          </div>
 
           <section className="admin-panel" id="admin-user-management" aria-labelledby="admin-user-management-title" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
