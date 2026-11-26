@@ -2349,3 +2349,78 @@ Instrument the layout test with actual computed grid columns and bounding rectan
 
 This section is a design specification based on the supplied screenshot and the repository's already documented Admin capabilities. It does not claim that the layout has been implemented, visually tested, or deployed. Before implementation, inspect the current branch's actual Admin shell and route composition; preserve all existing routes, authorization, RPC/API contracts, data semantics, and working interactions.
 
+
+
+## 33. Private SECURITY DEFINER helper audit and live Supabase Advisor findings
+
+**Evidence source:** connected TACResQ-School-Project Supabase catalog, function bodies, RLS policies, Storage policies, trigger definitions, migration ledger, and Supabase security/performance advisors inspected on 2026-11-26. Read-only only; no live schema or data was changed.
+
+### 33.1 Private schema and callable-grant interpretation
+
+The connected catalog has 13 private SECURITY DEFINER helpers with effective authenticated EXECUTE. All 13 are owned by postgres, pin search_path to pg_catalog, and have no effective PUBLIC or anon EXECUTE. Authenticated has USAGE on private so SECURITY INVOKER wrappers and Storage policies can resolve the helper names; anon does not. Authenticated has no CREATE on private. The five privileged implementation functions used by guarded wrappers and the shared chat predicate are not directly executable by authenticated or anon.
+
+The repository migrations explicitly state that private is outside the PostgREST-exposed Data API, consistent with Supabase's current documentation. However, the live SQL role settings do not reveal the external Dashboard API Exposed Schemas configuration. Verify that private is absent from the actual project setting before release. Schema USAGE is not itself proof of REST exposure, and the 13 private helpers are not 13 additional public RPC endpoints.
+
+### 33.2 Thirteen-helper register and trusted call graph
+
+| Private helper | Current active-account / authorization behavior | Downstream dependency |
+|---|---|---|
+| tacresq_active_responder_locations() | Active dispatcher profile under FOR SHARE | tacresq_active_responder_locations_internal(); fresh en-route team location rows only |
+| tacresq_actor_role() | Returns role only for active profile | Role-sensitive RLS and internal role checks |
+| tacresq_assign_incident_team_guarded(bigint,bigint[]) | Active dispatcher under FOR SHARE | tacresq_assign_incident_team(); internal function has no client EXECUTE |
+| tacresq_auth_can_access_incident_chat(bigint) | Resolves active profile ID; false if missing/suspended | tacresq_can_access_incident_chat(); dispatcher/requester/assigned field unit membership |
+| tacresq_auth_profile_id_for_token_cleanup() | Returns caller's own profile ID even while suspended | Narrow FCM self-unregister / self-cleanup exception only |
+| tacresq_auth_profile_id() | Active profile ID under FOR SHARE | Chat RPCs, Storage upload/read policy helpers |
+| tacresq_current_account_active_read() | STABLE, non-locking account_status predicate | Restrictive RLS and FCM SELECT/INSERT/UPDATE policies |
+| tacresq_current_account_active() | VOLATILE account_status predicate under FOR SHARE | Write-entry triggers and mutation boundaries |
+| tacresq_dispatch_update_incident_status(bigint,text) | Active dispatcher under FOR SHARE; locks incident and applies validated transition | Incident, team status, and duty-state updates in one transaction |
+| tacresq_is_incident_assignee(bigint) | Active profile under FOR SHARE before membership check | Incident and assignment participant RLS |
+| tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz) | Active responder/driver under FOR SHARE | tacresq_record_location_v2_internal(); assignment/en-route, coordinate, timestamp, and eight-second throttle checks |
+| tacresq_release_incident_assignment(bigint,bigint) | Active dispatcher under FOR SHARE | tacresq_release_incident_assignment_internal(); membership, last-unit, legacy primary and duty-state rules |
+| tacresq_upload_reservation_allows_insert(text,text,bigint) | Active profile resolver first | Storage INSERT policy; strict mode checks matching unconsumed/unexpired reservation and chat membership |
+
+The internal assignment, release, and location implementations do not all independently repeat account_status checks. That is safe only while they remain non-client-executable and their sole live function-body caller is the corresponding active-account guarded wrapper. The active-location internal reader and shared chat membership predicate are also non-client-executable. Do not grant direct execution to these implementation helpers or add new callers without a new review.
+
+### 33.3 Intentional suspended-account exception: FCM self-cleanup
+
+tacresq_auth_profile_id_for_token_cleanup() deliberately resolves the authenticated caller's own profile ID without requiring active status. Its purpose is to let a suspended user unregister their own installation token while signing out. It does not return profile fields and does not itself mutate data. The supported cleanup is the narrowly scoped api_unregister_fcm_token(text) RPC; direct authenticated DELETE on fcm_tokens is false. Registration, selection, update, rotation, and other-user deletion remain subject to active-account checks and grants.
+
+The live catalog shows both legacy fcm_tokens_delete_self and restrictive tacresq_fcm_delete_self_cleanup policies using the same own-profile predicate. Preserve the restrictive policy composition and the no-direct-DML grant boundary; do not add broad suspended-account exceptions.
+
+### 33.4 RLS and Storage dependency map
+
+- tacresq_actor_role() is referenced by role-sensitive policies on admin_audit_logs, incident_assignment_events, incident_assignments, incident_status_logs, incidents, location_logs, and profiles.
+- tacresq_is_incident_assignee() is used in incident/assignment participant read and update rules.
+- tacresq_current_account_active_read() supplies the restrictive active-account predicate for directly accessible operational tables and the active FCM SELECT/INSERT/UPDATE rules. It is intentionally STABLE and non-locking so ordinary reads remain safe in read-only transactions.
+- tacresq_current_account_active() is the locking mutation/write helper; do not substitute it into SELECT/USING policies.
+- storage.objects has RLS enabled. The incident-chat-attachments INSERT policy combines bucket, path shape, profile folder, MIME, numeric size, reservation and chat-membership predicates. SELECT combines the bucket and chat-membership predicates. Both reviewed policies target authenticated, not anon.
+- private.incident_chat_upload_policy and private.incident_chat_upload_reservations have RLS enabled, no client policies, and no anon/authenticated table privileges. They remain helper/server-only.
+
+The upload reservation enforcement switch is still a separate rollout gate. When disabled, the reservation predicate returns true for an active profile, but this does not remove the other conjunctive Storage path/MIME/size/bucket/chat-membership checks. Do not describe reservation enforcement as strict until the deployed switch is verified and both compatibility and strict-mode HTTP tests pass.
+
+### 33.5 Supabase Advisor snapshot and plan-aware remediation
+
+The live security advisor returned:
+- One WARN: leaked-password protection is disabled. Supabase's current password-security documentation says its HaveIBeenPwned-backed option is available on Pro and above. Do not upgrade or add a paid dependency for this project. Verify the current project plan and Auth settings; if unavailable on the current plan, record the limitation and use the password-strength controls available without claiming leaked-password screening.
+- Sixteen RLS-enabled tables without policies. For reviewed private upload tables and server/RPC-only audit/device/notification tables, no-policy RLS is intentional deny-by-default where direct client grants are absent. Do not add permissive policies merely to silence the advisor; verify grants and RLS together.
+- Twenty-four authenticated-callable public SECURITY DEFINER functions. This is the reviewed public RPC surface and a generic advisor warning, not an automatic vulnerability verdict. Each remains subject to exact signature/body/grant/authorization review.
+
+The performance advisor also returned ten unindexed foreign keys and one RLS initplan warning on incident_assignment_events_dispatch_read. It returned unused-index notices as well; do not drop indexes from advisor output alone. Schedule a separate query-plan and workload-based performance review.
+
+### 33.6 Migration-ledger alignment clarification
+
+The live migration ledger includes read_only_account_profile_rls and remove_legacy_fcm_active_account_policy under versions 20261125025825 and 20261125030010. The current branch contains the same migration names/content under versions 20261125120000 and 20261125130000. This is a version-identity mismatch, not evidence that the schema changes are absent. Reconcile the canonical migration filenames/versions and repository history before merge so the same logical migrations are not replayed or treated as pending twice. The connected schema currently reflects the non-locking read predicate and the absence of the legacy all-operations FCM policy. The new trigger-function EXECUTE revocation remains pending.
+
+### 33.7 Release checklist
+
+- [ ] Read-only verify private is absent from Supabase Dashboard → API → Exposed Schemas.
+- [ ] Run exact-head clean replay with the 38/24/14 API inventory, 13 private helper inventory, and trigger-only function grant assertion.
+- [ ] Test all 13 helper paths with the same still-valid JWT before and after suspension.
+- [ ] Verify only the caller's own FCM token can be unregistered after suspension; registration, enumeration, rotation, and other-user deletion remain denied.
+- [ ] Test incident-chat Storage HTTP upload/download for requester, assigned field unit, dispatcher, unrelated profile, removed member, and suspended caller in both reservation modes.
+- [ ] Test assignment, release, and GPS writes concurrently with suspension and role changes.
+- [ ] Keep the five internal implementation helpers and shared chat predicate non-client-executable.
+- [ ] Reconcile migration versions before merge; do not apply the trigger grant migration to production until approved.
+- [ ] Record the leaked-password protection plan limitation accurately; no paid plan change is authorized.
+
+**Evidence boundary:** Catalog and advisor findings are snapshots, not penetration tests. No user rows were selected, no helper was invoked, no Storage object was read or written, no migration was applied, and no production account or operational record was changed.
