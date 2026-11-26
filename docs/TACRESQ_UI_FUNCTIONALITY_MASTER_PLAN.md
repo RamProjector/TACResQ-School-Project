@@ -7798,3 +7798,105 @@ Therefore do not add retention/purge, legal-hold, unrestricted evidence, attachm
 - Supabase Manage Logs Usage: https://supabase.com/docs/guides/platform/manage-your-usage/logs
 
 This is research and a proposed control/verification specification only. No retention policy, legal hold, archive, logging pipeline, table, grant, Storage object, provider setting, account, deployment or production data was changed.
+
+
+## 59. Audit writer and event provenance call-site verification
+
+**Objective:** distinguish source tables that exist from event writers that are actually wired into a runtime path. For every record family, identify the write mechanism, actor provenance, transaction boundary, client/transport path, failure behavior, and whether an Admin reader consumes it. This section is based on source inspection at the current documentation branch and previously recorded connected-database evidence; it is not a claim that every writer was exercised against a live deployment.
+
+### 59.1 Writer inventory and call-site findings
+
+| Record family | Actual writer/call site found in source | Actor provenance and transaction behavior | Coverage / limitation |
+| --- | --- | --- | --- |
+| `admin_audit_logs` | Protected Admin role-change RPC inserts the event in the same database transaction as the profile role update. Trusted Admin provisioning runbook has a separate operator-only insert path. | Normal workflow actor is derived from authenticated Admin profile after AAL2/TOTP checks; provisioning actor is recorded as operator identity. | Successful role changes only. Denied calls, Admin reads/searches, and unrelated settings are not written here. The ordinary Admin UI audit page reads this source through its protected bounded reader. |
+| `account_lifecycle_audit_logs` | `public.api_admin_set_account_status(...)` updates profile account status and inserts lifecycle event before returning, in one transaction. | Active Admin identity is resolved from `auth.uid()`; target row is locked and expected status is compared before mutation. | Successful suspension/reactivation transitions only. Invalid/stale/denied attempts do not create a lifecycle row. Reader is separate and Admin MFA protected. |
+| `app_action_audit_logs` | Migration `20261123045611_20261122230000_app_action_audit_coverage.sql` installs AFTER triggers on `incident_messages` INSERT, `user_notifications.read_at` UPDATE, and `profiles.duty_status` UPDATE. | Message actor comes from `NEW.sender_id`; notification actor is looked up from `auth.uid()`; duty actor is looked up from `auth.uid()` while the target profile is the changed row. Trigger insert participates in the source mutation transaction. | Exactly three successful action families. Trigger constraints reject other action names and non-success outcomes. A privileged/service-role write without a user JWT can yield null/ambiguous actor context; the trigger must not invent a human actor. No general page-view/search/denial capture. |
+| `incident_status_logs` | Trigger on incident INSERT and status change writes resulting status. | Initial creation attributes requester; status updates resolve actor profile from authenticated caller when available. Automated/system transitions may have no human actor. | Records resulting status, not necessarily previous/new pair, reason, session, device or IP. Trigger is coupled to incident write transaction. |
+| `incident_assignment_events` | Source migration defines triggers for assignment membership insert/delete and incident closure. | Assignment writer records assigned-by/actor where available; automated closure may not have human actor. | Domain assignment history, not a universal action log. Verify every assignment/release/closure path and trigger binding in the exact deployed migration set before assuming all historical workflows are covered. |
+| `incident_claimability_logs` | Source history records claimability transitions and source RPC metadata; writes are server-side/trusted rather than client direct table inserts. | Actor/source RPC are available only when the originating routine supplies them. | Narrow claimability changes only; not all reads, searches or claim attempts. Confirm each current RPC still reaches the logging writer. |
+| `incident_request_edit_logs` | Requester-edit workflow writes before/after edit history as part of the guarded edit operation. | Authenticated requester/owner and target incident are validated by the edit workflow. | Only supported requester edits; sensitive before/after values require sanitized Admin projection. It is not a generic incident CRUD log. |
+| `location_logs` | `private.tacresq_record_location_v2(...)` validates caller role, assigned incident, en-route state, coordinates, accuracy, timestamp and server-receipt rate before INSERT. Public `api_record_location_v2` is an invoker wrapper. | User profile is derived from `auth.uid()`; insert is in the location RPC transaction. | This is operational location history, not a general security event. It does not identify GPS/geocoder/map provider, device, IP, or user confirmation. Direct client INSERT was revoked by the source migration. |
+| `api_operation_logs` | Laravel `App\ApiOperationAuditLogger::record()` writes metadata via server-side Supabase REST credentials. Call sites are selected Laravel bridge/API operations, including token validation and allowlisted RPC outcomes. | Actor Auth UUID is taken from request attributes populated by middleware; correlation ID is propagated if valid or generated. Provider, operation, source, outcome, HTTP status, duration, provider request ID and error code are recorded. | Explicitly fail-open and best-effort: missing URL/secret silently skips; bounded HTTP timeout; failed writes emit a sanitized Laravel warning. Only Render-mediated operations. Direct Android/Admin Supabase, direct Storage and other bypass paths do not traverse this logger. |
+| `device_security_events` / `device_sessions` | Registry schema and constraints exist, but the device-security research plan says trusted challenge/proof/integrity/revocation services are future phases. The reviewed source inventory found no integrated event writer/read API for the registry. | No universal verified runtime actor/session writer path established. | Treat as backend-only foundation, not active device monitoring. No Admin device-event feed should imply operational coverage until server writer, verifier, session binding and tests exist. |
+| Supabase Auth audit | Provider-side Auth audit stream; optional Postgres persistence is separate from app table writers. | Provider-generated identity/session/factor events, with provider-specific identifiers and metadata. | Project persistence setting and retention must be verified independently. No application trigger or Laravel logger makes this source complete by default. |
+| Storage / Edge / FCM | Storage policies authorize object operations; Edge Function and FCM workers have their own execution paths and provider outcomes. | Service-role Edge operations must explicitly validate caller/resource/recipient and preserve a trusted initiating actor when applicable. Provider acceptance is not device receipt. | Policies and provider logs are not interchangeable with durable business audit. Per-object read/denial and end-to-end FCM outcome chains remain incomplete/unverified. |
+
+### 59.2 Trigger provenance and transaction semantics
+
+The app-action trigger function `private.tacresq_record_app_action_audit()` is a database trigger writer, not a client API. It writes only when one of its three watched table events meets its predicate:
+- New incident message: actor is the message's `sender_id`; metadata records text versus image based on attachment-path presence. It does not copy message content or attachment path.
+- Notification read transition: it ignores already-read rows and transitions that do not set `read_at`; it resolves actor through `auth.uid()` and returns without writing if no matching profile is found.
+- Responder/driver duty status change: it ignores unchanged duty status and targets outside responder/driver roles; it attempts to resolve actor through `auth.uid()`.
+
+Because these are AFTER triggers, a failure to insert the audit row aborts the originating database transaction unless explicitly caught (the reviewed trigger function does not catch it). That is stronger atomicity than the Laravel metadata logger, but it also means trigger correctness and safe handling of service-role/background updates must be tested. Do not assume a service-role update has an authenticated human `auth.uid()`; if background duty changes are possible, preserve explicit system actor provenance rather than fabricating a user.
+
+The role-change and account-lifecycle writers are likewise transaction-coupled to their respective protected state mutations. They provide reliable evidence for a committed transition, but they intentionally do not create a record for every failed attempt. Denial telemetry must be designed separately at enforcement boundaries and must not weaken fail-closed authorization.
+
+The incident-status trigger records a state result. It must not be rendered as a complete before/after change record unless the actual source fields provide both values. Automated transitions should be labelled system/unknown when actor resolution is absent.
+
+### 59.3 Laravel logger call-site boundary
+
+`ApiOperationAuditLogger::record()` constructs a metadata-only payload and posts to `api_operation_logs` using a server-side secret. It avoids request bodies, authorization headers, passwords, tokens, raw exception messages, and full URLs. It bounds network waiting to a 200 ms connect timeout and 250 ms request timeout, and logs a sanitized warning on unsuccessful response/exception.
+
+This design is intentionally fail-open to protect emergency API availability. Consequences:
+- Missing Supabase URL or secret means no database event and no warning from the writer itself.
+- An audit sink timeout/failure does not fail the underlying operation.
+- A warning in Laravel logs is not the same as a durable row in `api_operation_logs`.
+- A missing row cannot prove an operation did not occur.
+- The actor is nullable if request middleware did not attach a valid Supabase Auth UUID.
+- A correlation ID generated inside the logger may not have been propagated to the originating Android/Admin client or a separate provider log.
+- Only selected Laravel paths are covered; direct Supabase browser/Android requests bypass this writer.
+
+Therefore the Admin IPS must label this feed “Render API telemetry” or equivalent, show its source/health/freshness, and not merge it into a claim of complete application activity.
+
+### 59.4 Device registry and provider-event readiness
+
+The device registry migration revokes direct table privileges from clients and service_role and stores backend-only device/session/challenge/security/integrity metadata. The accompanying research plan explicitly sequences server challenge service, Android key proof, session controls, integrity verification and then Admin/user UI. It describes the initial schema as unusable by clients until narrow trusted server verification functions are implemented and tested.
+
+This means:
+- Table existence and zero row counts do not prove monitoring is active.
+- No Device Security Admin page should show “no threats” or “all devices healthy” from an unwritten event stream.
+- Do not add client INSERT privileges to make the feed populate.
+- Do not treat a device label, installation UUID, browser fingerprint or client-parsed integrity verdict as proof.
+- Before UI integration, identify each trusted writer, the credential/attestation verification boundary, actor/session binding, replay prevention, retention, failure behavior and negative tests.
+
+Supabase Auth audit persistence, Storage request logging, Edge Function logs and FCM delivery attempts remain separate provider/execution sources. Each needs its own setting, writer, retention, request identity and verification before it can be presented as complete.
+
+### 59.5 Admin investigation reader versus writer coverage
+
+The investigation reader is a bounded, Admin MFA-protected aggregation endpoint over selected sources. It is a reader, not a writer and not evidence that every source is populated. The source selector and category filters define what it can display; sources not included in the reader remain unavailable to that page even if tables or provider logs exist.
+
+The Admin UI must distinguish:
+- **Connected and verified:** writer and reader path verified for a named environment and time.
+- **Source exists; writer not verified:** schema or provider source exists but event production is unproven.
+- **Writer exists; path coverage partial:** only selected clients/actions use it.
+- **Provider logs external:** requires separate access and retention verification.
+- **Not implemented / not monitored:** no active writer or reader contract.
+- **No events in selected range:** valid only when source health and coverage are independently known.
+
+Do not use a global zero count as an all-clear. Keep business history, security audit, provider telemetry and investigation detections visually and semantically distinct.
+
+### 59.6 Exact verification tasks before claiming coverage
+
+1. Run source-level call-site searches for every `record()` invocation and every INSERT/trigger binding on the exact PR head; compare them with the expected action inventory.
+2. Use clean migration replay to assert each trigger exists once, is attached to the expected table/event, calls the expected function, and has the expected security/search-path properties.
+3. Execute positive and negative database tests for each trigger family, including rollback: if the audit insert fails, verify whether the source mutation commits or rolls back according to policy.
+4. Test message writes, notification-read transitions and duty changes through both normal user JWTs and any trusted service-role/background path; verify actor attribution is correct or explicitly system/unknown.
+5. Test role and lifecycle transitions for atomic state+audit behavior, stale compare-and-set, rejected Admin/self/Admin-target cases and transaction rollback.
+6. Test every incident status/assignment/claimability/location writer path and identify any alternate legacy or background mutation path that bypasses the expected trigger/RPC.
+7. Enumerate every Laravel logger call site; verify missing secret, timeout, provider failure, rejected JWT, rejected RPC and successful RPC outcomes are distinguishable and sanitized.
+8. Verify direct Android/Admin Supabase requests do not incorrectly appear as Render telemetry; identify provider request IDs/correlation IDs that genuinely join across paths.
+9. Keep device registry in “foundation only” state until a trusted server writer and runtime proof tests exist; verify no client grants were introduced.
+10. Verify Supabase Auth, Storage, Edge and FCM logging settings/retention and event paths independently; provider logs must not be inferred from application tables.
+11. Test the investigation reader's source list, Admin MFA enforcement, pagination consistency, field sanitization, missing-source state and accurate source labels.
+12. Produce a per-environment evidence ledger with commit, migration version, environment, source, writer path, test identity, expected event, observed event, timestamp and evidence reference.
+
+### 59.7 Current conclusion and implementation boundary
+
+**Confirmed from source:** role-change and account-lifecycle audit inserts are transaction-coupled to protected state changes; three app-action families are captured by database triggers; incident status and selected domain histories have dedicated writers; location writes are isolated behind a private validated RPC; Laravel metadata telemetry is a selected, fail-open writer; device registry tables are intentionally backend-only with no integrated writer/read API established by the reviewed inventory.
+
+**Not established:** complete event capture across every Android/Admin/Laravel/Storage/Edge/FCM path; durable records for all denied attempts and sensitive reads/searches; complete Auth audit persistence; universal session/device/IP provenance; active device-security monitoring; and runtime success of every trigger/call-site path in the currently deployed environment.
+
+**Change boundary:** source and documentation review only. No application source, migration, table, trigger, privilege, provider setting, account, log record, Storage object, Render configuration or production behavior was changed.
+
+**References:** repository migrations `20261123045611_20261122230000_app_action_audit_coverage.sql`, `20261125020926_admin_account_lifecycle_compare_and_set.sql`, `20261021103213_isolate_location_writer.sql`; `backend/src/app/ApiOperationAuditLogger.php`; `docs/ADMIN_AUDIT_TRAIL_SOURCE_INVENTORY_2026-11-22.md`; `docs/security/device-security-research-and-implementation-plan.md`; OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
