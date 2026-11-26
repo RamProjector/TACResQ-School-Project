@@ -8061,3 +8061,57 @@ The correct next dependency is governance and backend design, not a cosmetic Exp
 - NIST SP 800-53 Rev. 5 controls AU-9, AU-10, AU-11 and AU-12: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
 
 This section is a research and verification specification only. No evidence vault, export endpoint, report generator, custody table, digest pipeline, retention policy, role, grant, provider setting, account, deployment or production data was changed.
+
+
+## Section 59 — Trigger-only incident location function: live grant reconciliation and CI regression contract
+
+### 59.1 Verified live function and trigger contract
+
+A fresh read-only catalog inspection of the connected TACResQ Supabase project confirmed:
+
+- public.tacresq_require_incident_location() exists and returns the PostgreSQL trigger pseudo-type.
+- It is plpgsql, SECURITY INVOKER (prosecdef = false), owned by postgres, and pins search_path to pg_catalog.
+- Exactly one non-internal, enabled trigger currently references it: incidents_require_location_before_write on public.incidents.
+- The trigger runs BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description for each row.
+- The function ACL currently includes PUBLIC, anon, authenticated, service_role, and postgres EXECUTE. Effective privilege checks returned true for anon, authenticated, and service_role.
+
+The function is a trigger implementation, not a normal RPC. The intended invariant remains enforced by the trigger during incident row writes; ordinary callers do not need a direct EXECUTE grant on the trigger function. The owner retains its required privilege.
+
+### 59.2 Branch migration and live migration ledger reconciliation
+
+The branch contains the draft supabase/migrations/20261126100000_revoke_incident_trigger_function_client_execute.sql. Its current SQL:
+
+- Revokes all privileges on the exact zero-argument function from PUBLIC, anon, authenticated, and service_role.
+- Leaves ownership with postgres.
+- Adds a function comment describing the trigger-only contract.
+- Does not replace or remove the incident trigger or change the incident validation logic.
+
+The live Supabase migration ledger currently ends at 20261125030354_make_actor_role_lookup_read_only_safe; it does not contain version 20261126100000. Therefore this grant correction is still unapplied to the connected project. The live ACL result is consistent with that unapplied state. No production grant was changed during this review.
+
+**Migration release blocker:** the repository's migration-history alignment test explicitly classifies this file as a pending draft that must be regenerated using supabase migration new before it is treated as a finalized migration. Do not apply the draft to production or claim it is deployed. Preserve the logical SQL only after generating the canonical migration filename through the Supabase CLI and rechecking the final branch/ledger alignment.
+
+### 59.3 Static versus runtime verification
+
+tools/test_migration_history_alignment.py already checks the draft's revoke statements and confirms it is classified as pending. That is a source-text contract only; it does not prove the resulting database ACL or trigger binding.
+
+A runtime contract was added to the end of tools/test_supabase_migration_replay.sh. After clean migration replay it checks:
+
+1. The exact trigger function exists.
+2. Exactly one enabled trigger with the expected name binds it to public.incidents.
+3. No explicit PUBLIC EXECUTE grant remains.
+4. anon, authenticated, and service_role do not have effective EXECUTE.
+5. The postgres owner retains EXECUTE.
+
+This test is intentionally a clean-replay CI assertion. It is not evidence that the connected hosted database has been changed. The CI job must complete successfully at the new exact branch head before the test can be reported as passing.
+
+### 59.4 Safety boundary and remaining release gates
+
+- Keep the migration unapplied to the hosted project until it has a CLI-generated canonical filename, clean-replay success, and exact-head CI success.
+- Confirm the trigger still fires for valid and invalid incident INSERT/UPDATE paths after the grant change; test both ordinary authenticated DML and trusted service-role DML where those paths exist.
+- Confirm the existing trigger validation behavior remains unchanged: paired latitude/longitude, a pin or nonblank landmark/access detail, and a description for the other incident type.
+- Compare the post-migration live catalog to the expected ACL only after a separately authorized deployment. Do not use a migration ledger entry alone as proof that hosted privileges are correct.
+- Keep the trigger binding and function owner intact; do not convert this invariant into a client-callable RPC or remove the trigger as a workaround.
+
+**Change boundary:** read-only hosted catalog and migration-ledger inspection; one CI replay script gained a runtime privilege/binding assertion; this master plan records the evidence and gates. No hosted Supabase grant, migration ledger, production data, Render configuration, application behavior, or user account was changed. The new CI assertion has not yet been observed passing on the updated branch head.
+
+**References:** supabase/migrations/20261126100000_revoke_incident_trigger_function_client_execute.sql; supabase/migrations/20261112215721_require_incident_location_fallback.sql; tools/test_migration_history_alignment.py; tools/test_supabase_migration_replay.sh; PostgreSQL documentation on Trigger Functions (https://www.postgresql.org/docs/current/trigger-definition.html) and Privileges (https://www.postgresql.org/docs/current/ddl-priv.html).
