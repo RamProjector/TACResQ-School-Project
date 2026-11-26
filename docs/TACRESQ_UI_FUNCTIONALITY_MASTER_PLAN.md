@@ -1589,3 +1589,97 @@ These are important accuracy safeguards. Preserve them in the redesign, but pres
 
 **Evidence boundary:** The UI call-site review is based on the checked-in page and client source. It does not prove that each RPC is deployed, that optional Supabase Auth log storage is enabled, that the Laravel service is currently reachable, or that every event writer is active. No code, database, deployment, or production configuration was changed by this audit.
 
+---
+
+## 26. Data & continuity — attachment, Storage-policy, and recovery source trace
+
+**Scope:** Checked-in Admin page, Android Storage transport, Supabase migrations, attachment inventory SQL, Storage-policy test SQL, and backup/restore procedures. This is a source-level contract audit. It does not prove current production migration state, current bucket configuration, successful HTTP transfer, backup freshness, or recoverability.
+
+### 26.1 Admin workspace is intentionally guidance-only
+
+The Data & continuity section contains two internal views:
+- **Backup & recovery readiness:** documents the PostgreSQL, Storage object, Auth/configuration, Render, FCM, and isolated restore boundaries.
+- **Attachment safeguards:** documents private bucket access, upload restrictions, staged reservation enforcement, lifecycle gaps, and outstanding acceptance.
+
+Neither view exposes a backup/restore command, provider configuration control, attachment browser, object download, or deletion action. This is an intentional least-privilege boundary: Admin role does not imply access to private incident-chat media or authority to alter retention and recovery policy.
+
+The checked-in UI clearly states that live backup evidence is not connected and Storage health is not monitored by the portal. Preserve these explicit limitations in any redesign; do not turn historical evidence or repository instructions into green live-health indicators.
+
+### 26.2 Android attachment path and authorization chain
+
+The reviewed Android implementation in `SupabaseTacApi.kt` performs the image lifecycle in this order:
+
+1. Validate JPEG/PNG/WebP and a 5 MiB maximum in the client.
+2. Call `api_reserve_incident_image_upload` with incident ID, MIME type, byte size, and client message UUID.
+3. Require the returned deterministic object path to match the expected incident/profile/message path.
+4. Upload to the private `incident-chat-attachments` bucket unless the reservation is already consumed.
+5. Finalize through `api_send_incident_image_message`; the database checks the uploaded object and message metadata.
+6. Download through the authenticated Supabase Storage object endpoint, not a public URL.
+
+The reservation RPC derives the profile from `auth.uid()`; client-supplied sender identity is not the authority. The Storage insert policy independently checks bucket, path shape, caller-owned profile folder, MIME, size metadata, reservation validator, and current incident-chat membership. The read policy independently checks incident-chat membership. The bucket is private and the reviewed policy set does not grant authenticated UPDATE or DELETE.
+
+**Important distinction:** the Android client now uses reserve → upload → finalize, but the database switch `private.incident_chat_upload_policy.reservation_enforcement_enabled` defaults to `false`. In that compatibility mode, the Storage policy still checks caller path, MIME, size, and incident membership, while the reservation validator permits the legacy upload path and finalization can accept a legacy no-reservation message. Reservation-capable clients still create and consume reservations. Therefore the UI's “staged enforcement” wording is accurate; source code alone does not establish that strict reservation enforcement is enabled in the deployed database.
+
+### 26.3 Reservation controls and remaining abuse limits
+
+The reviewed migration creates:
+- A private singleton policy table with a configurable 60–3,600 second lease (default 900 seconds).
+- A configurable per-profile message/upload ceiling capped at 20 per minute (default 20).
+- A private reservation ledger keyed to profile, incident, client message UUID, deterministic object path, MIME, declared byte size, expiry, and consumption time.
+- RLS on both private tables and explicit revocation of direct client table privileges.
+- A Storage INSERT policy that requires a matching unconsumed, unexpired reservation only when strict enforcement is enabled.
+- A finalization path that locks and validates a matching reservation, verifies the actual Storage object metadata, and consumes the reservation with message creation.
+
+The 15-minute lease and 20-per-minute ceiling are implementation defaults, not measured usage targets or a complete storage budget. No daily quota, aggregate byte budget, approved retention period, orphan-cleanup grace period, or scheduled cleanup worker is established by these sources.
+
+### 26.4 Inventory is report-only and metadata-only
+
+`tools/report_incident_chat_attachment_inventory.sql` joins Storage object metadata, message references, and the private reservation ledger. Its aggregate output distinguishes:
+- Objects referenced by messages.
+- Uploaded but not yet finalized objects.
+- Unreserved orphan candidates.
+- Active or expired reservations without objects.
+- Consumed reservations without message references.
+- Missing message objects and path/metadata mismatches.
+- Aggregate object counts and metadata byte totals.
+
+The query intentionally omits object paths, reservation IDs, signed URLs, message content, and coordinates. It does not download object bytes, compute object checksums, mutate rows, or delete objects. A report row classed as an orphan is a candidate for investigation, not automatic authorization to delete it.
+
+### 26.5 Backup and restore are separate operator procedures
+
+The database backup procedure, Storage object backup procedure, and isolated restore-drill checklist correctly separate:
+- PostgreSQL schema, data, and custom roles.
+- Storage object bytes and a separate object manifest/checksum.
+- Supabase Auth identities and project configuration.
+- Storage policies and bucket settings.
+- Render source/deployment configuration and secrets.
+- FCM and external integration configuration.
+
+A PostgreSQL dump does not preserve Storage object bytes or managed Auth state. A checksum manifest proves file consistency against that manifest, not that the database can be restored or the application works. The Storage procedure is operator-run, not an automated schedule. The restore checklist requires an approved isolated target and forbids testing destructive restore commands against production.
+
+The Admin portal has no live connection to backup schedules, off-site destinations, manifests, object-copy results, or restore-drill evidence. It must not show an RPO/RTO as achieved; proposed objectives remain planning targets until measured through successful drills.
+
+### 26.6 Security and operations findings
+
+1. **No Admin media access:** preserve the rule that Admin cannot read private attachments merely by virtue of role. Any future exceptional evidence access would require a separately approved purpose, scoped authorization, audit trail, and privacy review—not a generic media-browser feature.
+2. **Strict reservation rollout is unresolved at runtime:** the Android code now reserves before upload, but no live switch read is exposed in the Admin portal. Confirm all supported client versions and the deployed switch through a controlled read-only operator check before proposing strict enforcement.
+3. **HTTP acceptance remains a distinct gate:** SQL RLS tests and migration replay do not prove actual Storage API binary upload/download, preflight metadata behavior, HTTP conflict retry, or physical-device recovery after network interruption.
+4. **Storage telemetry is missing from Admin:** there is no connected live bucket policy probe, upload/download outcome feed, object integrity scan, backup freshness feed, or retention/cleanup status. Show “not connected/not verified,” not “healthy.”
+5. **Orphan cleanup is unsafe without policy:** pending-send recovery state is partly device-local. Cleanup must remain disabled until retention, grace period, pending retry treatment, backup implications, bounded deletion, and audit requirements are approved. Never grant client DELETE as a shortcut.
+6. **Backup destination remains a governance decision:** an off-site destination, encryption-key recovery, access ownership, retention, and recurring operator/job responsibility must be established before a backup can be called operational.
+7. **Source inventory is not live provider evidence:** historical bucket inspection values and object counts must retain their inspection date and must never be presented as current provider configuration.
+
+### 26.7 Admin UI requirements and acceptance gates
+
+- Keep Attachment safeguards and Backup & recovery as separate subviews within Data & continuity.
+- Label each item as one of: repository procedure, dated inspection, live provider check, automated telemetry, or completed restore evidence. Do not collapse these evidence classes into one status.
+- Display the inspection timestamp and source for historical bucket configuration; visibly mark current state as unverified unless a live check is actually connected.
+- Do not show object paths, private URLs, signed URLs, message text, coordinates, or attachment previews in the Admin workspace.
+- Keep inventory guidance explicitly read-only and state that it measures metadata, not byte integrity.
+- Keep backup and restore actions unavailable until a governed backend workflow, isolated acceptance, audit, and explicit operational approval exist.
+- Test reserve → upload → finalize, idempotent retry, expired/unreserved denial under strict mode, participant read access, unrelated/removed-member denial, and no authenticated update/delete against an isolated project through the real HTTP Storage API.
+- Verify the live reservation switch and bucket policies with a read-only check; never enable strict mode as part of a UI task or documentation change.
+- Require a completed isolated restore drill that includes database, object bytes, Auth/configuration, policies, and representative application workflows before reporting recoverability.
+
+**Evidence boundary:** Reviewed branch files include `SupabaseTacApi.kt`, the reservation and reconciliation migrations, the later chat idempotency guards, Storage-policy SQL tests, the report-only attachment inventory, and the documented backup/restore procedures. The source confirms the intended contracts and explicit outstanding gates; it does not establish current deployed switch state, production bucket policy, successful HTTP upload/download, active backup automation, or a completed restore.
+
