@@ -1,3 +1,14 @@
+## Authenticated profile INSERT grant — 2026-11-27
+
+- **Exact-head CI:** At `db0958bc357b172cc0612c4fce16bcf7483430be`, main CI, QA, Security, Frontend Review, and read-only profile verification passed. The RPC grant contract failed at `Verify core table destructive privilege boundaries`.
+- **Failure evidence:** The clean PostgreSQL replay reported `authenticated must not directly INSERT into public.profiles`. The test already expects no direct INSERT on either core table. The profile Auth trigger is SECURITY DEFINER and remains the supported profile-creation path; Admin role/account operations update existing rows through guarded RPCs.
+- **Root cause from source trace:** The core migration grants SELECT and limited duty-status UPDATE on profiles, but the later hardening migration `20261122050843_restrict_core_table_destructive_privileges.sql` revoked only DELETE/TRUNCATE, not INSERT. No explicit source grant was found; the effective clean-replay privilege is therefore being neutralized with an explicit forward revoke rather than assuming the source's historical ACL baseline.
+- **Fix committed:** Added `supabase/migrations/20261126190000_restrict_profile_insert_privilege.sql` in commit `3baaab6c8ac8bf3429a639ef67cbf0d0b616fe0f`. It revokes table-level INSERT from PUBLIC/anon/authenticated and dynamically revokes any column-level INSERT ACLs. It does not change SELECT, duty-status UPDATE, Auth trigger behavior, or hosted Supabase.
+- **Validation boundary:** The migration is committed to the PR branch. A new exact-head CI/replay is required; no hosted migration was applied and no account or production data was changed.
+- **Next:** Confirm the profile INSERT assertion passes, then inspect the remaining RPC grant contract stages for backend-only device-registry and GPS RPC boundaries.
+
+---
+
 ## PostgreSQL 17 privilege replay harness correction — 2026-11-27
 
 - **Exact-head finding:** The PR #370 exact-head runs at `7437a07f96c5d1d7f36c863a5cedde228fe64c73` passed Source checks, Android debug/release builds, Laravel/dashboard integration, advisory prototype checks, QA, Frontend Review, Security, and read-only profile verification. The main migration replay and dedicated RPC grant contract both failed at the same SQL test-harness parse error.
