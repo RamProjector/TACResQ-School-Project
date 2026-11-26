@@ -99,6 +99,9 @@ assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 assert 'app_action_audit_logs: "App actions"' in AUDIT_PAGE
 assert "<strong>App actions</strong>" in AUDIT_PAGE
 assert "chat-message sends, notification-read changes, and field-unit duty-status changes" in AUDIT_PAGE
+assert "Notification-read changes are not included in this feed." in AUDIT_PAGE
+assert "Notification reads on this page:" not in AUDIT_PAGE
+assert "const notificationReadCount = events.filter" not in AUDIT_PAGE
 assert "do not expose message content" in AUDIT_PAGE
 assert 'Object.entries(value as Record<string, unknown>)' in AUDIT_PAGE
 assert 'boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item, depth + 1)' in AUDIT_PAGE
