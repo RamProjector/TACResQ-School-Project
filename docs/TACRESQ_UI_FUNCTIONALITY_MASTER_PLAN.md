@@ -9080,3 +9080,88 @@ Current repository/live-review boundaries remain: the existing health panel chec
 - Render Logs and Service Metrics: https://render.com/docs/logging ; https://render.com/docs/service-metrics
 
 This section is a research and verification specification only. No monitoring agent, heartbeat, canary, collector, alert route, log drain, provider plan, paid service, database schema, policy, role, permission, production configuration or live data was changed.
+
+## Section 64 — Service-role RPC execution, default ACLs and privileged helper exposure
+
+**Evidence boundary:** read-only live PostgreSQL catalog, default-privilege, role-membership and migration-ledger queries, plus source inspection at the current Admin IPS branch, 2026-11-26. This is a permission and source-contract review, not a runtime exploit test. No function ACLs, default privileges, migrations, role memberships, secrets or production settings were changed.
+
+### 64.1 Live EXECUTE inventory
+
+The live public schema contains 57 functions executable by service_role in the inspected catalog snapshot. Of those, 38 are SECURITY DEFINER functions and 19 are executable by service_role but not by authenticated. These totals include trigger functions and functions inherited from Supabase platform schemas only where separately noted; the counts above are specifically public-schema functions.
+
+The important categories are:
+
+- **Expected server-worker endpoints:** api_claim_fcm_delivery_batch(integer, integer) and api_unregister_fcm_token_for_delivery(bigint, text). Their ACLs explicitly grant EXECUTE to service_role and exclude PUBLIC, anon and authenticated. Their source is purpose-built for the Laravel FCM worker.
+- **Authenticated application RPCs:** many incident, assignment, location, chat, notification, duty, profile and Admin wrapper functions have authenticated EXECUTE and also service_role EXECUTE. Their service-role permission is not evidence that the application server uses them with a service key; the inspected Render bridge forwards the caller JWT and the Admin portal uses the publishable key plus the Admin session.
+- **Admin internal/legacy functions:** api_admin_analytics_summary_internal, api_admin_list_audit_logs_internal, api_admin_list_users_page_internal, api_admin_set_user_role_internal and legacy api_admin_list_users are service-role executable but not authenticated executable in the live catalog. Their function bodies must be considered together with their wrappers and MFA contract.
+- **Trigger/maintenance functions:** rls_auto_enable and multiple tacresq_* trigger functions have service-role EXECUTE in the live ACL despite not being ordinary RPC endpoints. PostgreSQL invokes trigger functions through trigger bindings; an application role does not need direct EXECUTE merely for the trigger to fire.
+
+The live tacresq_require_incident_location() function is bound to the incidents_require_location_before_write trigger on public.incidents. Its live ACL still includes PUBLIC, anon, authenticated and service_role EXECUTE. The branch migration 20261126100000_revoke_incident_trigger_function_client_execute.sql explicitly revokes all four grants, but the live migration ledger query returned no 20261126 entries, including 20261126100000. The migration is therefore not recorded as applied in the inspected ledger, and the live ACL remains exposed. Do not report the branch migration as a deployed fix.
+
+### 64.2 Root cause: default privileges grant service_role EXECUTE
+
+The live pg_default_acl catalog contains a public-schema FUNCTION default ACL for grantor postgres that grants EXECUTE to anon, authenticated and service_role. A second public-schema FUNCTION default ACL exists for grantor supabase_admin and also includes those roles. The default ACL rows are explicit; they are not merely an inference from the usual PostgreSQL PUBLIC default.
+
+This explains why functions created by those owners can retain service_role EXECUTE even when individual migrations revoke PUBLIC, anon and authenticated but omit service_role. For example, internal Admin functions have ACLs listing postgres and service_role while omitting authenticated; this is consistent with a service_role default grant surviving a targeted client-role revoke.
+
+The current branch migrations contain per-function REVOKE/GRANT statements, but the live catalog demonstrates that a migration's source text is not proof of its hosted application. The migration ledger and effective ACL must both be checked.
+
+### 64.3 Admin MFA wrapper bypass risk
+
+Several service-role-only SECURITY DEFINER helper functions check that auth.uid() belongs to an Admin profile, but do not independently call the shared Admin MFA/AAL2 requirement:
+
+- api_admin_set_user_role_internal validates that the actor is an Admin profile and applies role/assignment constraints, then updates the role and inserts admin_audit_logs. It does not itself verify AAL2/TOTP.
+- api_admin_list_users_page_internal validates Admin profile role and pagination/search bounds, but not the Admin MFA helper.
+- api_admin_list_audit_logs_internal validates Admin profile role and bounded page size, but not the Admin MFA helper.
+- api_admin_analytics_summary_internal validates Admin profile role and reporting range, but not the Admin MFA helper.
+- legacy api_admin_list_users validates Admin profile role and returns directory contact data, but not the Admin MFA helper.
+
+The corresponding public Admin wrapper functions are intended to enforce the stronger Admin MFA gate before calling internal helpers. However, the live service_role EXECUTE grants create a separate callable path to those helpers. A service-role key alone has no authenticated user identity, so auth.uid() is normally null and these particular checks should fail closed. But a server-side caller that combines a service-role API key with a valid Admin user JWT could potentially invoke the helper directly and bypass the wrapper's MFA/AAL2 check. This is a credential/session-combination risk, not proof that any such call occurred. It also demonstrates why a role check is not interchangeable with a fresh MFA check.
+
+**Priority:** remove direct API execution from internal helpers or move them to a non-exposed private schema with narrowly controlled owner-only access. If they must remain callable from public wrappers, ensure their invocation context is not directly forgeable by service_role, and consider enforcing the MFA predicate inside the privileged helper itself. Re-test every wrapper and internal call chain after changing schema or ACLs.
+
+### 64.4 Trigger functions and direct invocation
+
+Trigger functions are invoked by PostgreSQL as part of the trigger execution mechanism. They are not normal PostgREST RPCs. The live trigger binding confirms tacresq_require_incident_location is used by the incidents write trigger; no legitimate direct application call is identified in the inspected source. Direct EXECUTE should be revoked from PUBLIC, anon, authenticated and service_role, while preserving the trigger binding. The same principle should be applied individually to other trigger-only functions after confirming each trigger binding and checking that no legitimate direct SQL caller exists.
+
+The branch migration 20261126100000 already expresses the correct narrow revocation for tacresq_require_incident_location, but its absence from the live migration ledger and the still-open live ACL mean deployment remains unverified. Do not apply it through an ad-hoc hosted SQL change in this research task.
+
+### 64.5 Recommended default-privilege and function ACL target
+
+A reviewed migration strategy should:
+
+1. **Correct future defaults for application-owned functions:** evaluate ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM service_role. Review the corresponding supabase_admin default ACL separately; do not modify provider-managed defaults without confirming ownership and operational impact. This affects future functions only, not existing ACLs.
+2. **Preserve explicit worker grants:** after correcting defaults, explicitly grant service_role EXECUTE only on the two FCM worker RPCs currently demonstrated by the Render worker call graph. Any additional server-only function must have a named consumer, owner and test.
+3. **Remove service_role from authenticated-only application wrappers:** the Admin portal and Android use publishable keys with user JWTs, and the Render bridge forwards the caller JWT. Their normal application paths do not require a service-role EXECUTE grant.
+4. **Remove service_role from internal Admin helpers:** eliminate direct REST/RPC access to the internal SECURITY DEFINER functions, preferably by placing them in the non-exposed private schema or otherwise limiting EXECUTE to the function owner and approved wrapper path. Keep MFA/AAL2 enforced at the true privilege boundary.
+5. **Revoke direct EXECUTE on trigger-only functions:** revoke from PUBLIC, anon, authenticated and service_role, preserving database trigger bindings.
+6. **Avoid broad schema-wide revocation without inventory:** Supabase platform functions in auth, extensions, storage, vault, realtime and GraphQL have provider-managed ACLs and defaults. The live catalog includes service_role access to some platform-owned functions. Do not revoke or rewrite platform ACLs as part of an application public-schema cleanup.
+7. **Keep explicit grants reviewable:** migrations should state required EXECUTE grants for the named worker and authenticated callers, and explicit revokes for functions that are internal or trigger-only. Catalog tests should assert both the allowlist and denylist.
+
+The public-schema default ACLs are a major source of grant drift. A migration that only revokes anon/authenticated on an individual function but leaves service_role untouched may continue to create a service-role callable endpoint. Future function templates and migration review should require an explicit caller contract.
+
+### 64.6 Verification gates
+
+- Reconcile all 57 public-schema service_role EXECUTE grants against the migration ledger, exact source migration, function owner, SECURITY DEFINER status, direct call sites, trigger bindings and API exposure.
+- Add catalog assertions for the intended service_role EXECUTE allowlist, including both FCM worker RPCs, and deny direct execution on internal Admin helpers and trigger-only functions.
+- Verify the intended role-specific default ACL after migration for each application function creator; separately inspect any future function created by supabase_admin.
+- Run a disposable clean migration replay and Supabase local integration tests. Include service-role key without user JWT, service-role key plus AAL1 Admin JWT, service-role key plus AAL2 Admin JWT, authenticated Admin AAL1, authenticated Admin AAL2, ordinary authenticated user and anon.
+- Specifically prove that role-change, user-directory, audit-reader and analytics access all reject Admin AAL1 and accept only the documented AAL2/TOTP path. Prove direct internal-helper calls are denied even when an Admin JWT accompanies a service-role API key.
+- Verify trigger behavior still runs after direct EXECUTE revocation; test valid/invalid incident writes through the real RPC/table path.
+- Verify FCM queue claim, retry update and exact token cleanup continue working with only the explicit service-role allowlist.
+- Compare live ACLs and migration ledger after any approved deployment. No claim of remediation until the deployed catalog and runtime tests both pass.
+
+### 64.7 Findings
+
+| Finding | Assessment | Required action |
+|---|---|---|
+| postgres public-function default ACL grants service_role EXECUTE | High-priority privilege drift source | Correct application-owner default privileges in a reviewed migration |
+| Five Admin internal/legacy SECURITY DEFINER helpers are service-role executable without an internal MFA check | Potential MFA wrapper bypass when paired with an Admin JWT | Remove direct helper EXECUTE or enforce MFA at the helper boundary |
+| 57 public functions are service-role executable; only two are demonstrated FCM worker endpoints | Broad callable surface | Reconcile each and create explicit allowlist |
+| Trigger-only tacresq_require_incident_location still has PUBLIC/anon/authenticated/service_role EXECUTE live | Unnecessary direct RPC exposure | Confirm branch migration ledger/application and test trigger behavior |
+| Branch migration 20261126100000 is absent from live migration ledger | Deployment drift/unapplied migration evidence | Reconcile before treating source fix as live |
+| Supabase platform schemas also have service-role EXECUTE grants/default ACLs | Provider-managed boundary | Exclude from app cleanup unless supported by provider guidance |
+
+**Change boundary:** documentation only. The review did not alter default privileges, function ACLs, schema exposure, migration history, trigger definitions, function bodies, service-role keys, application code or production behavior. The MFA bypass is a conditional attack path inferred from live ACLs and function bodies; no unauthorized execution was attempted or observed.
+
+**References:** live pg_proc/proacl/has_function_privilege catalog; live pg_default_acl; pg_auth_members; supabase_migrations.schema_migrations; trigger binding for incidents_require_location_before_write; 20261126100000_revoke_incident_trigger_function_client_execute.sql; 20261125020844_admin_account_lifecycle_audit_reader.sql; Admin MFA wrapper migrations; FCM worker migrations; Sections 27–29 and 53–63.
