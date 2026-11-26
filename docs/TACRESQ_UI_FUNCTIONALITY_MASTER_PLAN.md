@@ -8666,3 +8666,127 @@ The master plan currently contains repeated numeric section labels from earlier 
 **Change boundary:** read-only hosted migration-ledger and catalog review; a static alias-classification assertion was added to `tools/test_migration_history_alignment.py`; this section records the baseline and safe reconciliation plan. No migration SQL was applied, no hosted history row was repaired, no production grant/schema/data changed, no CLI link or deployment was performed, and no production credential was added to CI.
 
 **References:** Supabase [Deploy database migrations](https://supabase.com/docs/guides/deployment/database-migrations), [migration list CLI reference](https://supabase.com/docs/reference/cli/supabase-migration-list), [Supabase CLI releases](https://github.com/supabase/cli/releases); repository PRs #365 and #366; `tools/test_migration_history_alignment.py`; `tools/test_supabase_migration_replay.sh`; `.github/workflows/rpc-grant-contract.yml`; Sections 53 and 59.
+
+
+## Section 63 — Service-role consumer call paths, effective grants, and privilege-reduction candidates
+
+**Objective:** move beyond a role-wide grant inventory and identify which live service-role privileges are exercised by each trusted Laravel and Edge Function path, which are merely available, and which could be narrowed without breaking the current application. This section is a read-only security investigation, not a grant-change proposal approved for production.
+
+**Evidence snapshot:** branch `docs/admin-ips-ui-master-plan` at `cc3f223d0fbb91cbcc302f1484066d4b2d9a52f7`; connected Supabase project `kttguamhznoflzagfutr` on PostgreSQL 17; active Edge Function metadata and deployed source; Render workspace service inventory, service details, recent events and log search. No key values, environment-variable values, user rows, FCM tokens, service-account material or private request payloads were retrieved.
+
+### 63.1 Effective role and default-privilege boundary
+
+The live catalog confirms:
+
+- `service_role` is `BYPASSRLS = true`, `NOLOGIN`, and not a superuser. A request executing as this role does not receive protection from table RLS policies.
+- The role-membership catalog lists `authenticator`, `supabase_realtime_admin`, and `postgres` as members of `service_role`; `postgres` has the membership admin option. These are database/platform role relationships, not proof that a specific person or application process holds a credential.
+- Default ACLs grant `service_role` broad privileges on newly created tables, sequences and functions. For objects created by `postgres`, the live defaults include all table privileges (including INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and PostgreSQL 17 MAINTAIN), SELECT/UPDATE/USAGE on sequences, and EXECUTE on functions in `public` and `storage`. The catalog also reports corresponding defaults on `public`, `graphql` and `graphql_public` objects created by `supabase_admin`.
+- Existing object ACLs show the same broad set on many application tables, including `profiles`, `incidents`, `incident_assignments`, `incident_assignment_events`, `incident_claimability_logs`, `incident_messages`, `incident_request_edit_logs`, `incident_status_logs`, `incident_submission_keys`, `location_logs`, `user_notifications`, `fcm_tokens` and `fcm_delivery_attempts`. Broad privileges also appear on several Storage/Vault platform objects.
+
+**Interpretation:** the current shared service-role credential is not constrained to the small set of operations performed by the Laravel logger and FCM worker. A future application table created under the affected default ACLs can inherit a broad service-role grant unless the migration explicitly overrides it. The PostgreSQL 17 `MAINTAIN` privilege is included in the live catalog snapshot; do not assume it exists in the repository's PostgreSQL 16 replay lane.
+
+Do not apply a blanket revoke across `storage`, `vault`, `graphql`, or platform-owned objects. Those schemas have platform-managed consumers and require a separate compatibility review. The application-owned `public` default-privilege boundary is the appropriate first place to design an explicit grant allowlist, after inventorying every migration owner and server consumer.
+
+### 63.2 Source-to-credential consumer map
+
+| Consumer | Actual call path and operation | Minimum operation demonstrated by reviewed source | Important boundary |
+|---|---|---|---|
+| Render `ApiOperationAuditLogger::record()` | `backend/src/app/ApiOperationAuditLogger.php` POSTs metadata to `/rest/v1/api_operation_logs` | INSERT only | No SELECT, UPDATE, DELETE or TRUNCATE is used by this writer. It is best-effort, metadata-only and fail-open with bounded timeouts. |
+| Render `FcmNotificationDispatcher` | `backend/src/app/FcmNotificationDispatcher.php` calls `api_claim_fcm_delivery_batch`, PATCHes `fcm_delivery_attempts` by `id`, and calls `api_unregister_fcm_token_for_delivery` for an invalid token | EXECUTE on the two worker RPCs; UPDATE of attempt state (plus the column visibility needed for the PostgREST id filter) | It does not directly query `fcm_tokens`; the claim RPC reads the queue, notification, profile and token relations under its SECURITY DEFINER owner. |
+| Supabase Edge Function `tacresq-notify` | Deployed source uses service-role Auth validation, SELECTs actor/incident/recipient/token rows, sends FCM and DELETEs invalid token rows | Auth user lookup, SELECT on `profiles`, `incidents`, `fcm_tokens`; DELETE on `fcm_tokens` | The function is an independent legacy direct-send path, not the Laravel queue worker. Its queries bypass RLS and rely on explicit handler checks. |
+| Render Laravel bridge | Bridge validates the caller and forwards allowlisted RPCs with the original caller JWT | No service-role business-table operation is demonstrated in the bridge path | Do not attribute the bridge's caller-scoped RPCs to the server secret merely because the same Laravel application has a server-only secret configured. |
+| Android and Admin browser | Publishable key plus the signed-in user's JWT for Auth, PostgREST/RPC and Storage | Caller-scoped grants and policies | No service-role key is intended in either client. Repository checks and runtime configuration are not a substitute for inspecting built release artifacts. |
+
+The logger and worker both read the same Laravel `SUPABASE_SECRET_KEY` configuration through `SupabaseServerHeaders::forSecretKey()`. Renaming the environment variable or copying the same secret into two variables would not isolate the workloads: both requests still execute with the same `service_role` capability set.
+
+### 63.3 Logger: a narrow writer with one unnecessary table privilege
+
+The logger's reviewed implementation performs one fixed POST to `public.api_operation_logs`, uses `Prefer: return=minimal`, and sends only correlation, actor identifier, provider, operation, source, outcome, status, duration, provider request ID and error code metadata. It does not read the table.
+
+The live table ACL is already narrower than most application tables: service_role has SELECT and INSERT, with no UPDATE, DELETE or TRUNCATE. Its migration explicitly revokes the default grants and then grants SELECT and INSERT. The logger's shown code needs INSERT; SELECT is not used by this writer. The identity sequence has SELECT and USAGE in the live ACL.
+
+**Candidate:** remove the table-level SELECT grant from `api_operation_logs` after checking all current readers and running the logger integration test against the exact proposed grants. Keep INSERT. Review whether the sequence SELECT privilege is needed; do not remove sequence privileges until an insert using the identity column is proven to work in the target PostgreSQL/PostgREST configuration.
+
+This is a small local reduction, not isolation from the FCM worker: both still use the same high-privilege key.
+
+### 63.4 FCM worker: narrow RPCs are undermined by broad direct table access
+
+The Laravel worker's main flow is:
+
+1. Validate Supabase URL, server secret, Firebase project and Google ADC before claiming work.
+2. Call `api_claim_fcm_delivery_batch(p_limit, p_lease_seconds)`. The live function is SECURITY DEFINER, owned by `postgres`, has pinned `search_path = pg_catalog`, and its migration revokes execution from PUBLIC, anon and authenticated before granting service_role.
+3. Send the claimed token through Firebase HTTP v1.
+4. PATCH `fcm_delivery_attempts` with the outcome, filtering only by `id = eq.<attempt_id>`.
+5. On a definitive invalid-token response, call `api_unregister_fcm_token_for_delivery(p_profile_id, p_token)`. The live function is also SECURITY DEFINER, postgres-owned, pinned to `pg_catalog`, and explicitly service_role-only.
+
+The worker does not use direct DELETE on `fcm_tokens`; token removal is routed through the cleanup RPC. However, the live service_role ACL still has full table privileges on `fcm_tokens` and `fcm_delivery_attempts`. That means the RPC restrictions do not currently constrain the shared credential from bypassing those functions and accessing the tables directly.
+
+Two further integrity details require attention before the worker is treated as least-privilege:
+
+- The direct attempt PATCH filters only by the stable attempt row ID. The claim function increments `attempt_count` when an expired lease is reclaimed, but the worker does not pass an expected claim generation or lease token into its update. A stale worker could therefore attempt to write an outcome after a newer worker has reclaimed the same row. Add a claim-generation/lease token and a finalization RPC that checks the current claim before accepting a result.
+- The cleanup RPC validates a positive profile ID and token length, then deletes the exact supplied pair. It does not itself prove that the pair belongs to a currently claimed delivery attempt. The statement that the caller supplies a pair returned by the claim is enforced by the worker's call sequence, not by the RPC's database contract. If direct `fcm_tokens` DELETE is later revoked, bind cleanup to a claimed attempt ID/generation and verify the token/profile pair inside the RPC.
+
+**Candidate:** replace the direct PATCH with a narrow `api_finalize_fcm_delivery_attempt` RPC that accepts an attempt ID, claim generation and allowlisted result fields, verifies the current live lease, and atomically finalizes the attempt. Bind invalid-token cleanup to that same claim. Then revoke unnecessary direct service_role privileges on `fcm_delivery_attempts` and `fcm_tokens` only after the worker tests and deployed Edge retirement gate below pass.
+
+### 63.5 Edge Function: active deployment is older than the branch mirror
+
+The connected Supabase project currently reports `tacresq-notify` as ACTIVE, version 2, with `verify_jwt = true`. The deployed source was retrieved separately from the branch source mirror.
+
+The deployed version 2 source:
+- Validates a bearer token with Supabase Auth.
+- Uses a service-role client to read the actor profile, incident, dispatcher recipients and FCM registrations.
+- Performs event-specific role/incident relationship checks.
+- Sends directly to FCM and deletes invalid registrations by IDs returned from its registration query.
+- Does not use the persistent `fcm_delivery_attempts` queue, lease, retry or deduplication workflow.
+- Does not include the branch mirror's 8 KiB request-body cap, active-actor check, or active-recipient filter. Its actor lookup selects only ID and role; its recipient/token lookup does not establish current recipient account status before sending.
+
+The branch mirror `supabase/functions/tacresq-notify/index.ts` contains the additional body-size, active-account and active-recipient checks, but that does not update the deployed function. The deployed function remains version 2; no deployment was performed during this audit.
+
+A read-only Supabase Edge log query found no `tacresq-notify` request path in the last 24-hour log window. This is evidence of no observed invocation in that window only, not proof of permanent non-use or absence of external/manual callers. The repository's `tools/test_fcm_server_contract.py` explicitly guards against adding new app/web/backend callers to this legacy direct-send path. Earlier repository and deployment research also records no tracked caller, but external integrations still require owner confirmation.
+
+**Candidate:** treat the Edge function as an active legacy endpoint with no recent invocation observed. Before disabling or replacing it, inspect a representative invocation period, external schedules/manual callers, and any provider-side integrations. If it is retained, deploy and verify the hardened source only through a separately approved change, and test wrong-role, wrong-incident, suspended actor/recipient, reassignment race, oversized payload, invalid-token cleanup and provider-failure cases. Do not activate both Edge and Laravel send paths for the same event family.
+
+### 63.6 Runtime execution: worker code exists, automatic dispatch is not established
+
+The current Render workspace inventory contains the TACResQ service as a Free Docker Web Service on branch `main`, rooted at `backend/`, with one instance. No TACResQ Cron resource appeared in the workspace service list. The latest Render deployment event inspected used repository commit `b877cb3819484755145834f528252d13c04fb01b`; the documentation branch and this PR are not the deployed service branch.
+
+The worker command `php artisan tacresq:dispatch-fcm` exists, but the current service inventory does not establish a scheduled invocation. The example `render-fcm-cron.example.yaml` is explicitly an example, not a configured Render Cron resource. Earlier connected-project inspection found no `pg_cron` or `pg_net` extension and no `cron.job` relation; the current workspace inventory still shows no TACResQ Cron resource. The Render log search returned no matching `FCM dispatch` or `tacresq:dispatch-fcm` lines in its returned seven-day window.
+
+The HMAC webhook secret used to authenticate a possible Cron-to-Render trigger is a separate credential from the Supabase service-role secret. Its presence or configuration was not read. Do not infer that the trigger is active merely because the route and example configuration exist.
+
+**Operational conclusion:** the Laravel worker is a repository-supported privileged consumer, but automatic execution and live queue processing are not proven by current Render inventory/log evidence. The active Edge function is deployed but had no observed invocation in the last 24 hours. Neither fact authorizes removing grants or disabling either path.
+
+### 63.7 Ordered privilege-reduction plan
+
+| Priority | Candidate | Preconditions and required proof | Current decision |
+|---|---|---|---|
+| P0 | Stop relying on global service_role defaults for new application tables | Inventory migration owners; explicitly revoke broad defaults for application-owned `public` objects and grant per-object allowlists; validate clean replay and every server consumer. Do not modify platform-owned schema defaults as part of this step. | Design only; no ACL changes |
+| P0 | Remove unnecessary service_role mutation privileges on `admin_audit_logs` | Confirm no deployed service-role writer, inspect all role-change/provisioning paths, test Admin role-change RPC and audit insert atomically, then verify exact live ACL. The reviewed application writers do not use this table directly. | Strong candidate; not applied |
+| P1 | Narrow `api_operation_logs` | Verify no reader depends on service_role SELECT; test metadata logger insert with SELECT removed and identity generation preserved. | Candidate; not applied |
+| P1 | Replace FCM attempt PATCH and token cleanup with claim-bound RPCs | Add lease generation, atomic finalization, exact attempt-to-token binding, race/reclaim tests, duplicate and retry tests. Only then revoke direct table DML that the worker no longer needs. | Required design work |
+| P1 | Retire or constrain legacy `tacresq-notify` | Confirm no external caller over a representative period; deploy/test hardened handler if retained; do not overlap event families with Laravel worker. | Active legacy endpoint; no recent invocation observed |
+| P2 | Separate logger and FCM worker privilege boundaries | Use distinct database authorization boundaries, not duplicate environment variables or multiple keys that still map to service_role. Consider a dedicated restricted database role or a narrow authenticated execution boundary with explicit RLS/SQL invariants. | Architecture research required |
+| P2 | Review broad service_role grants on operational history, incident, profile and Storage tables | Trace every direct consumer, trigger, migration, provider integration and platform dependency. Preserve required platform behavior and append-only evidence properties. | Inventory incomplete; no blanket revoke |
+
+Supabase documents that secret keys (and the legacy `service_role` key) authorize requests as the built-in service_role, which bypasses RLS. Multiple named secret keys do not create separate PostgreSQL roles or independent table grants. A separate key name is therefore not a substitute for a separate database privilege boundary.
+
+### 63.8 Verification matrix before any privilege change
+
+1. Reconcile the live catalog with migration replay for direct table, column, sequence, function, schema, inherited membership and default privileges; include PostgreSQL 17 because the hosted database is PG17.
+2. Verify each service-role consumer and all direct read/write statements, including external integrations and operator scripts. Distinguish configured credentials from executed paths.
+3. Logger: INSERT-only test, missing-secret fail-open test, identity sequence behavior, no body/token/coordinate leakage, and confirmation that no reader depends on the logger credential.
+4. FCM: claim batch cap, active-recipient guard, simultaneous claim, expired lease reclaim, stale worker finalization rejection, retry backoff, provider success/failure, invalid-token cleanup bound to the claimed attempt, and worker crash recovery.
+5. Edge: deployed-version/source diff, caller inventory, account lifecycle and role checks, recipient filtering, incident reassignment race, oversized body, duplicate event, provider failure, and no duplicate send alongside Laravel.
+6. Render: verify actual scheduled resource and invocation logs without exposing environment values; distinguish a manual command, signed webhook, configured schedule and a successful device delivery.
+7. Re-read the exact live ACL/default ACL after an approved migration and run negative tests as anon, authenticated, service_role and the intended restricted worker role. Verify that no future-object default reintroduces removed privileges.
+8. Preserve the current Admin, Android, Storage, notification inbox and FCM retry behavior. A green static source contract does not prove hosted grants, deployed Edge source, automatic scheduling or device delivery.
+
+### 63.9 Conclusion and change boundary
+
+**Confirmed by current read-only evidence:** service_role bypasses RLS and has broad existing table grants plus broad default privileges; the Laravel metadata logger and FCM worker share one server secret; the logger only needs INSERT in its shown write path; the worker uses a service-role claim RPC, direct attempt-row PATCH and a service-role cleanup RPC; the cleanup RPC does not independently bind its arguments to a live claim; the active deployed Edge Function is version 2 and differs from the hardened branch mirror; no invocation was observed for that function in the last 24 hours; the Render workspace currently lists a Free TACResQ web service but no TACResQ Cron resource, and no FCM command invocation was found in the returned seven-day log search.
+
+**Not established:** who can read or rotate Render/Supabase secrets, whether an external operator or scheduler invokes the Edge function, whether a manual worker execution occurred outside retained logs, every platform-internal dependency on service_role grants, or complete end-to-end delivery on a physical device.
+
+**Change boundary:** read-only source, live catalog, Edge deployment metadata/source, Supabase logs and Render service/event/log inspection. No service_role grants/default ACLs, database functions, secrets, Edge deployment, Render variables, schedules, provider settings, production data or application code were changed. This section is documentation only.
+
+**References:** Supabase [API keys and service-role behavior](https://supabase.com/docs/guides/getting-started/api-keys), [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth), [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security), [Securing the Data API and default privileges](https://supabase.com/docs/guides/api/securing-your-api); repository files `backend/src/app/ApiOperationAuditLogger.php`, `backend/src/app/FcmNotificationDispatcher.php`, `backend/src/config/tacru.php`, `backend/src/app/Console/Commands/DispatchFcmNotifications.php`, `supabase/functions/tacresq-notify/index.ts`, `supabase/migrations/20261105235016_fcm_delivery_attempts.sql`, `supabase/migrations/20261125020853_fcm_delivery_claim_active_recipient_guard.sql`, `supabase/migrations/20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql`, `supabase/migrations/20261122050811_api_operation_audit_and_fk_indexes.sql`, `tools/test_fcm_server_contract.py`, Sections 21–23, 28, 41–43, 48–52 and 61.
