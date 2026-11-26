@@ -1,3 +1,16 @@
+## Admin IPS account governance and lifecycle UX research — 2026-11-26
+
+- Added Section 41 to `docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md`: the Admin portal should retain its single `admin` privilege role; requester/responder/driver/dispatcher remain operational application roles, not Admin sub-roles.
+- Audited the current Admin source in `backend/web/src/pages/AdminConsole.tsx` and confirmed the directory's server-side search/role filters, separate role/account/duty states, operator-managed Admin accounts, reasoned role and lifecycle changes, expected-state revalidation, stale-result clearing, and bounded account-activity preview.
+- Added explicit UX and security acceptance requirements for safe account transitions, concurrent changes, provisioning/bootstrap boundaries, privacy-safe directory details, and truthful activity-history coverage.
+- Research references: NIST SP 800-53 Rev. 5 AC-2/AC-6 (including NIST's Release 5.2.0 notice) and OWASP Authorization / Authorization Patterns Cheat Sheets.
+- Updated `.agents/skills/tacresq-admin-ips/SKILL.md` so the reusable skill applies Sections 39–41 and prohibits unjustified Admin sub-roles or conflating account/duty states.
+- **Commits:** `6cb3927f8143b7843e99c9ce88b44e58c36a71a1` (blueprint); `03e3c2daae1aef2c2c4b5a054140fce24f44956a` (skill).
+- **Validation boundary:** Source was re-fetched and reviewed; the documentation and skill were updated on the existing PR branch. No application code, role grants, database, production configuration, or deployment changed. Exact-head CI for the new documentation/skill commits must be checked before any merge decision. No formal NIST compliance claim is made.
+- **Next:** Continue the next evidence-backed Admin IPS research gap on the same PR #370; do not create another PR.
+
+---
+
 ## TACResQ Admin IPS reusable skill — 2026-11-26
 
 - Created repository skill `.agents/skills/tacresq-admin-ips/SKILL.md` to operationalize the canonical Admin IPS redesign blueprint.
