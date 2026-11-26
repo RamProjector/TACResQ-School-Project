@@ -9646,25 +9646,26 @@ The source review now distinguishes the identity-sequence consumer from the tabl
 | `incident_messages_id_seq` | Authenticated chat RPC writes under SECURITY DEFINER; direct table privileges are closed | No direct server INSERT found | No |
 | `incident_request_edit_logs_id_seq` | Authenticated requester-edit RPC writes the audit row in its transaction | No direct server INSERT found | No |
 | `incident_status_logs_id_seq` | Trusted incident status transition/trigger path; clients have bounded read access | No direct server INSERT found | No |
-| `incidents_id_seq` | Protected incident-creation RPC; direct client INSERT is revoked | No direct server INSERT found | No |
-| `location_logs_id_seq` | Private SECURITY DEFINER location writer behind the authenticated location RPC | No direct server INSERT found | No |
+| `incidents_id_seq` | Current client creation uses SECURITY DEFINER `api_create_incident_v4`; legacy `api_create_incident`/v2/v3 remain SECURITY INVOKER and callable by service_role, which still has table INSERT | **Yes — preserve USAGE, SELECT until legacy RPCs are explicitly retired** | No |
+| `location_logs_id_seq` | Current client path uses authenticated `api_record_location_v2` → private SECURITY DEFINER writer; legacy `api_record_location` remains callable by service_role and directly INSERTs | **Yes — preserve USAGE, SELECT until legacy RPC is explicitly retired** | No |
 | `profiles_id_seq` | Auth-user profile bootstrap trigger under its database owner context | No direct server INSERT found | No |
 | `user_notifications_id_seq` | SECURITY DEFINER assignment, status, and requester-edit notification triggers | No direct server INSERT found | No |
 | `admin_audit_logs_id_seq` | Authenticated Admin RPC writer; Section 64 removes service_role and client sequence access | No | No |
 
 The Laravel FCM worker source confirms that it claims work through `api_claim_fcm_delivery_batch`, then updates attempt state through a direct PostgREST PATCH. Its invalid-token cleanup uses the dedicated service-role RPC. It does not directly INSERT delivery attempts or FCM tokens. The queue-claim function is SECURITY DEFINER and therefore uses its owner context for identity-sequence allocation.
 
-The source-level distinction is important: service_role table access for SELECT, UPDATE or DELETE does not imply that service_role needs USAGE on that table's identity sequence. Only a direct INSERT path using the service_role identity needs the sequence grant. Trigger/RPC inserts execute under their function owner and do not require granting sequence access to the invoking client or worker role.
+The source-level distinction is important: service_role table access for SELECT, UPDATE or DELETE does not imply that service_role needs USAGE on that table's identity sequence. Only a direct INSERT path using the service_role identity needs the sequence grant. Trigger/RPC inserts execute under their function owner and do not require granting sequence access to the invoking client or worker role. A live catalog check exposed two compatibility exceptions that were absent from the current Android bridge allowlist: service_role can still execute legacy invoker RPCs `api_create_incident`/v2/v3 and `api_record_location`, and it still has table INSERT on `incidents`/`location_logs`. Their USAGE/SELECT sequence grants are therefore preserved rather than breaking these still-callable server paths. No current backend/Android callsite was found for the legacy RPCs; retire their EXECUTE/table privileges in a separately reviewed change before removing these two exceptions.
 
 ### 69.2 Forward sequence privilege reduction
 
 Expanded the existing unapplied forward migration `20261126180000_restrict_device_registry_sequences.sql` to cover the full reviewed sequence boundary:
 
 - Preserve service_role USAGE and SELECT on `api_operation_logs_id_seq` for Laravel's direct metadata-only PostgREST INSERT.
-- Preserve service_role USAGE and SELECT on the two device registry sequences for the trusted device-security/integrity writer.
-- Revoke PUBLIC, anon, authenticated and service_role privileges on the RPC/trigger-owned sequences listed in 69.1. SECURITY DEFINER functions and auth bootstrap continue to allocate IDs under their owner context.
+- Preserve service_role USAGE and SELECT on the two device registry sequences for the intended trusted device-security/integrity writer boundary.
+- Preserve service_role USAGE and SELECT on `incidents_id_seq` and `location_logs_id_seq` for the still-callable legacy server-side invoker RPCs; do not grant UPDATE/setval.
+- Revoke PUBLIC, anon, authenticated and service_role privileges on the remaining RPC/trigger-owned sequences listed in 69.1. SECURITY DEFINER functions and auth bootstrap continue to allocate IDs under their owner context.
 - Keep authenticated table reads and the existing protected RPC/trigger insert workflows unchanged.
-- Extend the replay's catalog contract to reject any anon/authenticated access to public identity sequences, reject service_role access to RPC/trigger-owned sequences, and preserve only the three explicit trusted server sequence consumers.
+- Extend the replay's catalog contract to reject any anon/authenticated access to public identity sequences, reject service_role access to RPC/trigger-owned sequences, and preserve only the five explicit trusted/legacy server sequence consumers.
 
 The migration remains repository-only and is included in the unapplied forward migration inventory. Its existing filename reflects the first device-registry scope, but the reviewed SQL now covers all identified backend/RPC-owned sequences as well. Schema-scoped default ACLs are not changed. Exact-head clean replay and same-valid-JWT workflow regression remain required.
 
