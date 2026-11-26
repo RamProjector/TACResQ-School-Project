@@ -15,6 +15,7 @@ assert ".admin-help-search input:focus-visible" in styles
 assert '["notifications", "push", "fcm", "delivery", "alert", "inbox"]' in source[source.index('normalizedHelpQuery && !['):], "Help Centre empty state must recognize notification search terms"
 assert "setActiveSection(\"settings\");" in source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")], "Help Centre settings links must activate the Settings workspace"
 assert 'url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page' in source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")], "Settings navigation must synchronize both route parameters"
+assert 'url.searchParams.has("auditFrom") || url.searchParams.has("auditTo")' in source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")], "Settings navigation must normalize stale Activity Log date parameters even when already on the same settings page"
 
 
 settings_navigation = source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")]
