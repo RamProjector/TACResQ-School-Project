@@ -132,7 +132,7 @@ assert ".admin-analytics-data__table-wrap" in forced_colors
 
 # The desktop navigation rail can collapse without removing accessible section names.
 assert 'const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readAdminSidebarCollapsed());' in SOURCE
-assert 'aria-pressed={sidebarCollapsed}' in SOURCE
+assert 'aria-expanded={!sidebarCollapsed}' in SOURCE
 assert 'aria-label={label} title={sidebarCollapsed ? label : undefined}' in SOURCE
 assert 'PanelLeftClose' in SOURCE and 'PanelLeftOpen' in SOURCE
 assert ".admin-shell--sidebar-collapsed {" in ADMIN_CSS
