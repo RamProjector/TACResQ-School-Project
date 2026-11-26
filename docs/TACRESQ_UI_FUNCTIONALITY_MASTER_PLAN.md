@@ -813,3 +813,188 @@ These references extend the source list in Section 15. Apply the guidance select
 - These sources support interface and verification requirements; they do not establish that TACResQ currently has bulk editing, imports, complete audit coverage, concurrent-edit versioning, or notification preferences.
 - Confirm the current implementation and data contracts before specifying any of those features as deliverable behavior.
 - Keep the existing theme and the Admin IPS product identity unchanged.
+
+
+---
+
+## 19. Mandatory IDS/IPS coursework criteria — source-based requirements
+
+**Source:** user-provided *CRITERIA FOR THE IDS/IPS: Intrusion Detection/Intrusion Prevention System*, one-page handout, page 1. This section preserves the assignment's requirements and translates them into TACResQ-specific design and verification work. It does not claim that the repository currently satisfies them.
+
+### 19.1 Requirements stated in the handout
+
+The handout requires:
+
+1. A web-, desktop-, or mobile-based IDS/IPS using the **same database** and linked to the mobile application.
+2. Identification of application users, each user's roles/permissions, sessions per user, and operations/actions. The handout says operations/actions are only **ADD, EDIT, DELETE**.
+3. An IDS/IPS system flowchart.
+4. System logs recording all operation/actions and sessions with these exact field names: `session_id`, `log_id`, `actions`, `description`, `ip_address`, `timestamp`, `device_used`.
+5. Each action must be included in system logs. Its example uses role-specific action names (student: borrow_books, return_books, view_all_books, reserve_books, search_books; staff: manage_borrow_books, manage_return_books, view_all_books, manage_reserve_books, search_books) and a human-readable action/description pair.
+6. Each user must have their own system logs.
+7. A user may have one or more roles, and roles/permissions may be assigned to users. The system must detect a role/permission assigned to a non-applicable user as a discrepancy/intrusion and warn/notify the administrator.
+8. All listed criteria must be met.
+
+### 19.2 TACResQ interpretation and important distinctions
+
+- The handout's **ADD / EDIT / DELETE** is the required operation classification. The handout's examples also include named user activities such as viewing and searching. Preserve both levels: classify a mutation as ADD, EDIT, or DELETE, while recording the specific role action key and a readable description. For read-only events such as view/search, use a separate event category/action family rather than mislabeling them as ADD/EDIT/DELETE. Confirm the instructor's expected treatment if the rubric requires every event to map strictly to one of the three operation values.
+- TACResQ's existing roles and workflows must be discovered from current source and database constraints. Do not import the library example's student/staff roles.
+- A UI navigation item or hidden button is not a permission. Applicable-role checks and prevention must be enforced at the trusted database/API boundary.
+- "Same database" must mean the IDS/IPS consumes authoritative records from the database used by TACResQ's mobile application, not a separate mock database or manually copied log store. Verify actual project environment and database connection before claiming this requirement is met.
+- A session record and an action audit event are different things. A session lifecycle event records authentication/session context; an action event records an operation performed within that context. Do not fabricate a session identifier if the authentication provider does not expose a stable, safe identifier to the application.
+- The required `ip_address` and `device_used` fields are sensitive/contextual metadata. Record them only from a trusted server/database edge where available, minimize retention and access, and never trust client-supplied IP/device strings as authoritative. If a field is unavailable for a particular source, represent that limitation honestly rather than inventing it.
+- Per-user log access must be scoped by authenticated identity and role. Administrators may have a bounded investigation view; ordinary users must not be able to read another user's logs. Apply row-level/server-side authorization and test direct API/RPC/table access, not only UI filtering.
+- The discrepancy detector must compare an observed assignment against an authoritative role/permission applicability policy. It must not treat every multi-role user as suspicious: the handout explicitly permits multiple roles. Detection needs an explicit matrix of allowed role combinations, user classes, and applicable permissions.
+- Detection and prevention are separate outcomes: detect and record the discrepancy, notify an authorized administrator, and block or quarantine the unauthorized privilege transition where the trusted authorization boundary can enforce it. Do not silently repair role assignments or remove access without a reviewed policy and recovery path.
+
+### 19.3 Verified repository baseline relevant to the criteria
+
+The following are repository findings at baseline commit `b877cb3819484755145834f528252d13c04fb01b`, not live-production verification:
+
+- The Admin authorization design documents distinct Supabase Auth/profile and Laravel Sanctum identity paths. They are not interchangeable; email matching is not a trusted identity link.
+- The Admin portal's current role model is a single `admin` role with action-level server enforcement, AAL2 and TOTP for privileged RPCs. The existing managed ordinary roles are `requester`, `responder`, `driver`, and `dispatcher`. The repository's authorization review specifically cautions against inventing a multi-role Admin hierarchy without real responsibilities.
+- The Admin audit history is currently a bounded, read-only application audit view focused on successful ordinary-role changes. It is not a complete authentication, session, security, or operational event history.
+- A separate Supabase Auth Audit Log source is documented, but persistence into the target project's Postgres database was not verified in the referenced research.
+- A later repository migration defines `public.app_action_audit_logs` for a limited set of server-confirmed actions: `incident_message_sent`, `notification_marked_read`, and `duty_status_changed`. Its fields include `id`, `correlation_id`, `actor_profile_id`, `actor_role`, `action`, `target_type`, `target_id`, `target_user_id`, `incident_id`, `outcome`, `metadata`, and `created_at`. It is append-only and intentionally excludes message content, credentials, tokens, and coordinates.
+- That schema does **not** use the handout's exact required column names and does not by itself demonstrate per-user session lifecycle logging, IP/device capture, or coverage of every role action. Do not claim rubric compliance from the existence of this table alone.
+- The repository contains distinct role-change audit, authentication-provider audit, incident/assignment histories, and app-action audit sources. These must remain source-distinguishable when shown together in an investigation interface.
+
+### 19.4 Required role/action applicability matrix
+
+Create and maintain a source-backed matrix before implementing detection. Fill it from actual app roles, routes, RPCs, database policies, and mobile action handlers. Do not infer permissions from labels alone.
+
+| Principal / role | Action key | Operation class | Applicable? | Authoritative enforcement | Audit source |
+|---|---|---|---|---|---|
+| requester | create own incident | ADD | Verify against source | Owning RPC/RLS | Incident history + app audit if covered |
+| requester | edit own eligible incident | EDIT | Verify status/ownership constraints | Owning RPC/RLS | Request-edit history |
+| requester | cancel own eligible incident | EDIT or domain transition | Verify exact rubric classification | Owning RPC/RLS | Incident history |
+| responder | duty status change | EDIT | Verify role and permitted transition | Trusted RPC/RLS | App-action audit migration |
+| driver | duty status change | EDIT | Verify role and permitted transition | Trusted RPC/RLS | App-action audit migration |
+| dispatcher | review/coordinate incident assignment | Domain-specific | Verify actual dispatcher endpoints | Trusted RPC/RLS | Assignment history |
+| admin | change an ordinary user's role | EDIT | Admin + AAL2/TOTP + allowed target role + reason | Protected Admin RPC | Admin role-change audit |
+| any role | view/search records | Read/query event, not ADD/EDIT/DELETE | Verify dataset-specific access | RLS/RPC/API | Add only if rubric requires read-event logging |
+
+This table is a starting inventory, not a final authorization policy. Replace every "Verify" entry with evidence from the exact current source before implementation. Include all actions found in the Android app and web portal, not just the examples above.
+
+### 19.5 Exact-field compatibility strategy
+
+The assignment explicitly names seven fields. The design must make those fields available in the IDS/IPS system-log view and persisted record contract:
+
+| Required handout field | Intended meaning | Design/verification rule |
+|---|---|---|
+| `session_id` | Session associated with the event | Nullable only when source cannot provide a safe stable reference; document provider semantics and avoid storing bearer tokens |
+| `log_id` | Unique log record identifier | Stable immutable identifier, unique within the defined log source or normalized view |
+| `actions` | Action/operation name | Store a stable action key and preserve required ADD/EDIT/DELETE classification |
+| `description` | Human-readable event summary | Concise, actor/action/target context; no secrets or unnecessary personal data |
+| `ip_address` | Trusted observed client/network address | Capture at trusted ingress where possible; never accept arbitrary client-provided values as authoritative |
+| `timestamp` | Event occurrence time | Store UTC with timezone-aware type; render in user's locale/timezone while retaining UTC source |
+| `device_used` | Device/client context | Derive from bounded user-agent/device classification where available; avoid fingerprinting and do not claim hardware identity |
+
+Do not rename existing authoritative columns merely to match the assignment if that risks breaking RPCs, policies, or migrations. A safe compatibility view or normalized IDS/IPS projection can expose the exact required field names while retaining source IDs and provenance. If the assignment requires physical columns with those exact names, decide that explicitly before schema changes and provide a migration/backward-compatibility review.
+
+### 19.6 Per-user system-log experience
+
+The Admin IPS website should provide:
+- A user-specific activity view reached from the account directory or investigation workspace.
+- A clear identity header and the scope of records being shown.
+- Filters for date/time, action, operation class, session, source, outcome, and target where supported.
+- Server-side pagination and bounded date ranges.
+- Source badges that distinguish application actions, Admin role changes, authentication events, and operational histories.
+- A clear empty state that says no matching events were returned, not that no activity ever occurred.
+- A permission-denied state that does not leak whether another user's private records exist.
+- An export action only if implemented, permission-checked, audited, and privacy-reviewed.
+
+The logged-in user may be allowed to inspect their own permitted activity; administrators may inspect other users only under explicit Admin authorization and least-privilege policy. Do not expose authentication secrets, session tokens, message contents, exact coordinates, or raw provider metadata.
+
+### 19.7 IDS/IPS discrepancy detection and response workflow
+
+Detection should be deterministic, explainable, and auditable.
+
+1. **Observe:** a trusted database/API operation attempts to grant or use a role/permission, or a periodic reconciliation reads current assignments.
+2. **Resolve principal:** map the authenticated identity to the authoritative application profile. Never correlate accounts solely by matching email.
+3. **Evaluate policy:** compare the requested/current role and permission set against the versioned applicability matrix for that principal and context.
+4. **Classify:** allowed, suspicious discrepancy, or denied unauthorized attempt. Distinguish invalid role, inapplicable role, missing permission, privilege escalation, stale assignment, and policy/configuration error.
+5. **Prevent:** reject unauthorized grant/use at the server/database boundary. A frontend warning alone is not prevention.
+6. **Record:** append a security event with source, actor, target, expected policy, observed assignment, outcome, timestamp, correlation identifier, and the seven required handout fields through the compatibility projection.
+7. **Notify:** alert authorized administrators with severity, concise reason, affected principal, event time, and a safe link to the investigation view. Do not include secrets or unnecessary personal data.
+8. **Investigate:** show evidence and source provenance; provide reviewed remediation steps. Do not auto-change roles or delete accounts without an approved policy.
+9. **Close:** record who reviewed the event, the decision, and the resolution outcome, with immutable history.
+
+False-positive controls:
+- Support explicitly approved multi-role combinations.
+- Distinguish historical role changes from current unauthorized assignments.
+- Avoid alerting on a role merely because it is uncommon; use the documented applicability matrix.
+- Deduplicate repeated detections while retaining event counts and first/last observed times.
+- Show detector/policy version so an administrator can understand why an event was flagged.
+
+### 19.8 IDS/IPS flowchart required by the handout
+
+The following flow is the minimum design artifact to include in the final coursework and implementation documentation:
+
+```mermaid
+flowchart TD
+  A[User signs in through approved identity provider] --> B[Resolve authenticated profile and session context]
+  B --> C[User performs application action]
+  C --> D[Trusted API or database authorization boundary]
+  D --> E{Identity, role and permission valid?}
+  E -->|Yes| F[Execute permitted operation]
+  F --> G[Commit domain change and server-confirmed audit event]
+  G --> H[Expose event in authorized per-user log view]
+  E -->|No| I[Reject operation]
+  I --> J[Classify discrepancy or unauthorized attempt]
+  J --> K[Append security event with required log fields]
+  K --> L[Notify authorized administrator]
+  L --> M[Admin investigates source evidence]
+  M --> N[Record reviewed resolution]
+```
+
+The flowchart must be checked against the real call paths and transaction boundaries. If an event cannot be written atomically with the domain change, document the failure mode and ensure audit failure cannot silently turn a denied operation into an allowed one.
+
+### 19.9 IDS/IPS acceptance tests mapped to the handout
+
+| Handout criterion | Required evidence / test | Pass condition |
+|---|---|---|
+| Same database linked to mobile app | Inspect mobile database config, Admin web data access, project/database identity and environment; run read-only integration verification | Both clients use the intended same authoritative database/environment; no mock/second source masquerades as linked |
+| Identify users | Enumerate actual application principal types and profiles from source/schema | Complete source-backed user list; no invented roles |
+| Roles/permissions per user | Build permission matrix from RPC grants, RLS, API middleware, and UI actions | Every listed action has an authoritative allow/deny rule and test |
+| Record sessions per user | Inspect actual auth/session APIs, callbacks, and available session metadata | Session lifecycle events associated safely with users; no token storage |
+| ADD/EDIT/DELETE operations | Inventory all mutating actions and map to operation classes | Every create/update/delete action is classified and recorded |
+| Flowchart | Review the IDS/IPS flowchart against actual call paths | Shows identity, policy evaluation, allow/deny, logging, alert, and review |
+| Exact seven log fields | Schema/view contract test and sample records | All seven names are exposed with correct semantics and populated when available |
+| Every action logged | Role/action coverage matrix plus integration tests for each action | Each in-scope action produces a server-confirmed event or documented source-specific event |
+| Per-user logs | Cross-user authorization tests | User A cannot read User B logs; Admin access is explicitly authorized and bounded |
+| Detect non-applicable role/permission | Positive and negative role-matrix tests, including allowed multi-role combinations | Invalid assignment/use is rejected, recorded, and alerts an authorized Admin |
+| Admin warning/notification | Notification integration test | Correct recipient, severity, safe detail, deduplication, and destination |
+| Complete criteria | Traceability matrix signed off against handout | No criterion marked complete without evidence |
+
+### 19.10 Critical gaps and non-claims
+
+Based on the cited repository documentation and migration reviewed above:
+- The exact seven-field handout contract is not demonstrated by the current `app_action_audit_logs` table.
+- Full session lifecycle logging for each user is not demonstrated.
+- A complete role/action applicability matrix for every mobile and web action is not yet demonstrated.
+- Detection and notification for non-applicable role/permission assignments is not demonstrated by the reviewed Admin audit history.
+- A complete IDS/IPS flowchart and end-to-end criterion test evidence must be produced and reviewed.
+- Current audit sources are intentionally separate; a unified display must not imply that missing provider persistence, IP/device capture, or uncovered action logging is already solved.
+
+These are verification and implementation gaps, not proof that no related code exists anywhere in the repository. Continue source tracing before declaring absence.
+
+### 19.11 Research and standards to apply
+
+- [OWASP Application Security Verification Standard](https://owasp.org/www-project-application-security-verification-standard/) — verify authentication, authorization, session handling, logging, and security controls at the actual enforcement boundary.
+- [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) — event context, actor/action/outcome, sensitive-data exclusion, log integrity, and operational failure handling.
+- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) — deny by default, least privilege, and authorization checks on every request.
+- [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) — session identifier handling, lifecycle, renewal, invalidation, and secure storage.
+- [Supabase Auth Audit Logs](https://supabase.com/docs/guides/auth/audit-logs) — provider-owned authentication event source; verify persistence/configuration in the actual project before use.
+- [Supabase Auth Sessions](https://supabase.com/docs/guides/auth/sessions) — session lifecycle and token semantics; do not treat access JWT expiry as immediate global revocation.
+
+### 19.12 Design impact on the Admin IPS website
+
+Add these first-class Admin IPS workspaces or subviews, subject to existing feature boundaries:
+- **Users & roles:** principal directory, role assignments, applicability status, and safe account context.
+- **Sessions:** per-user session history and lifecycle status, only where the provider exposes authoritative data.
+- **System logs:** required seven-field compatibility view with per-user scope and source provenance.
+- **Security detections:** suspicious role/permission discrepancies, severity, evidence, status, and review history.
+- **Notifications:** administrator warnings linked to the corresponding detection.
+- **Policy matrix:** read-only view of approved role/action applicability, with changes restricted to a trusted reviewed process.
+
+Do not add a visible module that has no working backend contract. The website must clearly distinguish implemented controls, provider-dependent evidence, and planned coursework requirements. Preserve the existing TACResQ theme.
