@@ -31,13 +31,11 @@ REVOKE ALL PRIVILEGES ON SEQUENCE
 FROM PUBLIC, anon, authenticated, service_role;
 
 -- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
--- INSERT. The service_role also retains direct INSERT on incidents/location_logs
--- for the legacy SECURITY INVOKER server paths api_create_incident/v1-v3 and
--- api_record_location. Preserve their minimum sequence access until retirement.
--- The legacy incident v1/v2/v3 functions still have authenticated EXECUTE grants,
--- but authenticated has no direct INSERT on public.incidents; the supported v4
--- SECURITY DEFINER wrapper calls v3 with owner privileges. Therefore clients
--- do not need incidents_id_seq access.
+-- INSERT. The live catalog also shows service_role has direct INSERT on
+-- incidents/location_logs. Section 72 revokes service_role EXECUTE on the old
+-- incident-create RPCs; v4 calls v3 under the function owner's privileges.
+-- Preserve service-role sequence USAGE/SELECT only while the independent direct
+-- table INSERT grants remain. The location writer path is separately reviewed.
 REVOKE ALL PRIVILEGES ON SEQUENCE
   public.incidents_id_seq,
   public.location_logs_id_seq
