@@ -2409,7 +2409,7 @@ The performance advisor also returned ten unindexed foreign keys and one RLS ini
 
 ### 33.6 Migration-ledger alignment clarification
 
-The live migration ledger includes read_only_account_profile_rls and remove_legacy_fcm_active_account_policy under versions 20261125025825 and 20261125030010. The current branch contains the same migration names/content under versions 20261125120000 and 20261125130000. This is a version-identity mismatch, not evidence that the schema changes are absent. Reconcile the canonical migration filenames/versions and repository history before merge so the same logical migrations are not replayed or treated as pending twice. The connected schema currently reflects the non-locking read predicate and the absence of the legacy all-operations FCM policy. The new trigger-function EXECUTE revocation remains pending.
+The live migration ledger includes read_only_account_profile_rls and remove_legacy_fcm_active_account_policy under versions 20261125025825 and 20261125030010. The current branch contains the same migration names/content under versions 20261125120000 and 20261125130000. This is a version-identity mismatch, not evidence that the schema changes are absent. Reconcile the canonical migration filenames/versions and repository history before merge so the same logical migrations are not replayed or treated as pending twice. The connected schema currently reflects the non-locking read predicate and the absence of the legacy all-operations FCM policy. The new trigger-function EXECUTE revocation remains pending. The live ledger also records 20261125030354_make_actor_role_lookup_read_only_safe, but no correspondingly named migration file was found in the inspected PR branch or repository default branch. Its SQL body and provenance have not been recovered. Do not recreate a migration from its name or assume either of the two later branch files represents it; recover the original SQL from trusted repository history/backup or a verified schema diff, then reconcile the source and ledger identity. Until that is done, repository migration history is incomplete relative to the live ledger.
 
 ### 33.7 Release checklist
 
@@ -2427,9 +2427,9 @@ The live migration ledger includes read_only_account_profile_rls and remove_lega
 
 ---
 
-## 33. Admin Overview workspace audit — apply the reference to the page, not the sidebar
+## 34. Admin Overview workspace audit — apply the reference to the page, not the sidebar
 
-### 33.1 Correction to the shell interpretation
+### 34.1 Correction to the shell interpretation
 
 The current Admin sidebar is already collapsible and already becomes an icon rail on desktop. The reference screenshot must not be used to justify replacing that behavior, adding a second permanent navigation rail, or treating sidebar collapse as unfinished.
 
@@ -2443,7 +2443,7 @@ Verified in the current branch:
 
 This is source verification of the implementation, not a claim of browser-level visual QA. The next design work belongs in the workspace composition.
 
-### 33.2 Current Overview composition observed in source
+### 34.2 Current Overview composition observed in source
 
 The current Overview is one vertical sequence:
 1. Page heading with a large responsive title and a full explanatory sentence.
@@ -2455,7 +2455,7 @@ The current Overview is one vertical sequence:
 
 The CSS confirms a two-column metric strip constrained to `max-width:840px`, followed by panels that occupy the normal document flow. The current layout does not yet use the screenshot's unequal main/supporting workspace allocation.
 
-### 33.3 Recommended Overview composition
+### 34.3 Recommended Overview composition
 
 Use the screenshot's spatial hierarchy to improve scanning, while keeping the Admin content and TACResQ theme:
 
@@ -2465,7 +2465,7 @@ Use the screenshot's spatial hierarchy to improve scanning, while keeping the Ad
 - **Workspace shortcuts:** reduce the large standalone four-card section to a compact set of clearly labeled actions near the page header or as a small secondary list. Do not repeat the same destinations already visible in the persistent navigation unless they are genuinely frequent task shortcuts.
 - **Narrow layouts:** stack the primary and supporting panels in a deliberate order: summary, recent activity, dependency reachability, then secondary shortcuts. No squeezed two-column cards or horizontal page overflow.
 
-### 33.4 Content and density corrections
+### 34.4 Content and density corrections
 
 The current overview is careful about limitations, but the same explanation is repeated at several levels. Preserve the facts while reducing repetition:
 
@@ -2476,7 +2476,7 @@ The current overview is careful about limitations, but the same explanation is r
 - Retain exact Manila time scope and data freshness, but avoid multiple competing timestamps or redundant “refresh” controls.
 - Prefer compact headings, restrained title sizes, value-first metrics, and short action labels. Avoid decorative chart tiles; the current overview has no source-backed chart contract that needs to be introduced here.
 
-### 33.5 Data and security invariants
+### 34.5 Data and security invariants
 
 The layout change must not alter data meaning:
 - Matching accounts remains dependent on the directory's active search and role filters; it is not a total registered-user count.
@@ -2486,7 +2486,7 @@ The layout change must not alter data meaning:
 - Do not combine the activity count and dependency probes into a single “security score” or overall system-health percentage.
 - Preserve Admin MFA, RPC authorization, loading/error/empty states, retry behavior, source freshness, and all existing route/action contracts.
 
-### 33.6 Responsive composition and acceptance
+### 34.6 Responsive composition and acceptance
 
 Test the Overview at the existing Section 8 width/height matrix, with particular attention to widths just above and below the point where the primary/supporting grid stacks.
 
