@@ -6547,3 +6547,83 @@ This is a priority order, not a claim that any item has already been implemented
 - Supabase CLI testing and linting: https://supabase.com/docs/guides/local-development/cli/testing-and-linting
 
 **Evidence boundary:** this roadmap uses source/provider findings in Sections 19–51 and current official guidance. It is not a new source audit, penetration test, clean migration replay or deployment verification. No application code, database schema, grants, provider configuration or production data are changed by this documentation update.
+
+
+---
+
+## 52. CI coverage audit against the synthetic SOS lifecycle
+
+**Research date:** 2026-11-26  
+**Companion evidence:** `docs/QA_CI_COVERAGE_MATRIX.md`  
+**Test specification:** `docs/QA_SYNTHETIC_SOS_LIFECYCLE_VERIFICATION.md`
+
+### 52.1 Decision
+
+The repository has substantial automated coverage, but the existing CI suite is a **layered component and contract suite**, not one executed requester-to-dispatcher-to-field-unit end-to-end lifecycle. Keep those claims distinct.
+
+The ordinary PR pipeline currently contains:
+- Python source and migration-contract checks for SOS idempotency, retry/cache state, dispatcher assignment, field-unit claiming, assignment freshness, notification/Realtime and security boundaries;
+- isolated PostgreSQL migration replay and SQL privilege/authorization tests;
+- Android JVM unit tests, instrumentation APK compilation, Android Lint, and debug/Supabase/release APK builds;
+- Laravel/PostgreSQL feature tests and dashboard integration checks when the upstream source-check job succeeds;
+- local Laravel/PostgreSQL GET stress smoke and browser-prototype capture;
+- CodeQL/security checks and separate Admin read-only-profile verification.
+
+This is meaningful coverage. It must not be described as proof that Android, Supabase Auth, Realtime, Storage, Edge Functions, Render, FCM, and a real device completed one coordinated SOS journey.
+
+### 52.2 Exact workflow boundaries
+
+1. **Source checks:** deterministic Python scripts execute assertions against current Kotlin/TypeScript/PHP/SQL/migration source. Some tests inspect migration text; others invoke isolated shell/SQL helpers. A source-contract pass proves the asserted source pattern exists, not that every runtime branch was executed.
+2. **PostgreSQL replay:** `rpc-grant-contract.yml` creates a disposable PostgreSQL service and executes `tools/test_supabase_migration_replay.sh`, which replays migrations and runs SQL-level idempotency, concurrency, grant, RLS/authorization, assignment, notification, Storage-policy and FCM-queue assertions. This is real database execution, but not the complete Supabase local stack.
+3. **Supabase test tooling:** no CI workflow currently invokes `supabase start` followed by `supabase test db`; no pgTAP suite was identified in the inspected test layout. Supabase's documented pgTAP path is a possible additive improvement, not an existing TACResQ check.
+4. **Android:** `testDebugUnitTest` runs JVM tests; `assembleDebugAndroidTest` compiles the instrumented test APK. Normal PR CI does not execute `connectedDebugAndroidTest`. A separate manual workflow dispatches the emulator and runs connected instrumentation.
+5. **Laravel:** the CI workflow defines a disposable Compose/PostgreSQL job, migration execution, PostgreSQL-backed Sanctum lifecycle test, and full `php artisan test` suite. This job is downstream of Source checks and is skipped when that job fails.
+6. **Local-stack smoke:** QA workflow exercises a bounded GET load against the local Laravel service. It is not an SOS scenario, Supabase stress test, or production-capacity test.
+7. **Render and FCM:** Render live endpoint checks are path-filtered or manual; authenticated bridge smoke is manual and requires synthetic credentials. Routine CI uses FCM test doubles and SQL queue contracts, not a real FCM provider/device delivery test.
+8. **End-to-end:** no single test was found that drives the actual Android requester through Supabase Auth/RPC, dispatcher queue, assignment/claim, field-unit progress/location, chat, notification inbox, FCM and closure in a disposable integrated environment.
+
+### 52.3 Audited run and failure repair
+
+At PR head `4db98b3a457ac5488033947913cc5ab377f48f05`:
+- PostgreSQL RPC-grant/migration replay passed.
+- Read-only profile contract passed.
+- QA local-stack stress and prototype capture passed.
+- Android debug/release build job passed, including JVM tests, instrumentation compilation and lint.
+- Frontend review and automated code review passed.
+- Security workflow had Android CodeQL still running at the initial inspection; web/Actions CodeQL and deterministic security guardrails had passed. Dependency Review was skipped because `DEPENDENCY_GRAPH_ENABLED` was not enabled.
+- The overall TACResQ CI workflow failed in Source checks at `tools/test_admin_overview_analytics_separation_contract.py`; subsequent source steps and downstream migration-replay/Laravel integration jobs were skipped. The failing assertion expected obsolete Overview copy. The current UI already used “Today's activity is the exact count returned by the protected investigation feed since Manila midnight.”
+- A narrowly scoped test-only repair was committed as `23d6815a0d2c55b30469e526ac1fbe23a8801fa5`. It aligns the assertion with the existing current copy; it does not change application behavior. The corrected test and all downstream CI jobs must be re-run on the new exact head before claiming green.
+
+Run IDs and the stage-by-stage coverage classification are recorded in the companion matrix. Results are tied to the SHA shown there and must not be carried forward to a later commit without checking its own run.
+
+### 52.4 Recommended assurance sequence
+
+1. Restore the full PR CI pipeline and verify all downstream jobs execute after the corrected source assertion.
+2. Preserve the existing isolated PostgreSQL replay and SQL authorization suite as a required safety layer.
+3. Add or supplement pgTAP tests for database-native RLS, grants, functions and integrity only where this improves test clarity and avoids duplicate maintenance.
+4. Add a disposable local Supabase integration layer with synthetic Auth identities and test data; verify client/API authorization, duplicate SOS handling, assignment paths, status, chat, notification inbox and Storage boundaries.
+5. Keep Android JVM tests in PR CI. Distinguish instrumentation APK compilation from actual emulator execution; run device tests in a separate controlled lane.
+6. Keep Laravel feature tests and backend migrations on a disposable database. Test FCM dispatch logic with fake provider clients in ordinary CI.
+7. Reserve real FCM/device delivery and live Render bridge tests for a controlled, approved non-production environment with synthetic accounts and a dedicated test device.
+8. Do not enable production FCM scheduling, cron/pg_net, Render workers, or live migration as a substitute for an isolated test environment.
+
+### 52.5 Acceptance and reporting vocabulary
+
+Every lifecycle stage must be classified as one of:
+- **Executed in CI:** runtime test actually ran on the stated commit and environment;
+- **Static contract only:** source or migration assertions ran without executing the full behavior;
+- **Exists, but manual/conditional:** workflow or test exists but was not part of the ordinary PR run;
+- **Not implemented / not proven:** no matching evidence was found;
+- **Blocked:** the test could not proceed because a prior job or external prerequisite prevented execution.
+
+A green build, successful migration replay, or passing fake-provider test must never be summarized as a successful full SOS lifecycle or production readiness. FCM provider acceptance, device receipt/display, user read, responder acknowledgement and response remain separate proof stages.
+
+### 52.6 External references
+
+- Supabase Testing Overview — pgTAP, application-level tests, and CI guidance: https://supabase.com/docs/guides/local-development/testing/overview
+- Supabase CLI testing and linting — `supabase test db` and pgTAP: https://supabase.com/docs/guides/local-development/cli/testing-and-linting
+- Supabase automated database testing with GitHub Actions: https://supabase.com/docs/guides/deployment/ci/testing
+- Android test types — local JVM and instrumented device/emulator tests: https://developer.android.com/studio/test/test-in-android-studio
+- Android command-line test tasks — `test` and `connectedAndroidTest`: https://developer.android.com/studio/test/command-line
+
+**Evidence boundary:** This is a repository/workflow audit plus one test-only expected-string correction. No complete synthetic SOS was executed. No production data, live Supabase schema, Render configuration, worker schedule, FCM provider, credentials, or paid service was changed.
