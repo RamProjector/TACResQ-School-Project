@@ -141,6 +141,12 @@ for marker in (
     "A zero-row result means no matching records were returned, not that no activity occurred.",
     "database event writers: integrated",
     "date boundaries and displayed times use Asia/Manila",
+    "Laravel API operation telemetry",
+    "best-effort, and covers only Laravel-mediated requests",
+    "FCM delivery attempts",
+    "Provider acceptance does not prove device receipt or user acknowledgement.",
+    "Retention and integrity policy",
+    "cross-source integrity/restore standard is not established",
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
 
