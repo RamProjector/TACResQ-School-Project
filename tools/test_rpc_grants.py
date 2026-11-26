@@ -290,3 +290,7 @@ assert Path("tools/test_service_role_admin_audit_privileges.sql").is_file(), (
 assert "test_service_role_admin_audit_privileges.sql" in Path(
     "tools/test_supabase_migration_replay.sh"
 ).read_text(), "Migration replay must execute the service-role Admin audit contract"
+assert (
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public"
+    in Path("tools/test_supabase_migration_replay.sh").read_text()
+), "Migration replay must model the hosted postgres/public service_role function default ACL"
