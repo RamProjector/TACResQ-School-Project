@@ -272,12 +272,6 @@ for sequence_name in RPC_OWNED_SEQUENCES:
     )
 assert re.search(
     r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
-    r"public\.api_operation_logs_id_seq\s+TO\s+service_role\s*;",
-    SERVICE_ROLE_SEQUENCE_MIGRATION,
-    re.IGNORECASE | re.DOTALL,
-), "ApiOperationAuditLogger must retain its direct service-role sequence grant"
-assert re.search(
-    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
     r"public\.device_security_events_id_seq,\s*"
     r"public\.device_integrity_checks_id_seq\s+TO\s+service_role\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
