@@ -1957,7 +1957,7 @@ Do not confuse directly callable private helpers with private internal functions
 
 The following historical records must not be used as the current authorization register without the corrections recorded here:
 
-- The clean-replay snapshot reports 74 public functions, 23 public definers, and twelve private definers. Those figures are superseded by the current source contracts: 75 / 24 / 51 public and 13 callable private definers. The old snapshot's table/policy counts are historical observations from its original replay, not current counts.
+- The clean-replay snapshot's 74/23/12 counts and the later raw 75/24/51 aggregate are historical, extension-schema-dependent observations. Section 30 supersedes them with the connected live catalog's 38/24/14 application API baseline and 13 callable private definers. The old snapshot's table/policy counts remain historical observations, not current counts.
 - The signature-matrix index repeats the old 74 / 23 / 51 and eleven-private figures. Its baseline must point to the current contract values while retaining the historical snapshot as dated evidence.
 - Batch 24 incorrectly labels the duty-status signature unresolved. The current exact signature is public.api_set_duty_status(text), implemented as SECURITY INVOKER with an authenticated grant and active responder/driver check under a profile FOR UPDATE lock.
 - Batch 24's public team-assignment RPC is SECURITY INVOKER, not SECURITY DEFINER. It delegates to private.tacresq_assign_incident_team_guarded(bigint,bigint[]), which is SECURITY DEFINER and authenticated-callable. The preserved underlying implementation has client EXECUTE revoked.
