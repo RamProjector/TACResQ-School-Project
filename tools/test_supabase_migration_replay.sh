@@ -2046,14 +2046,14 @@ BEGIN
       SELECT 1
       FROM pg_catalog.pg_default_acl AS default_acl
       CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS acl_row
-      WHERE default_acl.defaclrole = 'postgres'::regrole
+      WHERE default_acl.defaclrole = 'postgres'::regrole::oid
         AND default_acl.defaclnamespace = 'public'::regnamespace
         AND default_acl.defaclobjtype = 'r'
         AND acl_row.grantee IN (
-          0,
-          'anon'::regrole,
-          'authenticated'::regrole,
-          'service_role'::regrole
+          0::oid,
+          'anon'::regrole::oid,
+          'authenticated'::regrole::oid,
+          'service_role'::regrole::oid
         )
         AND acl_row.privilege_type = 'MAINTAIN'
     ) THEN
