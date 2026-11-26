@@ -9768,11 +9768,11 @@ Do not claim WCAG 2.2 AA/AAA conformance from a source-contract test, automated 
 
 ### 71.1 PostgreSQL 17 MAINTAIN is an operational capability
 
-The read-only live catalog reports PostgreSQL 17.11. On both `public.profiles` and `public.incidents`, the effective `MAINTAIN` privilege was true for `authenticated` and `service_role`; `anon` was false. The explicit ACL inventory showed grants to `authenticated` and `service_role` in addition to the owner.
+The read-only live catalog reports PostgreSQL 17.11. Across the public application tables, the live ACL inventory showed `service_role` had `MAINTAIN` on many relations, while `authenticated` had it on `profiles` and `incidents`; `anon` had no current-object grant. The `postgres/public` default ACL also granted `MAINTAIN` to anon, authenticated, and service_role for future tables.
 
 PostgreSQL 17 documents `MAINTAIN` as allowing `VACUUM`, `ANALYZE`, `CLUSTER`, `REFRESH MATERIALIZED VIEW`, `REINDEX`, and `LOCK TABLE` on a relation. These are not ordinary application CRUD permissions and are not required by the reviewed Admin or Android call paths.
 
-The existing forward migration `20261126170000_restrict_profile_update_to_duty_status.sql` already version-gates the PostgreSQL 17-only statement so PostgreSQL 16 can parse and replay the same migration. The branch change extends the revoke target to `PUBLIC, anon, authenticated, service_role`. The owner retains its inherent owner capabilities.
+The existing forward migration `20261126170000_restrict_profile_update_to_duty_status.sql` version-gates PostgreSQL 17-only statements so PostgreSQL 16 can parse and replay the same migration. The branch change revokes `MAINTAIN` from all existing tables in `public` for `PUBLIC`, `anon`, `authenticated`, and `service_role`, then removes it from the `postgres/public` default ACL so future application tables do not inherit the capability. It deliberately leaves Supabase-managed schemas and `supabase_admin`/`supabase_auth_admin` defaults untouched. The object owner retains its inherent owner capabilities.
 
 ### 71.2 Sequence privileges must follow the actual SECURITY INVOKER writer
 
@@ -9797,7 +9797,8 @@ The clean-replay harness now asserts:
 - Authenticated has no `USAGE`, `SELECT`, or `UPDATE` on `location_logs_id_seq`.
 - Anon cannot use either sequence.
 - Service-role cannot use `UPDATE` on either legacy sequence.
-- On PostgreSQL 17+, anon, authenticated, and service-role do not have `MAINTAIN` on profiles or incidents.
+- On PostgreSQL 17+, anon, authenticated, and service-role do not have `MAINTAIN` on any existing public table.
+- The `postgres/public` default ACL does not grant `MAINTAIN` to PUBLIC or API roles for future tables.
 - The narrow profile duty-status update and ordinary authenticated read workflows remain intact.
 
 The PostgreSQL 17 assertion is conditional and the PG17-only SQL remains dynamic, so PostgreSQL 16 does not parse an unsupported privilege token. Both the static source contract and runtime clean-replay contract must pass; a source regex alone is not proof of effective ACL behavior.
