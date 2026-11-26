@@ -26,7 +26,7 @@
 
 ### Legacy RPC exposure
 
-The older `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` signatures remain authenticated-callable in the replay catalog. They must not be dismissed as obsolete based only on Android's current client version. Before implementation, inspect their effective bodies, direct grants, and call sites. Either:
+The pre-migration live catalog showed `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` as authenticated-callable invoker functions. Section 72 on PR #370 supersedes that grant state: current Android and Laravel clients call v4 only, authenticated lacks direct INSERT on incidents, and the forward migration revokes API-role EXECUTE on v1/v2/v3 while preserving v3 as an owner-called implementation under v4. Historical APK distribution remains unknown, so signatures are retained and not dropped. Any future server/client compatibility path requires a separate guarded wrapper and explicit review. Either:
 - route them through the same guarded current implementation, or
 - revoke client EXECUTE if repository compatibility checks prove no supported client still needs them.
 
