@@ -7042,3 +7042,86 @@ The ACLs show these helpers are not anon-callable and the private schema is not 
 7. After clean replay and tests, prepare isolated CLI-generated migrations; do not apply any production grant/function change without explicit approval.
 
 **Evidence boundary:** this section is a live catalog and policy snapshot plus function-body inspection. It is not proof of private Data API exposure, exploitability, runtime denial, client-version compatibility, clean replay or production readiness. No database or provider configuration was modified.
+
+
+## 56 — Supabase Data API schema exposure, effective schema privileges and helper reachability
+
+**Assessment date:** 2026-11-26. **Target:** connected TACResQ-School-Project Supabase project. **Method:** read-only database schema ACL and role-setting queries, project metadata, current-branch source/config inventory, Android/Admin Supabase client call-site inspection, and current Supabase documentation. No Dashboard setting, database grant, schema, function or application configuration was changed.
+
+### 56.1 Executive finding
+
+The database-side evidence is consistent with the repository's intended design: `private` is meant to hold implementation helpers, not be a client API schema. The original hardening migration explicitly describes `private` as a non-API-exposed schema. However, the actual Supabase Dashboard **Data API → Exposed schemas** setting could not be read through the connected database/project metadata tools used in this review. The repository also contains no `supabase/config.toml`, PostgREST configuration file or deployment manifest that proves the live exposed-schema list.
+
+Therefore the correct conclusion is:
+
+- **Confirmed:** `anon` has no USAGE on `private`; `authenticated` has USAGE but no CREATE.
+- **Confirmed:** all 13 authenticated-callable private SECURITY DEFINER helpers are EXECUTE-granted to authenticated and not anon.
+- **Conditional:** if `private` is in the live Data API exposed-schema list, authenticated clients may be able to invoke those functions directly through PostgREST, subject to the function's EXECUTE privilege. If `private` is not exposed, they are not reachable as ordinary PostgREST RPC endpoints, while remaining usable by RLS/Storage policy expressions and other database functions.
+- **Not verified:** the live exposed-schema setting and an authenticated HTTP request to a private RPC. Do not state that the helpers are definitely exposed or definitely hidden until the Dashboard setting or an authenticated endpoint test establishes it.
+
+### 56.2 Live schema privilege snapshot
+
+PostgreSQL 17.11 effective privilege checks returned:
+
+| Schema | anon USAGE | anon CREATE | authenticated USAGE | authenticated CREATE |
+|---|---:|---:|---:|---:|
+| `private` | No | No | Yes | No |
+| `public` | Yes | No | Yes | No |
+
+The `private` schema ACL is `postgres=UC, authenticated=U`. The public schema has USAGE for the API roles but no CREATE for anon/authenticated. No role-level database setting for `pgrst.db_schemas` was found on `authenticator`, `anon`, `authenticated` or `service_role`; `current_setting('pgrst.db_schemas', true)` also returned NULL. These SQL checks cannot reveal a Dashboard-managed PostgREST environment/configuration value when it is not persisted as a database role setting.
+
+The project metadata confirms the connected project is active and running PostgreSQL 17.11. That does not expose its Data API settings.
+
+### 56.3 Repository intent and current client behavior
+
+The original migration `20261015081107_harden_rpc_exposure.sql` states that `private.tacresq_actor_role()` is kept in a non-API-exposed schema, grants authenticated schema USAGE for policy/helper execution, revokes PUBLIC/anon EXECUTE, and grants authenticated EXECUTE so RLS policies can call it. The migration explicitly says the helper is outside the PostgREST-exposed public schema.
+
+Current source inspection found:
+- Android `SupabaseTacApi.kt` uses the default Supabase public schema and calls public `api_*` RPCs. It does not select the `private` schema or invoke private helper names as RPCs.
+- The Android transport still calls some public RPCs directly even where the optional Render bridge exists; the bridge is not a universal proxy.
+- Admin web `backend/web/src/lib/supabase.ts` initializes a standard Supabase JS client and invokes public `api_*` functions. Its typed database contract lists public functions and does not define a private schema client.
+- No `.schema('private')` or `.schema("private")` call was found in the reviewed Android/Admin client files.
+- The repository tree at the reviewed branch contains no `supabase/config.toml`, `postgrest.conf` or checked-in PostgREST exposed-schema declaration.
+
+This is evidence that supported first-party clients do not intentionally call private helpers directly. It is not evidence that an external authenticated client cannot do so if the schema is exposed.
+
+### 56.4 Why private helper EXECUTE grants exist
+
+The 13 private functions are used for more than one purpose. The effective authenticated EXECUTE grant is not automatically a vulnerability because PostgreSQL checks function privileges when policies and wrapper functions invoke them too. Some helpers are intentionally callable in RLS/Storage predicates; others centralize guarded domain operations.
+
+The reviewed helper set includes:
+- authorization predicates and identity helpers: `tacresq_actor_role`, `tacresq_auth_profile_id`, `tacresq_auth_profile_id_for_token_cleanup`, `tacresq_current_account_active`, `tacresq_current_account_active_read`, `tacresq_auth_can_access_incident_chat`, `tacresq_is_incident_assignee`;
+- guarded domain operations: `tacresq_assign_incident_team_guarded`, `tacresq_dispatch_update_incident_status`, `tacresq_record_location_v2`, `tacresq_release_incident_assignment`;
+- data/policy helpers: `tacresq_active_responder_locations`, `tacresq_upload_reservation_allows_insert`.
+
+If the schema is exposed, every function with authenticated EXECUTE must be treated as a candidate direct RPC endpoint. In particular, mutation helpers must be checked for direct-call-safe actor derivation, active-account and role checks, ownership/assignment validation, argument validation, locking, idempotency and audit behavior. A guard that is safe when called only from a wrapper is not automatically safe as a directly callable endpoint.
+
+Do not revoke all authenticated EXECUTE from `private` as a blanket fix: that can break RLS policy evaluation, Storage policy predicates, and legitimate wrapper/helper calls. Instead, verify actual exposed-schema behavior and map each helper's direct callers before considering per-function privilege changes.
+
+### 56.5 Exposure decision matrix
+
+| Live Data API exposed schemas | Authenticated private USAGE | Authenticated EXECUTE | Direct private RPC result |
+|---|---:|---:|---|
+| `private` absent | Yes | Yes | Not reachable through ordinary PostgREST schema selection; database policy/wrapper calls can still work |
+| `private` present | Yes | Yes | Candidate reachable as authenticated RPC; test each function and its own authorization |
+| `private` present | No | Yes | Schema selection should be denied for authenticated |
+| `private` present | Yes | No for a given helper | That helper cannot be invoked by authenticated through PostgREST, but may fail in RLS/wrappers if those need the grant |
+
+Anon currently lacks private schema USAGE and EXECUTE, so the 13 helper set is not an anon RPC surface even if `private` were added to the exposed-schema list. Keep that separation intact.
+
+### 56.6 Required authoritative verification
+
+1. Open Supabase Dashboard → Project Settings/Integrations → Data API settings for this project and record the exact **Exposed schemas** list. Verify whether `private` is absent. The project Dashboard setting is authoritative; the repository does not currently declare it.
+2. If `private` is absent, retain that setting and add a deployment/configuration review check so it is not accidentally exposed later.
+3. If `private` is present, treat all 13 authenticated-callable helpers as potentially directly reachable. Test the PostgREST schema selection and each function with a normal authenticated user JWT and a suspended-user JWT where relevant; do not use a service-role token as a substitute.
+4. For every helper, distinguish required EXECUTE for RLS/Storage policy evaluation from unnecessary direct endpoint exposure. Revoke only the exact unneeded function grant after dependency tests.
+5. Confirm `private` has no anon USAGE and no client CREATE, and keep its tables inaccessible unless a documented policy requires access.
+6. Re-run effective schema/function grants after any migration and verify policy evaluation still works for normal active users.
+
+### 56.7 Current disposition
+
+**Positive evidence:** repository intent explicitly keeps `private` non-exposed; first-party Android and Admin clients call public RPCs only; anon lacks private USAGE and EXECUTE; authenticated cannot CREATE objects in private; all 13 helpers are search-path pinned and postgres-owned per Section 55.
+
+**Open verification blocker:** the live Dashboard exposed-schema list and authenticated PostgREST reachability were not available from the read-only SQL/project metadata surface. The absence of a database `pgrst.db_schemas` setting is not proof that `private` is absent from the Data API configuration.
+
+**No production changes:** no schema exposure setting, role grant, function ACL, migration, Storage policy, or application code was modified. Do not change the 13 helper grants until the authoritative exposed-schema list and policy/function dependency tests are recorded.
