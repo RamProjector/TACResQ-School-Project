@@ -5947,3 +5947,215 @@ The model is acceptable for implementation planning when every in-scope trust bo
 - NIST SP 800-30 Rev. 1 — threat sources/events, vulnerabilities, likelihood, impact, uncertainty and risk response: https://csrc.nist.gov/pubs/sp/800/30/r1/final
 - Microsoft Security Development Lifecycle — threat modeling as a recurring cycle of requirements, architecture, identification, mitigation and validation: https://www.microsoft.com/en-us/securityengineering/sdl/threatmodeling
 - Microsoft Secure by Design — architecture overview, data-flow diagrams and trust-boundary review: https://www.microsoft.com/en-us/securityengineering/sdl/practices/secure-by-design
+
+
+---
+
+## 49. End-to-end workflow assurance, interaction correlation, and evidence-chain observability
+
+**Research date:** 2026-11-26.  
+**Scope:** Establish how TACResQ can verify and investigate one emergency workflow across Android, Supabase Auth/Postgres/Storage/Realtime, Render/Laravel, FCM, and external map/routing providers without conflating separate identities, operations, retries, provider acceptance, and human outcomes. This is a research and design contract; no tracing SDK, schema, logger, provider setting, dashboard integration, or production instrumentation is added here.
+
+### 49.1 Executive finding
+
+TACResQ has useful event sources and a Laravel request-correlation middleware, but does **not** yet have a reliable end-to-end interaction trail.
+
+Current source facts:
+- Laravel's global `RequestCorrelationId` middleware generates a fresh server UUID for each Laravel request and returns it as `X-Request-ID`. It deliberately ignores caller-supplied IDs.
+- `SupabaseBridge` uses that request correlation ID when writing metadata to `api_operation_logs` for Auth user validation and allowlisted RPC calls.
+- The bridge currently passes `provider_request_id = null` to the logger for both Auth and RPC operations. It does not read the Supabase `sb-request-id` response header and does not propagate a W3C `traceparent` header to its upstream Supabase calls.
+- The bridge's operation logger is metadata-only and fail-open with a bounded write; it skips persistence if its server URL/secret is absent.
+- `api_operation_logs` is restricted to service-role read/insert and contains a correlation UUID, optional Auth UUID, provider, operation, source, outcome, HTTP status, duration, optional provider request ID/error code, and timestamp. It is Laravel/worker telemetry, not a complete business audit ledger.
+- Direct Android and Admin-web Supabase calls bypass Laravel middleware and `ApiOperationAuditLogger`.
+- The incident-status trigger writes `incident_status_logs` with incident, resulting status, actor profile, and timestamp; it does not store the Laravel request correlation ID.
+- `incident_assignment_events` records assignment/release/closure history with incident/member/actor/source/status/timestamp; it does not store a common request correlation ID.
+- `app_action_audit_logs` generates its own `gen_random_uuid()` correlation value by default for committed message-sent, notification-read, and duty-status-change events. It is not proven to be the same ID as the originating Android interaction or upstream HTTP request.
+- The Admin investigation RPC includes multiple event sources but its current source set does not include `api_operation_logs`; it is not a cross-provider trace viewer.
+- FCM delivery attempts are their own delivery ledger; they must not be inferred from incident state or treated as proof of device receipt.
+
+**Conclusion:** Current evidence supports source-by-source investigation and limited Laravel request grouping. It does not support a complete single-click timeline from requester SOS tap to dispatcher visibility, assignment, responder acceptance, location update, notification display, and resolution.
+
+### 49.2 Five identifiers with different jobs
+
+Do not use one generic “request ID” for every lifecycle concept:
+
+| Identifier | Meaning | Lifetime / retry behavior | Trust and use |
+|---|---|---|---|
+| **Interaction ID** | One user-intended workflow, e.g. submit this SOS and follow its outcome | Can span app process restart, offline waiting, and explicit retry | Random opaque identifier; useful for linking records, never an identity or authorization credential |
+| **Idempotency key / client request ID** | Makes one mutating operation safe to retry without duplicate business effects | Must remain identical across retries of the same logical create operation; a different payload must be rejected | Server enforces uniqueness and payload equivalence; not a trace ID |
+| **Trace ID** | Distributed execution graph across participating services | A trace represents one execution attempt/causal graph; a later retry may have a new trace ID but retain the same interaction and idempotency key | Propagate using validated W3C Trace Context where supported; never use for authorization |
+| **Request ID** | One HTTP/API gateway hop or request record | New for each HTTP hop; Supabase `sb-request-id` is provider-generated | Capture response ID where available; preserve its provider namespace |
+| **Event ID** | Immutable identity of one persisted source event | Stable for the event's retention lifetime | Source-local primary key; do not fabricate or overwrite to force a global timeline |
+
+Also keep the following distinct:
+- Incident ID identifies the operational incident, not every user interaction that refers to it.
+- Supabase Auth UUID and Laravel Sanctum/Eloquent user ID are different principal namespaces. No email-based identity merge.
+- FCM message/attempt identifiers identify a provider delivery attempt, not the incident's business outcome.
+- GPS capture timestamp and coordinate accuracy describe an observation, not an assignment or workflow event.
+- A notification ID is not a responder acknowledgement ID.
+
+### 49.3 Recommended correlation contract
+
+Adopt a minimal, staged contract rather than installing a full observability platform by default.
+
+**At the Android interaction boundary**
+- Generate a random opaque interaction ID when the user begins a meaningful workflow (SOS create, assignment action, responder status change, chat send), not on every UI recomposition or button redraw.
+- Persist the interaction ID with the existing encrypted pending SOS envelope and idempotency key so it survives process death and offline retry.
+- For each explicit network attempt, create or obtain a fresh trace context/attempt identity. Preserve the interaction ID and SOS idempotency key across retries.
+- Attach trace context only through a supported HTTP client hook for the relevant Supabase SDK/transport. Confirm exact Kotlin client support and header preservation before implementation; do not assume all Auth, PostgREST, Storage, Realtime, or FCM SDK paths share one interceptor.
+- A client-supplied interaction/trace ID is a correlation hint only. The server must independently authenticate the caller, enforce ownership, and create authoritative event IDs.
+
+**At the Laravel boundary**
+- Keep the existing server-generated `X-Request-ID` as the Laravel request ID; do not replace it with a caller-supplied value.
+- Consider accepting a syntactically valid W3C `traceparent` only through a standards-compliant parser and creating/continuing a server span. Invalid/malformed context must be discarded and replaced, never used to bypass authorization or control sampling/security decisions.
+- For outbound Supabase Auth/RPC calls, propagate the current trace context if supported, capture the returned `sb-request-id`, and store it in the existing `provider_request_id` field. Keep provider name and ID separate; never treat an arbitrary response header as a globally unique ID.
+- Keep the current metadata-only payload. Do not log request bodies, access tokens, refresh tokens, Authorization headers, private incident narratives, messages, coordinates, attachment paths, or FCM tokens.
+- If the Supabase response has no request ID, leave it null. Never synthesize a provider request ID.
+
+**At the trusted database event boundary**
+- Where a direct authenticated Supabase operation supports trace headers, use Supabase's documented `traceparent` handling to correlate gateway/Postgres/Auth/Storage/Realtime logs. This is provider-log correlation, not a replacement for durable business event history.
+- For business events, pass a separately named interaction/correlation hint only through a reviewed RPC contract. Validate UUID shape and length; treat it as untrusted grouping metadata. Never trust it for actor, role, resource ownership, outcome, or authorization.
+- Generate authoritative event IDs and actor identity from the database transaction/authenticated context.
+- Prefer a common correlation field on newly designed event rows only when it can be propagated through the exact operation path. For legacy events where this is not possible, keep correlation absent rather than creating false links.
+- Do not add correlation by copying IDs from client metadata into existing audit tables without an explicit threat/privacy review and regression tests.
+
+### 49.4 Workflow event chain and proof obligations
+
+For a synthetic end-to-end incident, define a workflow event chain. Each stage has its own authoritative source and its own proof requirement:
+
+| Stage | Event/evidence | Authoritative source | What it proves — and what it does not |
+|---|---|---|---|
+| 1. User starts SOS | Local interaction ID, draft/pending envelope | Encrypted Android local state | User attempted/prepared; not server receipt |
+| 2. SOS create request | HTTP attempt, trace ID, gateway request ID | Client transport + Supabase gateway logs | Request reached a provider boundary; not necessarily committed |
+| 3. Incident created | Incident ID, client request ID, committed status event | Supabase transaction and incident/status history | Incident record committed; not dispatcher saw it |
+| 4. Dispatcher queue refreshed | Read timestamp, source, queue snapshot/version if available | Dispatcher client read and server query | Dispatcher client received a snapshot; not a human viewed it |
+| 5. Assignment committed | Assignment event ID, actor, affected members, incident ID | Assignment RPC/table + append-only assignment event | Server accepted assignment; not each responder acknowledged |
+| 6. Responder accepts/claims | Claim/assignment status event | Authoritative RPC and assignment history | Server accepted responder action; not GPS sharing started |
+| 7. Location update | Capture time, server receive time, accuracy/source, freshness | Location write and location observation source | A location observation was stored; not continuous tracking or safe arrival |
+| 8. Notification queued | Notification ID and event relationship | `user_notifications` transaction | In-app notification record exists; not push attempt |
+| 9. Push provider accepts | FCM attempt ID, provider response, attempt time | `fcm_delivery_attempts` / FCM | FCM accepted the send; not device receipt/display |
+| 10. Device receives/displays | Device-side callback/display evidence if explicitly instrumented | Android notification receiver/OS | App/device observed or displayed; not user read |
+| 11. User opens/reads | Notification read/open state | Authenticated in-app inbox action | User/app marked read; not responder accepted incident |
+| 12. Operational progress | Per-member status and aggregate incident status events | Incident/assignment lifecycle tables | The server recorded progress; not physical-world completion |
+| 13. Resolution/closure | Terminal incident event and membership closure events | Authoritative transaction and append-only histories | System recorded closure; not external authority or real-world rescue outcome |
+
+A stage may be **not instrumented**, **not applicable**, **unknown**, or **not observed**. Do not manufacture a missing event to make the timeline look complete. A later stage can exist even when an earlier client-side acknowledgement is missing; investigate the source evidence rather than assuming a strict one-row-per-stage chain.
+
+### 49.5 Correlation and reconstruction confidence
+
+A cross-source timeline should report how each relationship was established:
+
+- **Exact correlation:** same trusted interaction/trace/request identifier, or a direct foreign-key relationship such as incident ID.
+- **Strong domain link:** source records share a server-generated incident ID and actor/target relationship, but no common trace ID.
+- **Temporal association:** records are near each other in time and actor/source appears plausible; this is a lead, not proof.
+- **Unlinked:** no safe join key or reliable source; show the records separately.
+
+Never silently join across separate Auth and Sanctum identities by email, phone, name, IP, or approximate device label. A correlation ID is not proof that two events were caused by the same human. It is an investigation aid.
+
+For every displayed event preserve:
+- source and source-local event ID;
+- source timestamp and timezone/clock confidence;
+- ingestion/recorded timestamp when distinct;
+- actor namespace and actor reference, nullable when unknown;
+- incident/target reference where source provides it;
+- event type, outcome, and reason code as defined by that source;
+- correlation type and confidence;
+- source freshness/retention limitation.
+
+### 49.6 Admin IPS investigation UX
+
+Do not create a second dashboard or a global “SOS delivery success” score. Extend the existing Admin Overview, Security, and Activity Log responsibilities only when supported by trusted evidence.
+
+**Activity Log / investigation view**
+- Retain source-specific event descriptions and source badges.
+- Add an optional exact interaction/trace/request ID search only when a verified reader can query that source.
+- Display a compact event detail with source ID, source time, actor namespace, target/incident ID, outcome, correlation type, and evidence limitations.
+- If events are related only by incident ID/time, label that relationship; do not call it an exact trace.
+- Keep pagination bounded per source. Do not claim a globally ordered total timeline when provider sources have different ingestion delays, clock semantics, or retention.
+- Do not include raw provider logs, request/response bodies, FCM tokens, IP addresses, device identifiers, precise GPS, message bodies, attachment URLs, or secrets in the default feed.
+- Keep the current Admin AAL2/TOTP read gate and source-specific access controls.
+
+**Overview**
+- Show dependency probes and evidence freshness only in their existing bounded scope.
+- A successful health probe is not a successful synthetic SOS.
+- A green CI workflow is not a production workflow test.
+- No synthetic writes should run against production to populate a green indicator.
+
+**Security**
+- Keep security detection events distinct from operational workflow events and API performance telemetry.
+- A missing trace is a coverage gap, not a suspicious event by itself.
+- Repeated missing correlation can indicate instrumentation drift only after the source is expected and the telemetry pipeline itself is known healthy.
+
+### 49.7 Phased implementation plan
+
+**Phase 0 — document and baseline (current research)**
+- Inventory correlation fields and propagation by exact path.
+- Preserve source-local identifiers and current metadata-only privacy boundary.
+- Add tests proving current Laravel IDs are server-generated and returned.
+- Record that direct client paths and database domain histories are not fully correlated.
+
+**Phase 1 — close existing low-risk Laravel gap**
+- Extend SupabaseBridge tests to capture response headers.
+- Capture Supabase `sb-request-id` into the existing `provider_request_id` field for Auth and RPC operations.
+- If needed, rename the field only in a future additive migration; do not destructively rename current schema.
+- Validate header format/length and retain null on absence.
+- Add request ID to safe response diagnostics only if the API contract explicitly allows it; never expose upstream error bodies.
+- Preserve fail-open bounded audit writes so emergency operations do not fail due to optional telemetry.
+
+**Phase 2 — direct Supabase client trace propagation**
+- Inspect the actual Android and Admin-web SDK/transport versions and supported custom-header hooks.
+- Prototype W3C trace context propagation in a non-production environment.
+- Confirm Supabase logs expose the expected `trace_id`, `span_id`, and `request_id` for each relevant API surface.
+- Capture returned `sb-request-id` where SDK/transport exposes response metadata.
+- Treat this as provider-log correlation; no paid third-party trace backend is required for the first validation.
+
+**Phase 3 — durable business-event correlation**
+- Design an additive, narrowly scoped interaction ID field/argument for only the highest-value workflow operations (SOS create/retry, assignment/claim, incident status, notification transaction).
+- Keep client interaction ID separate from server-generated event ID and idempotency key.
+- Propagate it only inside trusted transaction boundaries; for triggers, use transaction-local context only after verifying PostgREST connection/transaction semantics and connection-pool safety.
+- Test rollback, nested RPCs, concurrent requests, missing/invalid IDs, retries, and context reset between transactions.
+- Do not broaden all tables or retroactively fill legacy nulls with inferred IDs.
+
+**Phase 4 — investigation read path and synthetic workflow**
+- Add a bounded read-only investigation query that joins only exact verified keys and preserves source provenance.
+- Provide a test-only synthetic workflow with isolated requester, dispatcher, responder, and driver identities.
+- Record expected source events at each stage and compare actual event chain against the test manifest.
+- Verify failure injection: timeout after commit, duplicate retry, concurrent assignment, Realtime disconnect, FCM accepted-but-not-displayed, location permission revoked, Storage upload failure, and terminal closure.
+- Report missing stages as gaps; do not infer success from downstream side effects.
+
+**Phase 5 — operational assurance**
+- Only after the event chain is reliable, calculate workflow-level completion/latency metrics with explicit denominators, observation windows, missing-data treatment, and source coverage.
+- Distinguish event-to-event elapsed time from user-visible latency and physical response time.
+- Establish retention, access review, incident escalation, and independent monitoring of telemetry ingestion.
+- Do not claim a response-time SLA or emergency-service availability without a staffed operational owner and measured service capability.
+
+### 49.8 Required tests and acceptance criteria
+
+- Laravel generates a unique server request ID for every request and ignores a caller-supplied `X-Request-ID`.
+- Laravel response returns its own `X-Request-ID`; audit metadata uses the same ID for the matching request.
+- SupabaseBridge captures a valid upstream `sb-request-id` when present and stores it as provider-scoped request metadata; absence/malformed value remains null.
+- Trace context is parsed using W3C rules; malformed, oversized, duplicate, or invalid context is discarded safely.
+- Trace IDs and interaction IDs never alter authentication, role, ownership, authorization, or idempotency enforcement.
+- One SOS interaction retains its interaction ID and idempotency key through process death and explicit retry; each transport attempt can be separately traced.
+- A timeout after server commit followed by retry links to the same incident without creating a duplicate.
+- Direct Android/Admin Supabase operations are clearly marked as outside Laravel `api_operation_logs` coverage.
+- Incident status and assignment events with no common trace remain unlinked except for explicit incident/foreign-key relationships.
+- `app_action_audit_logs` generated correlation UUID is not mislabeled as a globally propagated interaction ID until proven.
+- FCM provider acceptance, device receipt, display, open/read, responder acknowledgement, and operational action remain separate evidence states.
+- Cross-source timeline preserves source-local event ID, timestamp, actor namespace, target, outcome, and correlation confidence.
+- The investigation RPC enforces Admin + AAL2/TOTP, bounded filters/pagination, and source-specific read access.
+- Correlation search cannot expose private payloads, coordinates, tokens, IP addresses, FCM tokens, attachment URLs, or raw provider logs.
+- Missing logs, delayed logs, disabled log sources, and telemetry sink failure render as incomplete/unknown evidence, never as proof that no event occurred.
+- No new paid vendor, observability platform, database migration, SDK, provider configuration, production write, or application behavior change is included in this research update.
+
+**Evidence boundary:** This section is based on source inspection at branch head `76d1232a4b817aa87f708fd2031264966bed8845` and official W3C, Supabase, OpenTelemetry, and OWASP documentation. The repository confirms Laravel correlation middleware, limited API telemetry, domain event sources, and their current gaps. It does not prove that direct client trace headers are currently sent, that Supabase correlated logs are enabled/available for every relevant service, that all event sources have retention, or that a synthetic full workflow has been executed. Supabase Correlated Logs is documented as beta; its use should be validated in the actual project before any Admin integration.
+
+### 49.9 References
+
+- W3C Trace Context Recommendation: https://www.w3.org/TR/trace-context/
+- Supabase Query Logs with SQL — request IDs and W3C traceparent correlation: https://supabase.com/docs/guides/observability/advanced-log-filtering
+- Supabase Correlated Logs beta (2026-11-10): https://supabase.com/changelog/53230-correlated-logs
+- Supabase Log Sources and Fields: https://supabase.com/docs/guides/observability/log-field-reference
+- OpenTelemetry Log Correlation: https://opentelemetry.io/docs/specs/otel/logs/
+- OpenTelemetry HTTP Semantic Conventions: https://opentelemetry.io/docs/specs/semconv/http/
+- OWASP Logging Cheat Sheet — interaction identifiers, event attributes, privacy and integrity: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
