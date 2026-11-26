@@ -218,5 +218,8 @@ Consult the canonical master plan for detailed evidence and acceptance requireme
 - Sections 36–38: Material 3 research, data workflow patterns, and Admin IPS information architecture/wayfinding.
 - Sections 39–40: visual hierarchy, typography, spacing, information density, Overview operations, evidence freshness, and attention hierarchy.
 - Section 41: single Admin-portal role boundary, operational-role separation, account lifecycle UX, safe privileged actions, provisioning boundary, and privacy-safe history.
+- Section 42: cross-source correlation, source-qualified identity resolution, timestamp uncertainty, detection prerequisites, and telemetry coverage.
+- Section 43: rule lifecycle, deterministic test strategy, false-positive control, severity/confidence/notification separation, alert fatigue, and degraded-source handling.
+- Section 44: human-led security investigation lifecycle, triage dispositions, evidence provenance, append-only decisions, containment authority boundaries, and closure/lessons learned.
 
 If the master plan has additional sections beyond this map, read and apply them as well. The canonical document always wins over this summary when it contains more precise or newer evidence.
