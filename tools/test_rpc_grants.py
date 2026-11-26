@@ -294,3 +294,12 @@ assert (
     "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public"
     in Path("tools/test_supabase_migration_replay.sh").read_text()
 ), "Migration replay must model the hosted postgres/public service_role function default ACL"
+REPLAY_FIXTURE = Path("tools/test_supabase_migration_replay.sh").read_text()
+for default_grant in (
+    "GRANT ALL PRIVILEGES ON TABLES TO anon, authenticated, service_role",
+    "GRANT ALL PRIVILEGES ON SEQUENCES TO anon, authenticated, service_role",
+    "GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role",
+):
+    assert default_grant in REPLAY_FIXTURE, (
+        f"Migration replay is missing hosted public default ACL fixture: {default_grant}"
+    )
