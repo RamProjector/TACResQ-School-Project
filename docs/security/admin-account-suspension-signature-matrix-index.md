@@ -22,7 +22,7 @@
 
 ## Baseline
 
-The historical clean-replay snapshot records an older 74-public-callable catalog (23 public SECURITY DEFINER and 51 SECURITY INVOKER) and stale private-helper counts. It is not the current contract. The current branch source contracts require 75 authenticated-callable public functions (24 SECURITY DEFINER and 51 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. See Section 29 of the canonical TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md for the exact private signature list and stale-record reconciliation. These are expected contract counts; inspect exact-head clean-replay output before calling them a fresh catalog result.
+The historical clean-replay snapshot's raw public-schema count is extension-schema-dependent and is not the application API baseline. The connected TACResQ Supabase catalog (2026-11-26) contains 38 authenticated-callable public API functions (24 SECURITY DEFINER and 14 SECURITY INVOKER), plus one trigger-only function with unnecessary client EXECUTE grants; there are 13 authenticated-callable private SECURITY DEFINER helpers. The current SQL contract now counts explicit api_ signatures, not every public-schema function. See Sections 29–30 of the canonical master plan and the live-catalog reconciliation in the callable crosswalk. Exact-head clean replay remains required to verify the new contract.
 
 The read-only catalog now includes separate effective `anon` callable sections for public and private routines. The anon results must be captured and reviewed from a fresh replay; this index does not assert that the anon result is empty.
 
