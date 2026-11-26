@@ -1529,6 +1529,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <p>TACResQ processes account and emergency-response information. The project owner must approve and publish the privacy notice, identify the responsible personal information controller and privacy contact, and approve a retention schedule before this workspace can accept or decide formal requests.</p>
                 <div className="admin-settings-status"><span>Approved privacy notice and contact</span><strong>Not verified in this release</strong></div>
                 <div className="admin-settings-status"><span>Formal request intake and case register</span><strong>Not connected — no online submission or case tracking</strong></div>
+                <div className="admin-settings-status"><span>Identity verification and representative authority</span><strong>Not implemented as a controlled workflow</strong></div>
+                <div className="admin-settings-status"><span>Per-case authorization and append-only decision audit</span><strong>Not implemented — no case actions available</strong></div>
                 <div className="admin-settings-status"><span>Retention schedule and disposal evidence</span><strong>Not verified — no retention controls exposed</strong></div>
                 <div className="admin-settings-status"><span>Personal-data export, correction, and erasure</span><strong>Not available as Admin actions</strong></div>
                 <div className="admin-settings-card">
