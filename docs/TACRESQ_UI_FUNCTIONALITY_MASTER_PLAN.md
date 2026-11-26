@@ -1258,3 +1258,87 @@ A future single-backend decision must compare operational reliability, authoriza
 
 **Non-claims:** This source review does not establish the current live Render deployment state, whether a Render PostgreSQL instance still exists, whether environment variables are present, whether the optional bridge canary is enabled in a release build, or whether external FCM/routing providers are currently healthy. Those require separate authorized live verification.
 
+---
+
+## 22. Android transport trace — direct Supabase versus Render bridge
+
+**Scope:** Source-level trace of the active Android API selection and the operation-level branch inside `SupabaseTacApi`. This supplements Section 21 and the existing security transport inventories. It does not establish live deployment flags or prove a physical-device request path.
+
+### 22.1 Build selection and release boundary
+
+- `AppContainer` selects `FakeTacApi` for fake/demo builds and `SupabaseTacApi` for the normal non-fake Supabase configuration.
+- `SupabaseTacApi.create(..., useRenderBridge)` constructs a direct Supabase Auth/PostgREST/Storage client in all Supabase builds.
+- When the bridge flag is enabled, it additionally constructs a separate authenticated Laravel transport using the Render API base URL.
+- The Android Gradle configuration explicitly keeps `USE_RENDER_BRIDGE=false` in release builds. The bridge is an opt-in debug/QA canary, not the current default production gateway.
+- The Render route-preview client is a separate feature gate and must not be confused with the RPC bridge.
+
+**Conclusion:** The checked-in release contract is direct Supabase. A Retrofit interface or Laravel endpoint existing in the repository is not evidence that the production app uses it.
+
+### 22.2 Operations routed through the optional Render bridge
+
+When the bridge transport is instantiated, `SupabaseTacApi` branches these methods to the Laravel `bridge/rpc/{function}` transport:
+- Profile read and initial profile fetch after authentication: `api_me`.
+- Duty status: `api_set_duty_status`.
+- Own incidents and dispatcher incident queue: `api_my_incidents`, `api_all_incidents`.
+- Units and active responder locations: `api_units`, `api_active_responder_locations`.
+- Requester incident create/cancel/edit: `api_create_incident_v4`, `api_cancel_my_incident`, `api_update_my_incident`.
+- Dispatcher incident status and assignment: `api_update_incident_status`, `api_assign_incident`, `api_assign_incident_team`.
+- Field-unit location recording: `api_record_location_v2`.
+
+The bridge receives the user's Supabase bearer token. The Laravel bridge validates the token with Supabase Auth and forwards the allowlisted RPC using the caller's JWT. This preserves the caller identity at the PostgreSQL authorization boundary; it is not a service-role substitute for the user's operation.
+
+### 22.3 Operations that remain direct Supabase even when the bridge is enabled
+
+The inspected Android implementation deliberately keeps these operations on direct Supabase transports:
+- Assignment release: `api_release_incident_assignment`.
+- Field-unit claim and claimable-incident retrieval: `api_claim_incident`, `api_claimable_incidents`.
+- Dispatcher claimability toggle: `api_set_incident_claimable`.
+- Notification list/detail/read: `api_my_notifications`, `api_my_notification`, `api_mark_notification_read`.
+- FCM token register/unregister: `api_register_fcm_token`, `api_unregister_fcm_token`.
+- Assignment-history read: direct authenticated PostgREST SELECT on `incident_assignment_events`, relying on RLS.
+- Chat history and send: `api_my_incident_messages`, `api_send_incident_message`, and image-message finalization RPC.
+- Image reservation, upload, and download: direct Supabase RPC and Storage API calls.
+
+The exact list and policy rationale are also recorded in `docs/security/admin-account-suspension-client-operation-map-batch-21.md` and `docs/RENDER_BRIDGE_CANARY.md`. Treat the bridge allowlist as a transport boundary, not as the complete set of Android operations or the database's authorization policy.
+
+### 22.4 Authentication and audit consequences
+
+- Android password sign-in and signup call Supabase Auth directly. They do not pass through Laravel's `ApiOperationAuditLogger`.
+- Admin web sign-in also uses Supabase Auth directly.
+- Laravel bridge token validation can create a Laravel provider-operation record, but it is not the original password sign-in, signup, refresh, or direct sign-out event.
+- Direct Android PostgREST and Storage requests bypass Laravel request logging.
+- Therefore Laravel API operation logs cannot be presented as the complete Android or system-wide audit trail.
+
+The existing `docs/security/authentication-event-collection-boundaries.md` already records this distinction and the required provider-side verification. Preserve separate source labels for Supabase Auth events, database authorization/security events, Laravel API telemetry, Admin audit records, and operational incident history.
+
+### 22.5 Admin IPS design implications
+
+The Admin IPS should expose separate, source-attributed observability rather than a single undifferentiated backend status:
+1. Render/Laravel service reachability and deployment telemetry.
+2. Laravel API/bridge request telemetry, with route and outcome coverage.
+3. Supabase Auth event availability and coverage.
+4. Supabase database/RPC/RLS enforcement and audit coverage.
+5. Supabase Storage policy and operation coverage.
+6. Edge Function/service-role operations and notification delivery outcomes.
+7. Optional routing-provider status, independent from the core incident database.
+
+For every metric or event stream, show its collection source, last successful observation, coverage limitations, and whether it is unavailable, not configured, or simply not checked. A successful bridge request must not be counted as proof that all direct paths are covered.
+
+### 22.6 Migration guardrails
+
+Do not switch release builds to the bridge, move direct-only operations, or delete direct Supabase code as part of the Admin IPS redesign. Any future cutover requires:
+- A complete Android and web operation inventory.
+- Equivalent server-side authorization and caller-JWT preservation.
+- Explicit bridge routes and allowlist entries for each operation.
+- Equivalent RLS/Storage protections; bridge middleware is defense in depth.
+- Idempotency, retry, timeout, offline, and emergency-workflow regression tests.
+- Audit parity for success and rejection paths.
+- Debug canary verification with synthetic accounts before any release decision.
+- Explicit approval for the release transport change.
+
+### 22.7 Next source audit
+
+The remaining highest-value work is to trace the Admin web portal's direct Supabase calls and the Laravel API's actual route consumers separately. Map each Admin page action to its exact RPC/table/Auth endpoint, database grant/RLS or RPC authorization, audit event source, and whether the Laravel service is in that request path. Then inspect service-role Edge Functions and background jobs, because their privileged database access does not inherit normal user RLS behavior.
+
+**Evidence boundary:** Reviewed `AppConfig.kt`, `AppContainer.kt`, `SupabaseTacApi.kt`, `app/build.gradle.kts`, `TacApi.kt`, `backend/src/app/SupabaseBridge.php`, `backend/src/config/tacru.php`, `docs/RENDER_BRIDGE_CANARY.md`, and the cited security transport inventories at the repository source baseline. No live Render deployment, Supabase project configuration, environment secret, production data, or Android device session was accessed or changed.
+
