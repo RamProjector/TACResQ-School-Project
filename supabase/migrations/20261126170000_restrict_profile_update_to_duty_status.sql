@@ -22,8 +22,13 @@ GRANT UPDATE (duty_status, updated_at)
 DO $revoke_client_maintain$
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
+    -- Remove the capability from every existing application relation in public.
     EXECUTE
-      'REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated, service_role';
+      'REVOKE MAINTAIN ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role';
+    -- The postgres/public default ACL otherwise reintroduces MAINTAIN on future
+    -- tables created by the migration owner. Do not alter platform-owner defaults.
+    EXECUTE
+      'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated, service_role';
   END IF;
 END;
 $revoke_client_maintain$;
