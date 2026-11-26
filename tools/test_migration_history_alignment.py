@@ -151,6 +151,27 @@ for required in (
 ):
     assert required in core, f"Missing Supabase RLS baseline object: {required}"
 
+location_guard = (MIGRATIONS / "20261112215721_require_incident_location_fallback.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.tacresq_require_incident_location()",
+    "RETURNS trigger",
+    "CREATE TRIGGER incidents_require_location_before_write",
+    "BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description",
+):
+    assert required in location_guard, f"Missing incident location trigger contract: {required}"
+assert "GRANT EXECUTE" not in location_guard.upper(), (
+    "Trigger-only incident location function must not receive a direct EXECUTE grant."
+)
+
+trigger_grant_fix = (MIGRATIONS / "20261126100000_revoke_incident_trigger_function_client_execute.sql").read_text()
+for required in (
+    "REVOKE ALL ON FUNCTION public.tacresq_require_incident_location()",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "Trigger-only incident input invariant",
+):
+    assert required in trigger_grant_fix, f"Missing trigger-only EXECUTE revocation contract: {required}"
+assert "GRANT EXECUTE" not in trigger_grant_fix.upper()
+
 push = (MIGRATIONS / "20261015092225_location_and_push.sql").read_text()
 for required in (
     "create table if not exists public.fcm_tokens",
