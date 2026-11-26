@@ -534,7 +534,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setActiveSection("settings");
     setSettingsPage(page);
     const url = new URL(window.location.href);
-    if (url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page) {
+    if (url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page || url.searchParams.has("auditFrom") || url.searchParams.has("auditTo")) {
       url.searchParams.set("adminPage", "settings");
       url.searchParams.set("adminSettings", page);
       url.searchParams.delete("auditFrom");
