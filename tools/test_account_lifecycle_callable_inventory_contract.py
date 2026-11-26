@@ -237,6 +237,19 @@ for migration, expected in (
 
 assert "has_function_privilege('anon', routine_oid, 'execute')" in foundation_replay
 print("Expanded account-lifecycle callable replay source contract passed.")
+ 
+# Service-role default ACL research must retain the explicit deployment boundary.
+admin_plan = (ROOT / "docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8").lower()
+for required in (
+    "## section 73 — service-role default acl and trusted writer inventory",
+    "postgres/public",
+    "supabase_admin/public",
+    "20 public tables",
+    "do not revoke service_role from all public tables in one migration",
+    "no hosted acl, default privilege, table data, migration ledger, or deployment was changed",
+):
+    assert required in admin_plan, f"Service-role ACL research boundary is incomplete: {required}"
+
 
 # Anonymous-callable routines are a distinct exposure surface. The catalog
 # must report effective anon EXECUTE (including inherited/PUBLIC grants) for
