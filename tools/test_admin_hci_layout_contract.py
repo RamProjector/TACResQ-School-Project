@@ -31,20 +31,18 @@ assert 'document.body.style.overflow = "hidden"' in SOURCE
 assert "closeMobileSidebar(true);" in SOURCE
 assert "visibility: hidden" in CSS and "visibility: visible" in CSS
 
-# Desktop collapse fully retracts the sidebar; the expand control remains in the workspace header.
-assert "grid-template-columns: 0 minmax(0, 1fr)" in ADMIN_CSS
-assert "width: 0" in ADMIN_CSS and "overflow: hidden" in ADMIN_CSS
-assert "76px minmax(0, 1fr)" not in ADMIN_CSS
-assert ".admin-sidebar-expand" in ADMIN_CSS
+# Desktop collapse preserves an icon-only rail and keeps the reversible toggle reachable.
+assert "76px minmax(0, 1fr)" in ADMIN_CSS
+assert ".admin-shell--sidebar-collapsed .admin-nav-item span" in ADMIN_CSS
+assert ".admin-shell--sidebar-collapsed .admin-sidebar__context" in ADMIN_CSS
+assert ".admin-shell--sidebar-collapsed .admin-sidebar-toggle" in ADMIN_CSS
 assert "transition:grid-template-columns .24s" in ADMIN_CSS
-assert 'aria-label="Expand navigation"' in SOURCE
-assert 'aria-label="Collapse navigation"' in SOURCE
-assert 'aria-expanded={true}' in SOURCE
-assert 'aria-expanded={false}' in SOURCE
-assert "inert={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
-assert "aria-hidden={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
-assert "sidebarExpandRef.current?.focus()" in SOURCE
+assert 'aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}' in SOURCE
+assert 'aria-expanded={!sidebarCollapsed}' in SOURCE
 assert "sidebarCollapseRef.current?.focus()" in SOURCE
+assert "sidebarExpandRef" not in SOURCE
+assert "inert={sidebarCollapsed && !mobileSidebarOpen}" not in SOURCE
+assert "aria-hidden={sidebarCollapsed && !mobileSidebarOpen}" not in SOURCE
 
 # Nested panels are visually flattened into subsections, not card-on-card surfaces.
 assert ".admin-shell .admin-panel .admin-panel {" in CSS
