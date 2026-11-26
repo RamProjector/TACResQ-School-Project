@@ -5672,3 +5672,140 @@ Do not run synthetic writes against production merely to populate green indicato
 - No new backend, paid service, hotline integration, automatic SOS submission, automatic mutation queue, provider configuration, live trigger, or production test write is introduced by this research.
 
 **Evidence boundary:** This section is based on branch source/docs/tests inspected on 2026-11-26 plus current official Android, Supabase, Firebase, and OWASP guidance. The repository source establishes implemented guardrails and current code paths; physical-device network/permission/process-death tests, live provider delivery, actual FCM scheduler activation, and full end-to-end outage behavior remain unverified. TACResQ remains an educational coordination prototype, not a guaranteed emergency-response provider.
+
+
+## 48 — Security testing strategy, verification matrix, and evidence requirements
+
+**Purpose:** define how TACResQ's Admin IPS security and the wider application security boundaries are to be tested, what evidence is acceptable, and what conclusions must not be drawn from incomplete tests. This is a test-planning section. It does not claim that the tests below have been implemented or executed, and it does not authorize production mutation, live penetration testing, account suspension, session revocation, data deletion, or synthetic incident creation.
+
+### 48.1 Assessment model: requirement → test → evidence → conclusion
+
+Use a repeatable assessment record for each security requirement. NIST SP 800-53A Rev. 5 (including the August 2025 minor release 5.2.0) provides a tailored control-assessment methodology; OWASP ASVS 5.0.0 provides application-security verification requirements. Neither should be represented as a TACResQ certification. Select only requirements applicable to the actual architecture and record non-applicability with a reason.
+
+Every test record must contain:
+- stable test ID and linked requirement/control or handout criterion;
+- security property and threat/abuse case being tested;
+- scope: source commit, migration set, client, API/RPC, provider, environment and identity namespace;
+- preconditions, test principal(s), role/assurance state and fixture data;
+- exact steps or executable test reference, expected result and failure condition;
+- actual result, timestamp, runner/operator, tool/version and environment;
+- evidence pointer (sanitized output, assertion report, query result, screenshot or provider trace);
+- limitations, exclusions, cleanup result and any follow-up issue;
+- disposition: Pass, Fail, Blocked, Not run, Not applicable, or Inconclusive.
+
+A **Pass** means only that the stated assertion passed within the recorded scope. It is not proof of complete security, production parity, or coverage of untested paths. A test without evidence is not a verified pass. A failed prerequisite is Blocked, not Pass. A missing telemetry source is Inconclusive for detection coverage, not evidence that no attack occurred.
+
+### 48.2 Verification layers and what each can prove
+
+| Layer | Suitable verification | Evidence produced | Cannot prove by itself |
+|---|---|---|---|
+| Static/source review | migration/function grants, RLS policy definitions, route middleware, client call paths, secret handling, dependency and configuration review | commit-pinned findings, source locations, policy/grant inventory | deployed catalog state, runtime enforcement, provider behavior |
+| Unit tests | policy helpers, normalization, validation, event classification, retry/idempotency logic | deterministic assertions and test report | cross-service authorization or actual database semantics |
+| Database contract tests | pgTAP tests for schema, functions, grants, RLS, triggers, constraints and transaction behavior | test output against a clean local database replay | live Supabase configuration or all client access paths |
+| Application/API integration tests | same client/auth path used by the web or Android app; Laravel feature/HTTP tests; Supabase client tests | request/response assertions, identity and state transitions | physical device behavior or third-party provider delivery |
+| Security negative tests | unauthorized, stale, cross-user, wrong-role, wrong-AAL, suspended, malformed and replayed requests | explicit denial assertions and absence of unauthorized side effects | completeness of untested entry points |
+| Manual UI/accessibility tests | keyboard, screen reader, zoom, responsive layout, focus, error states, truthful feedback | reproducible steps, annotated screenshots/video and accessibility findings | backend authorization |
+| Provider/live integration tests | approved test project/account/device, provider request/response, delivery callbacks and independent verification | provider trace, test identity, timestamps and observed outcome | all production users/devices or future provider availability |
+| Recovery/restore exercises | isolated restore of database plus Storage bytes/manifests and required configuration | restore log, integrity checks, measured recovery times and owner sign-off | successful recovery from every disaster scenario |
+
+Prefer local Supabase development and pgTAP for database contracts; run application-level tests through the same client path the application uses for end-to-end policy behavior. Laravel's unit and feature test split should be respected: feature tests are appropriate for requests and collaborating services. Keep these suites separate so a passing unit test is not mistaken for an integration test.
+
+### 48.3 TACResQ security assurance matrix
+
+| Area | Minimum test scenarios | Preferred layer and evidence |
+|---|---|---|
+| Identity namespace separation | Supabase Auth/profile principal cannot be silently treated as Laravel Sanctum/Eloquent principal; same email with different IDs does not merge identities; unmapped principal is rejected or explicitly unresolved | source/contract + integration tests; namespace-qualified actor IDs and denial evidence |
+| Authentication and session assurance | unauthenticated, expired, revoked/refreshable, suspended, wrong-account and Admin without AAL2/TOTP-AMR attempts; verify session revocation limits and remaining access-JWT validity are represented honestly | Supabase auth integration and Laravel feature tests; sanitized auth state and response |
+| Role and permission applicability | requester/responder/driver/dispatcher/Admin action matrix; multiple valid roles are not automatically suspicious; invalid role/action combinations are denied server-side | pgTAP + same-JWT API/RPC tests; versioned matrix and exact denial |
+| Admin privilege changes | Admin cannot promote/demote another account to Admin; self-change denied; stale compare-and-set state conflicts; missing/short reason rejected; concurrent changes serialize; successful change and audit event are atomic | database transaction/concurrency tests + Admin integration; before/after state and audit row |
+| Account lifecycle enforcement | suspended principal denied across reads, writes, chat, location, notification, Storage, Edge Function and Render bridge paths; allowed self-unregister exception remains narrowly scoped | pgTAP + HTTP/API/Storage/Edge integration; per-surface denial and no side effect |
+| RLS and callable functions | effective anon/authenticated grants, SECURITY DEFINER search_path/owner, invoker dependencies, views, triggers, sequences, schema exposure and private helper access | clean migration replay + catalog assertions + pgTAP; catalog snapshot tied to migration commit |
+| Per-user logs and privacy | user A cannot read user B's logs; Admin-only feeds require assurance; pagination/filter bounds; sensitive content, tokens, secrets and unnecessary coordinates are absent | same-valid-JWT tests + payload inspection; positive and negative result set |
+| Audit completeness and integrity | critical reads/searches/mutations/denials are mapped to observable sources; retries and duplicate events are handled; source-qualified IDs remain unique; audit records cannot be silently edited by ordinary Admin | source-to-event coverage matrix + integration tests + catalog checks |
+| Detection rules | positive, negative, boundary, duplicate, out-of-order, missing-source, stale-source, concurrency and malformed fixtures; rule version and evidence provenance retained | deterministic rule test suite and shadow evaluation report; precision/false-positive denominator |
+| Notifications and response workflow | distinguish provider acceptance, device receipt/display, in-app read, acknowledgment and dispatch action; no unsupported automated containment; delivery-source outage is visible | provider sandbox/device test and Admin manual review; separate timestamps and evidence |
+| Storage and attachments | wrong bucket/path/profile/MIME/size, expired reservation, unreserved object, cross-incident/chat membership and suspended account; verify private reads and no unauthorized update/delete | pgTAP + authenticated HTTP Storage tests; response codes and storage metadata only |
+| Laravel bridge and Sanctum | caller JWT is validated; role claims are not trusted from client; only allowlisted RPCs forwarded with caller context; Sanctum token identity remains distinct; missing telemetry secret does not become false audit success | Laravel feature tests + bridge integration; request metadata and server-side logs |
+| Recovery and retention | restore database and Storage objects separately; verify manifests/checksums and representative authorized retrieval; validate retention/hold policy against each record class | isolated restore exercise and documented owner sign-off; measured RPO/RTO only if actually measured |
+
+For TACResQ's current split architecture, a single “API security test” is insufficient. The test inventory must identify the exact route: Android direct Supabase Auth/PostgREST/Storage, Admin browser-to-Supabase RPC, Laravel/Sanctum API, Render Supabase bridge, Edge Functions, FCM worker/provider, and any external routing/map provider. Do not assume a request traverses Laravel merely because Render hosts the website.
+
+### 48.4 High-value negative and adversarial test patterns
+
+For every privileged or user-scoped operation, include at least:
+1. no session;
+2. valid session for the wrong role;
+3. valid role but wrong resource owner/assignment;
+4. suspended account;
+5. expired or stale session;
+6. Admin without required AAL2/TOTP assurance;
+7. stale expected state / concurrent conflicting update;
+8. malformed, oversized, unexpected or replayed input;
+9. direct endpoint/RPC invocation bypassing hidden or disabled UI controls;
+10. retry after timeout where the server may already have committed;
+11. source unavailable or telemetry write failure;
+12. cross-namespace principal with superficially matching email or display name.
+
+Assert both the response and the **absence of unauthorized side effects**: no row mutation, assignment, Storage object exposure, token change, notification, role change or audit record that falsely describes a successful action. Where a denied attempt cannot be durably recorded by the current architecture, record the observability gap rather than inventing a denial event.
+
+Use isolated fixtures and disposable local/staging environments. Tests involving concurrency, session revocation, Storage policy, Edge service-role paths or provider delivery must be run against a controlled environment that reproduces the relevant boundary. Never use real users, live incidents, private attachments or production credentials as test fixtures.
+
+### 48.5 Automated checks versus manual and live verification
+
+**Automate in CI where deterministic and safe:**
+- formatting, lint, type/static analysis and dependency/security scans;
+- unit and domain contract tests;
+- clean local database migration replay and pgTAP authorization/RLS/grant tests;
+- Laravel unit/feature tests and bridge allowlist contracts;
+- API/RPC positive and negative tests using dedicated test identities;
+- audit event schema, required-field, source provenance and redaction assertions;
+- detection-rule fixture suites and regression tests;
+- build checks for Android/web without requiring physical-device claims.
+
+**Keep manual or environment-specific:**
+- Admin IPS task usability, responsive behavior, keyboard/screen-reader/zoom and theme-preservation acceptance;
+- physical Android permission, process death, network transition, notification and stale-location behavior;
+- real Supabase Storage HTTP policy enforcement and Edge Function/provider behavior;
+- FCM acceptance versus actual device receipt/display;
+- Render deployment/runtime configuration and cross-service integration;
+- isolated database-plus-Storage restore and recovery exercises;
+- any authorized penetration test or production validation.
+
+Manual verification should use a checklist with exact build/commit, device/browser, viewport/zoom, account role, steps, expected outcome, observed result and evidence. A screenshot can establish a UI state, not backend authorization. A browser-only test cannot establish Android behavior.
+
+### 48.6 Evidence quality, test data and safety controls
+
+- Pin source-based conclusions to the commit SHA and migration set tested. Record the deployed project/environment identifier separately; do not equate branch migrations with live migration history.
+- Use dedicated synthetic principals and clearly marked synthetic records. Never place real passwords, access/refresh tokens, MFA secrets, private message bodies, full incident reports or private attachment URLs in test logs.
+- Redact personal data and credentials in CI artifacts. Keep evidence access-controlled and retention-defined.
+- Record the exact identity and assurance state used. “Authenticated” alone is insufficient for Admin RPC verification.
+- Preserve test output, but avoid storing secrets in snapshots or screenshots. Hashes may support integrity only when actually computed and linked to the exact artifact.
+- Separate test failures from infrastructure outages. A failed test runner, unavailable provider or unreachable database is Blocked/Inconclusive, not a security pass.
+- Repeat critical tests after changes to grants, RLS, RPC signatures, auth/session handling, Storage policies, Edge Functions, role mappings, audit writers or migrations.
+- Do not add production synthetic writes, automated containment, paid scanning services or new infrastructure as part of this documentation plan.
+
+### 48.7 Release gates and evidence-based reporting
+
+A security-sensitive change is not ready for merge/release until:
+- the affected requirements and entry points are identified;
+- relevant automated checks pass on the exact candidate commit;
+- negative authorization tests prove denial and absence of side effects;
+- migrations replay cleanly in an isolated environment;
+- cross-client and cross-namespace paths are covered where affected;
+- audit/detection changes have source and privacy checks;
+- required manual/provider checks are completed or explicitly listed as release-blocking limitations;
+- failures are fixed or accepted by an authorized owner with documented rationale and expiry;
+- the PR states exactly what was tested, what was not tested, and the remaining risk.
+
+Report results by requirement and environment, not as a single “secure” percentage. Distinguish **Pass**, **Fail**, **Blocked**, **Not run**, **Not applicable**, and **Inconclusive**. A green CI badge means only the configured checks passed; it does not mean production authorization, provider delivery, restore capability or full IDS/IPS compliance has been verified.
+
+**Current evidence boundary:** this section defines a future verification strategy informed by the repository's documented architecture and current source gaps. It does not assert that a complete security test suite, full audit coverage, live provider verification, penetration test, restore exercise, or ASVS assessment has been completed.
+
+### 48.8 References
+
+- NIST SP 800-53A Rev. 5, including Release 5.2.0 assessment-procedure update: https://csrc.nist.gov/pubs/sp/800/53/a/r5/final
+- OWASP Application Security Verification Standard 5.0.0: https://asvs.owasp.org/
+- OWASP ASVS project and verification reporting guidance: https://owasp.org/www-project-application-security-verification-standard/
+- Supabase database testing overview (pgTAP, application-level policy tests and CI): https://supabase.com/docs/guides/local-development/testing/overview
+- Laravel 13 testing overview: https://laravel.com/docs/13.x/testing
+- Laravel 13 HTTP tests: https://laravel.com/docs/13.x/http-tests
