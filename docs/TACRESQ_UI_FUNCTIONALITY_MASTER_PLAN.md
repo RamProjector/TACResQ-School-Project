@@ -9825,3 +9825,55 @@ Branch migration `20261127010000_revoke_legacy_incident_create_rpc_execute.sql` 
 A new disposable PostgreSQL contract verifies all three old signatures remain present but are not executable by API roles or PUBLIC; verifies owner EXECUTE on v3; and verifies v4 remains SECURITY DEFINER, authenticated-callable, and delegates to v3. Static source contracts ensure Android and Laravel keep using v4. The current live inventory is still 38 functions until this forward migration is applied; expected post-migration count is 35 (24 definers, 11 invokers), with the 13 private callable helpers unchanged.
 
 No hosted ACL, migration ledger, production data, or Render deployment was changed. Historical APK distribution and exact minimum supported APK version are not available from repository evidence; however, the old invoker functions already lacked the authenticated table INSERT privilege required to work. Preserve signatures and do not drop them.
+
+
+## Section 73 — Service-role default ACL and trusted writer inventory
+
+**Objective:** separate expected server-only access from accidental direct table privileges. This section records a read-only live catalog snapshot; it does not authorize a broad service-role revoke.
+
+### 73.1 Default privileges are broader than the application writer inventory
+
+The 2026-11-27 read-only catalog query found schema-scoped default ACLs for both `postgres/public` and `supabase_admin/public`. For each owner, anon, authenticated, and service_role receive the full table privilege set (including INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, and PostgreSQL 17 MAINTAIN), all three sequence privileges (USAGE, SELECT, UPDATE), and function EXECUTE. The query found no corresponding schema-unspecified/global default ACL rows for these roles in the inspected object classes.
+
+This is a material future-object risk: a newly created public table, sequence, or function owned by either role may inherit privileges before a table-specific hardening migration narrows them. Section 71 removes PostgreSQL 17 MAINTAIN only from existing public tables and the `postgres/public` default ACL; it intentionally does not rewrite `supabase_admin/public` platform-owner defaults or attempt a blanket rewrite of every table/sequence/function default.
+
+### 73.2 Existing service_role DML surface
+
+The live effective-privilege inventory found service_role had at least one direct DML privilege on 20 public tables. Many of those tables exposed the full table privilege set, including profiles, incidents, location_logs, incident_assignments, incident_messages, notifications, FCM tables, audit tables, and assignment/event history. This is a pre-migration snapshot. The branch already contains targeted forward changes for selected boundaries, including Admin audit access, profile INSERT/UPDATE, sequence privileges, and the legacy requester-create RPCs.
+
+`service_role` is a server-only role that bypasses RLS; its table grants must therefore be reviewed as a separate authorization layer. RLS policies do not constrain a role with BYPASSRLS. Do not use service_role from Android, browser JavaScript, or other untrusted clients.
+
+### 73.3 Writer paths established by source/catalog evidence
+
+| Writer | Current evidence | Review implication |
+|---|---|---|
+| Laravel `ApiOperationAuditLogger` | Server-side direct PostgREST INSERT into `public.api_operation_logs`; current logger contract is service-role-only and stores bounded operational metadata. | Retain only the narrow INSERT/sequence privileges it requires; do not grant UPDATE/DELETE/TRUNCATE. |
+| `public.api_record_location(...)` | Live catalog: SECURITY INVOKER, service_role EXECUTE, direct INSERT into `public.location_logs`. | This is a legacy server-role location writer. Current Android uses the v2 RPC/private helper path; no current Laravel allowlist call was found. Keep its sequence path only until any external/server consumer is ruled out and the legacy function is retired. |
+| `public.api_create_incident`, v2, v3 | Live catalog: SECURITY INVOKER and service_role EXECUTE; each inserts into `public.incidents`. Current Android/Laravel use v4 only; v4 calls v3 under owner privileges. | Section 72 revokes service_role EXECUTE on these old signatures. Their table INSERT privilege no longer justifies retaining the old function grants. |
+| Current requester creation `api_create_incident_v4` | SECURITY DEFINER; current Android and Laravel call v4. | Owner-context insert does not require service_role direct INSERT on incidents. The separate direct table grant remains unmodified until all non-repository consumers are confirmed absent. |
+| Current responder location `api_record_location_v2` | SECURITY INVOKER wrapper delegates to a private SECURITY DEFINER writer; current Android uses the v2 path. | The private owner-executed writer does not require broad service_role direct DML. Do not confuse it with the older service_role-only `api_record_location`. |
+
+The repository search found no current Android or Laravel direct PostgREST INSERT to `public.incidents`. That is evidence about checked-in source only, not every external integration, deployment script, operator tool, or historical binary.
+
+### 73.4 Safe reduction strategy
+
+Do not revoke `service_role` from all public tables in one migration. First build a table-by-table writer matrix across:
+1. Laravel bridge endpoints and the service-role client wrapper;
+2. Supabase Edge Functions and scheduled/triggered workers;
+3. FCM delivery and token lifecycle;
+4. Storage upload/cleanup and backup/restore tooling;
+5. audit/telemetry, device registry, incident chat, location, and assignment paths;
+6. external consumers not represented in this repository.
+
+For each table, record exact operations, caller, RPC/function security mode, owner, default ACL source, RLS bypass behavior, and a disposable PostgreSQL regression. Prefer SECURITY DEFINER owner-context helpers with narrowly scoped contracts where appropriate; otherwise grant only the specific service-role operations proven necessary. Remove broad defaults only after a controlled migration strategy accounts for Supabase-managed objects and future object owners.
+
+### 73.5 Current disposition
+
+- Keep the service-role key server-side only; never ship it in Android or the Admin browser bundle.
+- Keep the existing targeted revokes and contracts; do not roll them back to preserve broad convenience.
+- Preserve `service_role` USAGE/SELECT on location-log sequences only while the legacy `api_record_location` writer or another verified server insert path remains.
+- Keep service_role direct INSERT on incidents under review; Section 72 removes the old incident RPC EXECUTE path but does not assume there are no external direct table writers.
+- Do not alter `supabase_admin/public` defaults without a separate Supabase platform-owner compatibility review.
+- No hosted ACL, default privilege, table data, migration ledger, or deployment was changed during this audit.
+
+**Evidence boundary:** effective privileges and default ACLs are read-only catalog observations. They do not prove that every possible external consumer has been identified. A service-role reduction must be backed by a complete writer inventory and isolated runtime tests before merge/deployment.
