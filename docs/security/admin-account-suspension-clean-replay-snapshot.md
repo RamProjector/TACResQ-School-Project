@@ -110,3 +110,15 @@ No connected Supabase project was queried or modified to produce this snapshot. 
 
 
 The staged `api_admin_set_account_status(bigint,text,text)` routine is SECURITY DEFINER but has no authenticated, anon, or PUBLIC EXECUTE grant. It is therefore not included in the callable totals above; it must remain unavailable to client routes until the complete access-surface and runtime validation gates are approved.
+
+
+## Supersession notice — current branch source-contract baseline
+
+This file is a historical replay snapshot. Its 74-public-callable / 23-public-definer figures and twelve-private-helper description are superseded by the current branch's executable inventory contracts:
+
+- 75 authenticated-callable public functions: 24 SECURITY DEFINER and 51 SECURITY INVOKER.
+- 13 authenticated-callable private SECURITY DEFINER helpers.
+
+The exact current private list is enforced by tools/test_account_suspension_private_definer_inventory.sql; the public 24-signature list and 75/24/51 aggregate are enforced by tools/test_account_suspension_definer_inventory.sql. This notice does not rewrite the original replay's observed figures or pretend that a new replay has occurred. Preserve the original snapshot as historical evidence, and use the exact-head replay output to confirm the current catalog before release sign-off.
+
+Also superseded: the older matrix's unresolved duty-status and image-reservation signatures. The exact signatures are public.api_set_duty_status(text) and public.api_reserve_incident_image_upload(bigint,text,bigint,uuid). The public team-assignment function is SECURITY INVOKER and delegates to the authenticated-callable private definer guard; do not count it as a public definer.
