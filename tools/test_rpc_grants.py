@@ -292,11 +292,17 @@ assert re.search(
     re.IGNORECASE | re.DOTALL,
 ), "Legacy incident/location sequences must revoke PUBLIC and anon access"
 assert re.search(
-    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
+    r"GRANT\s+USAGE\s+ON\s+SEQUENCE\s+"
     r"public\.incidents_id_seq\s+TO\s+authenticated\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
-), "Authenticated legacy incident-create RPCs must retain required sequence access"
+), "Authenticated legacy incident-create RPCs need only sequence USAGE"
+assert re.search(
+    r"REVOKE\s+SELECT\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq\s+FROM\s+authenticated\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Authenticated clients do not need direct sequence SELECT access"
 assert re.search(
     r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
     r"public\.location_logs_id_seq\s+FROM\s+authenticated\s*;",
