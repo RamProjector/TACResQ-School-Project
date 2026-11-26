@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep repository migration filenames aligned with the applied TACResQ project history."""
+"""Check the repository migration inventory against its documented live-ledger baseline and gaps."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,14 +108,25 @@ EXPECTED = {
     "20261125020924_admin_website_account_lifecycle_controls.sql",
     "20261125020926_admin_account_lifecycle_compare_and_set.sql",
 }
-# Every repository migration now matches a version recorded in the live
-# Supabase migration ledger. New pending migrations must be added explicitly.
+# EXPECTED is the repository's reviewed applied-source baseline. This is not a
+# live-ledger query and does not prove one-to-one version identity. The two
+# read-only account migrations below are already represented in the live ledger
+# under different versions; the trigger-grant migration is still a draft.
 PENDING = {
-    # PR #365: staged read-only-safe account profile RLS correction; not yet in live migration ledger.
+    # Logical changes are live under 20261125025825 and 20261125030010,
+    # but these repository filenames use different version identities.
     "20261125120000_read_only_account_profile_rls.sql",
     "20261125130000_remove_legacy_fcm_active_account_policy.sql",
-    # PR #370: revoke direct EXECUTE on a trigger-only incident invariant function.
+    # PR #370: unapplied draft; must be regenerated with `supabase migration new`.
     "20261126100000_revoke_incident_trigger_function_client_execute.sql",
+}
+# Applied live migration with no recoverable source file in this branch.
+# Keep this gap explicit; do not synthesize SQL from the ledger name.
+LIVE_LEDGER_SOURCE_GAPS = {
+    "20261125030354_make_actor_role_lookup_read_only_safe": (
+        "Live actor-role helper is STABLE, while the checked-in source migration "
+        "currently defines it as VOLATILE."
+    ),
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -124,6 +135,13 @@ assert EXPECTED <= actual, (
 assert actual <= EXPECTED | PENDING, (
     f"Untracked migration files found. Unexpected={sorted(actual - (EXPECTED | PENDING))}"
 )
+
+master_plan = (ROOT / "docs" / "TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8")
+for migration_name, gap in LIVE_LEDGER_SOURCE_GAPS.items():
+    assert migration_name in master_plan, f"Live migration source gap is undocumented: {migration_name}"
+    assert "STABLE SECURITY DEFINER" in master_plan and "VOLATILE" in master_plan, (
+        f"Live/source volatility drift is not documented: {gap}"
+    )
 
 core = (MIGRATIONS / "20261015080806_tacresq_core_schema.sql").read_text()
 for required in (
