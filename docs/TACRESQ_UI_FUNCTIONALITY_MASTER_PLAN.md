@@ -2424,3 +2424,81 @@ The live migration ledger includes read_only_account_profile_rls and remove_lega
 - [ ] Record the leaked-password protection plan limitation accurately; no paid plan change is authorized.
 
 **Evidence boundary:** Catalog and advisor findings are snapshots, not penetration tests. No user rows were selected, no helper was invoked, no Storage object was read or written, no migration was applied, and no production account or operational record was changed.
+
+---
+
+## 33. Admin Overview workspace audit — apply the reference to the page, not the sidebar
+
+### 33.1 Correction to the shell interpretation
+
+The current Admin sidebar is already collapsible and already becomes an icon rail on desktop. The reference screenshot must not be used to justify replacing that behavior, adding a second permanent navigation rail, or treating sidebar collapse as unfinished.
+
+Verified in the current branch:
+- `AdminConsole.tsx` stores the desktop collapsed state under `tacresq.admin.sidebar-collapsed.v1`.
+- The shell applies `admin-shell--sidebar-collapsed` when collapsed.
+- At desktop widths, `AdminConsole.css` changes the shell grid to `76px minmax(0, 1fr)`.
+- The sidebar retains its navigation icons while hiding wordmark, context label, group labels, bottom content, and link text.
+- The mobile layout has a separate drawer/open-close behavior and hides the desktop collapse control.
+- The toggle is inside the sidebar header and has an accessible name, `aria-controls`, and `aria-expanded`.
+
+This is source verification of the implementation, not a claim of browser-level visual QA. The next design work belongs in the workspace composition.
+
+### 33.2 Current Overview composition observed in source
+
+The current Overview is one vertical sequence:
+1. Page heading with a large responsive title and a full explanatory sentence.
+2. Two metric cards: matching accounts and recorded events today.
+3. A separate long note explaining the metrics' exact scope.
+4. Recent recorded activity panel with freshness, refresh, open-log actions, five-row preview, and a long coverage footnote.
+5. A separate four-card workspace-shortcut panel.
+6. Dependency reachability panel with three probes, refresh/freshness state, a long limitations paragraph, and a further “Not covered by these probes” list.
+
+The CSS confirms a two-column metric strip constrained to `max-width:840px`, followed by panels that occupy the normal document flow. The current layout does not yet use the screenshot's unequal main/supporting workspace allocation.
+
+### 33.3 Recommended Overview composition
+
+Use the screenshot's spatial hierarchy to improve scanning, while keeping the Admin content and TACResQ theme:
+
+- **Page header:** compact title and only the action relevant to the current page. Remove the long overview sentence if the page title and concise section labels already establish context.
+- **Summary row:** retain the two existing verified metrics, but render them as compact summary units. Do not invent extra counts such as active sessions, blocked attacks, online responders, or system health scores without trusted supporting contracts.
+- **Primary/supporting workspace grid:** place Recent recorded activity in the larger column; place Dependency reachability in the narrower supporting column when available width permits. The activity feed is an investigation preview; dependency checks are on-demand reachability probes. Their different purposes must remain explicit.
+- **Workspace shortcuts:** reduce the large standalone four-card section to a compact set of clearly labeled actions near the page header or as a small secondary list. Do not repeat the same destinations already visible in the persistent navigation unless they are genuinely frequent task shortcuts.
+- **Narrow layouts:** stack the primary and supporting panels in a deliberate order: summary, recent activity, dependency reachability, then secondary shortcuts. No squeezed two-column cards or horizontal page overflow.
+
+### 33.4 Content and density corrections
+
+The current overview is careful about limitations, but the same explanation is repeated at several levels. Preserve the facts while reducing repetition:
+
+- Keep a concise coverage indicator adjacent to the activity preview and link to the full Activity Log for source-level detail.
+- Keep the distinction between “no recorded events” and “source unavailable”; never collapse them into one empty state.
+- Keep the probe limitation visible near Dependency reachability, but move the exhaustive list of unprobed capabilities into a disclosure or dedicated details surface.
+- Do not repeat “not a complete system monitor” in the page heading, panel introduction, summary, and footnote.
+- Retain exact Manila time scope and data freshness, but avoid multiple competing timestamps or redundant “refresh” controls.
+- Prefer compact headings, restrained title sizes, value-first metrics, and short action labels. Avoid decorative chart tiles; the current overview has no source-backed chart contract that needs to be introduced here.
+
+### 33.5 Data and security invariants
+
+The layout change must not alter data meaning:
+- Matching accounts remains dependent on the directory's active search and role filters; it is not a total registered-user count.
+- Recorded events today remains the exact count returned by the protected investigation feed since Manila midnight, with the seven-source coverage limits documented in Section 31.
+- The activity preview remains only the returned preview rows and must not be described as a complete audit trail.
+- Dependency reachability remains the three current probes (Laravel liveness, Supabase Auth health, and the fixed data-free database RPC). It is not end-to-end emergency readiness, notification delivery, routing, Storage health, or scheduled monitoring.
+- Do not combine the activity count and dependency probes into a single “security score” or overall system-health percentage.
+- Preserve Admin MFA, RPC authorization, loading/error/empty states, retry behavior, source freshness, and all existing route/action contracts.
+
+### 33.6 Responsive composition and acceptance
+
+Test the Overview at the existing Section 8 width/height matrix, with particular attention to widths just above and below the point where the primary/supporting grid stacks.
+
+Acceptance:
+1. At wide desktop widths, Recent recorded activity receives the larger share of the content grid; Dependency reachability remains legible in the supporting column.
+2. The two metric summaries align to the content grid and do not leave an arbitrary narrow strip of unused workspace.
+3. At medium widths, the grid stacks before either panel becomes cramped; the order preserves task priority.
+4. At mobile widths, each panel uses the available width and actions wrap without clipping.
+5. At 200% and 400% zoom, no essential content is hidden, clipped, or made dependent on hover.
+6. Loading, unavailable, empty, and stale states remain visually and semantically distinct.
+7. Keyboard and screen-reader users can reach all panel actions; collapsed sidebar navigation remains accessible through its existing labels/tooltips.
+8. No new metrics, alerts, charts, or data sources are introduced solely to fill visual space.
+
+**Decision:** The next implementation slice should be the Overview workspace grid and copy/density reduction. Do not spend that slice rebuilding the already-collapsible sidebar. This is a source-grounded design recommendation; no application code, visual regression, or browser test is claimed by this section.
+
