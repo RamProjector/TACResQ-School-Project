@@ -16,9 +16,9 @@ GRANT UPDATE (duty_status, updated_at)
   TO authenticated;
 
 -- PostgreSQL 17 introduced the MAINTAIN table privilege. Keep the migration
--- compatible with the PG16 replay lane by parsing the PG17-only statement only
--- when the target server supports it. No client workflow requires maintenance
--- commands on profile or incident relations.
+-- compatible with the PG16 replay lane by parsing PG17-only statements only
+-- when the target server supports them. No application client or service-role
+-- workflow requires maintenance commands on public application relations.
 DO $revoke_client_maintain$
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
