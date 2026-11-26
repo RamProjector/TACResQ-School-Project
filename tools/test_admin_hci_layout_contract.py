@@ -78,7 +78,7 @@ assert "0 10px 26px rgba(20, 42, 49, .045)" in CSS
 assert "@media (prefers-reduced-motion: no-preference)" in CSS
 assert "@media (prefers-reduced-motion: reduce)" in CSS
 reduced = CSS.rsplit("@media (prefers-reduced-motion: reduce)", 1)[1]
-assert "transform: none" in reduced
+assert "transition:none !important" in reduced
 assert "animation: admin-dialog-enter" in CSS
 assert ".audit-page__date-presets button" in CSS
 
