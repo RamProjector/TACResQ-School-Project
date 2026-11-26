@@ -236,3 +236,12 @@ The PostgreSQL replay contract verifies invoker mode, volatility, search path, a
 
 
 The website Admin lifecycle transition is exposed through `public.api_admin_set_account_status(bigint, text, text, text)` to authenticated AAL2/TOTP Admins only. It rejects self-change and Admin targets, locks the target profile, and records the lifecycle audit event transactionally.
+
+
+## Current inventory contract reconciliation
+
+The current executable private callable inventory contains **13**, not twelve, authenticated-callable private SECURITY DEFINER helpers. The exact signatures are enforced by tools/test_account_suspension_private_definer_inventory.sql. The current public contract separately enforces 75 authenticated-callable public functions: 24 SECURITY DEFINER and 51 SECURITY INVOKER. The older clean-replay snapshot and older matrix counts are historical and superseded; this does not claim a new replay has just run.
+
+The 13 private signatures are: tacresq_active_responder_locations(), tacresq_actor_role(), tacresq_assign_incident_team_guarded(bigint,bigint[]), tacresq_auth_can_access_incident_chat(bigint), tacresq_auth_profile_id(), tacresq_auth_profile_id_for_token_cleanup(), tacresq_current_account_active(), tacresq_current_account_active_read(), tacresq_dispatch_update_incident_status(bigint,text), tacresq_is_incident_assignee(bigint), tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz), tacresq_release_incident_assignment(bigint,bigint), and tacresq_upload_reservation_allows_insert(text,text,bigint).
+
+Use the canonical master-plan Section 29 for the corrected matrix baseline and full invoker/RLS/view review gate.
