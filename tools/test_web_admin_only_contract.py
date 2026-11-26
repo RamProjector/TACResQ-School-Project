@@ -406,3 +406,16 @@ for required_text in (
 ):
     assert required_text in admin_console, f"Notification guidance is missing: {required_text}"
 assert "admin-notifications-workspace" in admin_console
+
+
+# Privacy & data guidance remains explicit about the missing controlled case workflow.
+for required_text in (
+    "Identity verification and representative authority",
+    "Not implemented as a controlled workflow",
+    "Per-case authorization and append-only decision audit",
+    "Not implemented — no case actions available",
+    "No personal-data request is submitted or processed here.",
+    "Release gates for an online request centre",
+):
+    assert required_text in admin_console, f"Privacy request readiness is missing: {required_text}"
+assert "No personal-data export, correction, deletion, blocking, or retention operation is performed from this page." in admin_console
