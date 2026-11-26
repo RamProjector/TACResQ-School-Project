@@ -482,6 +482,7 @@ for required in (
 private_inventory = (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").read_text(encoding="utf-8").lower()
 for required in (
     "cardinality(expected_signatures) <> 13",
+    "coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog']",
     "has_schema_privilege('authenticated', 'private', 'usage')",
     "has_schema_privilege('anon', 'private', 'usage')",
     "private.tacresq_active_responder_locations_internal()",
