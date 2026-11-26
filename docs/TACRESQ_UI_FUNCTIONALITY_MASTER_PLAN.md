@@ -9656,17 +9656,17 @@ The Laravel FCM worker source confirms that it claims work through `api_claim_fc
 
 The source-level distinction is important: service_role table access for SELECT, UPDATE or DELETE does not imply that service_role needs USAGE on that table's identity sequence. Only a direct INSERT path using the service_role identity needs the sequence grant. Trigger/RPC inserts execute under their function owner and do not require granting sequence access to the invoking client or worker role.
 
-### 69.2 Candidate least-privilege sequence policy
+### 69.2 Forward sequence privilege reduction
 
-Subject to exact-head replay and regression checks, the candidate policy is:
+Expanded the existing unapplied forward migration `20261126180000_restrict_device_registry_sequences.sql` to cover the full reviewed sequence boundary:
 
-- Preserve service_role USAGE and SELECT on `api_operation_logs_id_seq`.
-- Preserve service_role USAGE and SELECT on the two device registry sequences already addressed in Section 67.
-- Revoke PUBLIC, anon, authenticated and service_role privileges on the RPC/trigger-owned sequences listed in 69.1; the function owner retains the privileges needed by SECURITY DEFINER writers.
+- Preserve service_role USAGE and SELECT on `api_operation_logs_id_seq` for Laravel's direct metadata-only PostgREST INSERT.
+- Preserve service_role USAGE and SELECT on the two device registry sequences for the trusted device-security/integrity writer.
+- Revoke PUBLIC, anon, authenticated and service_role privileges on the RPC/trigger-owned sequences listed in 69.1. SECURITY DEFINER functions and auth bootstrap continue to allocate IDs under their owner context.
 - Keep authenticated table reads and the existing protected RPC/trigger insert workflows unchanged.
-- Add a complete runtime inventory assertion so newly introduced identity sequences cannot silently inherit unnecessary client or service-role access.
+- Extend the replay's catalog contract to reject any anon/authenticated access to public identity sequences, reject service_role access to RPC/trigger-owned sequences, and preserve only the three explicit trusted server sequence consumers.
 
-This is a candidate forward migration, not yet an applied change. Before adding it, verify function ownership for every listed writer in the replay catalog and test representative authenticated RPCs/triggers after sequence revocation. Do not change schema-scoped default ACLs to achieve this result.
+The migration remains repository-only and is included in the unapplied forward migration inventory. Its existing filename reflects the first device-registry scope, but the reviewed SQL now covers all identified backend/RPC-owned sequences as well. Schema-scoped default ACLs are not changed. Exact-head clean replay and same-valid-JWT workflow regression remain required.
 
 ### 69.3 PostgreSQL 17 MAINTAIN grant provenance
 
@@ -9679,6 +9679,6 @@ Both tables' owner-specific `postgres/public` default ACL grants all table privi
 
 The proposed correction is a PG17-compatible forward migration that dynamically executes `REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated` only when `server_version_num >= 170000`. Keeping the PG17-only privilege name inside dynamic SQL avoids parsing it on the current PG16 replay lane. A PG17-specific SQL contract must verify that authenticated no longer has MAINTAIN while SELECT and the narrowly scoped profile duty-status update path remain intact. Service_role MAINTAIN remains untouched pending separate operational-owner review.
 
-**Verification boundary:** the sequence map is source/catalog analysis; it is not a runtime proof that every worker is deployed or currently active. No sequence ACL or MAINTAIN privilege was changed. The exact-head replay correction from Section 68 is still awaiting CI completion.
+**Verification boundary:** the sequence map is source/catalog analysis; it is not a runtime proof that every worker is deployed or currently active. The forward migration and replay assertions are committed but not yet validated by an exact-head clean replay. No hosted sequence ACL or MAINTAIN privilege was changed. The exact-head replay correction from Section 68 is still awaiting CI completion.
 
-**Next task:** add the writer-path sequence migration and runtime inventory test only after the current replay is green; add the guarded PG17 MAINTAIN migration and a dedicated PG17 test lane without changing live defaults or service_role maintenance grants.
+**Next task:** validate the expanded sequence migration in the clean replay, then add the guarded PG17 MAINTAIN migration and a dedicated PG17 test lane without changing live defaults or service_role maintenance grants.
