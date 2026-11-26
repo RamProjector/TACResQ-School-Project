@@ -2420,7 +2420,7 @@ The live migration ledger includes read_only_account_profile_rls and remove_lega
 - [ ] Test incident-chat Storage HTTP upload/download for requester, assigned field unit, dispatcher, unrelated profile, removed member, and suspended caller in both reservation modes.
 - [ ] Test assignment, release, and GPS writes concurrently with suspension and role changes.
 - [ ] Keep the five internal implementation helpers and shared chat predicate non-client-executable.
-- [ ] Reconcile migration versions before merge; do not apply the trigger grant migration to production until approved.
+- [ ] Reconcile migration versions before merge; the current trigger-grant SQL is a draft branch file and was not generated with the Supabase CLI. Recreate its canonical filename with `supabase migration new`, carry the reviewed SQL into that generated file, update the migration-history contract, and run clean replay before merge. Do not apply it to production until approved.
 - [ ] Record the leaked-password protection plan limitation accurately; no paid plan change is authorized.
 
 **Evidence boundary:** Catalog and advisor findings are snapshots, not penetration tests. No user rows were selected, no helper was invoked, no Storage object was read or written, no migration was applied, and no production account or operational record was changed.
