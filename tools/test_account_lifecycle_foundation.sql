@@ -120,6 +120,7 @@ BEGIN
      WHERE n.nspname = 'public'
        AND c.relkind IN ('r', 'p')
        AND c.relrowsecurity
+       AND c.relname <> 'fcm_tokens'
        AND (
          has_table_privilege('authenticated', c.oid, 'SELECT')
          OR has_table_privilege('authenticated', c.oid, 'INSERT')
@@ -140,6 +141,36 @@ BEGIN
        )
   ) THEN
     RAISE EXCEPTION 'A public table with authenticated privileges is missing the restrictive active-account RLS policy';
+  END IF;
+
+  -- FCM deliberately uses operation-specific restrictive policies so
+  -- suspended users can retain only the narrow self-unregister DELETE path.
+  IF (
+    SELECT count(*)
+      FROM pg_catalog.pg_policies p
+     WHERE p.schemaname = 'public'
+       AND p.tablename = 'fcm_tokens'
+       AND p.policyname IN (
+         'tacresq_fcm_select_requires_active',
+         'tacresq_fcm_insert_requires_active',
+         'tacresq_fcm_update_requires_active'
+       )
+       AND p.permissive = 'RESTRICTIVE'
+       AND 'authenticated' = ANY(p.roles)
+       AND (
+         coalesce(p.qual, '') ILIKE '%tacresq_current_account_active_read%'
+         OR coalesce(p.with_check, '') ILIKE '%tacresq_current_account_active_read%'
+       )
+  ) <> 3 THEN
+    RAISE EXCEPTION 'FCM SELECT/INSERT/UPDATE must each have a restrictive non-locking active-account policy';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_policies p
+     WHERE p.schemaname = 'public'
+       AND p.tablename = 'fcm_tokens'
+       AND p.policyname = 'tacresq_active_account_required'
+  ) THEN
+    RAISE EXCEPTION 'FCM must not retain the legacy all-operations locking account policy';
   END IF;
 
   IF EXISTS (

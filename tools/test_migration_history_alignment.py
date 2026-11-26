@@ -113,6 +113,7 @@ EXPECTED = {
 PENDING = {
     # PR #365: staged read-only-safe account profile RLS correction; not yet in live migration ledger.
     "20261125120000_read_only_account_profile_rls.sql",
+    "20261125130000_remove_legacy_fcm_active_account_policy.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
