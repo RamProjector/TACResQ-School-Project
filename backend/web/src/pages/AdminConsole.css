@@ -1389,6 +1389,100 @@
 .admin-shell--high-contrast .admin-table th { color:#354d47; border-color:#87978e; }
 .admin-shell--reduced-motion *, .admin-shell--reduced-motion *::before, .admin-shell--reduced-motion *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
 
+
+/* User-selected high contrast applies to the complete Admin workspace, including
+   analytics, continuity, audit, and nested settings surfaces. Preserve semantic
+   success/error colors while strengthening neutral text, boundaries, and focus. */
+.admin-shell--high-contrast {
+  color-scheme: light;
+  --line: #7b8b82;
+}
+.admin-shell--high-contrast :where(
+  .admin-panel,
+  .admin-settings-card,
+  .admin-help-card,
+  .admin-recovery-card,
+  .admin-attachment-card,
+  .admin-analytics-card,
+  .admin-health-item,
+  .admin-account-details-panel,
+  .audit-event-card,
+  .admin-modal,
+  .admin-search,
+  .admin-role-filter select,
+  .admin-page-size select,
+  .admin-modal select,
+  .admin-modal textarea,
+  .admin-pagination button,
+  .admin-settings-nav__item
+) {
+  border-color: #687c70;
+}
+.admin-shell--high-contrast :where(
+  .admin-panel__footnote,
+  .admin-settings-card p,
+  .admin-help-card p,
+  .admin-recovery-card p,
+  .admin-attachment-card p,
+  .admin-analytics-card p,
+  .admin-health-item small,
+  .admin-data-freshness,
+  .admin-empty,
+  .admin-empty strong,
+  .admin-eyebrow,
+  .admin-count,
+  .admin-pagination,
+  .admin-account-details-panel > div span,
+  .audit-event-card__meta,
+  .audit-event-card__details dt,
+  .audit-event-card__details dd
+) {
+  color: #344d43;
+}
+.admin-shell--high-contrast :where(
+  .admin-table th,
+  .admin-table td,
+  .admin-settings-nav__item,
+  .admin-pagination button,
+  .admin-change-role,
+  .admin-account-details,
+  .admin-refresh,
+  .admin-search,
+  .admin-role-filter select,
+  .admin-page-size select,
+  .admin-modal select,
+  .admin-modal textarea
+) {
+  border-color: #687c70;
+}
+.admin-shell--high-contrast :where(
+  .admin-settings-nav__item--active,
+  .admin-pagination button:not(:disabled),
+  .admin-change-role,
+  .admin-account-details,
+  .admin-refresh
+) {
+  color: #203d31;
+}
+.admin-shell--high-contrast :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #8b3d20;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.admin-shell--high-contrast .admin-table th {
+  color: #263f35;
+  background: #edf2eb;
+  border-color: #687c70;
+}
+.admin-shell--high-contrast .admin-settings-nav__item--active {
+  background: #e5eee4;
+  border-color: #526b5c;
+}
+.admin-shell--high-contrast .admin-search:focus-within {
+  border-color: #344d43;
+  box-shadow: 0 0 0 3px rgba(52,77,67,.2);
+}
+
 @media (max-width:900px) {
   .admin-settings-grid,.admin-help-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }
   .admin-settings-intro,.admin-settings-actions,.admin-help-note { margin-inline:14px; padding-inline:14px; }
