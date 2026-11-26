@@ -9339,7 +9339,7 @@ The current Admin website uses the signed-in Admin's Supabase Auth session and p
 
 The live catalog showed:
 - `public.admin_audit_logs` is owned by `postgres`, has RLS enabled, and grants service_role SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER.
-- Its identity sequence `public.admin_audit_logs_id_seq` grants service_role USAGE, SELECT and UPDATE.
+- Its identity sequence `public.admin_audit_logs_id_seq` grants USAGE, SELECT and UPDATE to anon, authenticated and service_role, inherited from the broad public-schema default ACLs. None of these client/server roles needs direct sequence access because audit inserts occur inside postgres-owned SECURITY DEFINER functions.
 - The reviewed Admin role-change and audit-reader functions are SECURITY DEFINER and owned by postgres. The transactional role-change function inserts the audit row as its owner; it does not need the caller to have direct table or sequence privileges.
 - Thirteen public `api_admin_*` functions had service_role EXECUTE in the live catalog. The reviewed Admin browser calls use authenticated RPC execution; internal helper functions are called by postgres-owned SECURITY DEFINER wrappers.
 
@@ -9351,7 +9351,7 @@ Added `supabase/migrations/20261126160000_revoke_service_role_admin_audit_access
 
 The migration:
 1. Revokes all table-level privileges from service_role on `public.admin_audit_logs`.
-2. Revokes all sequence privileges from service_role on `public.admin_audit_logs_id_seq`.
+2. Revokes all sequence privileges from PUBLIC, anon, authenticated and service_role on `public.admin_audit_logs_id_seq`.
 3. Revokes service_role EXECUTE on the 13 existing `public.api_admin_*` functions, using their exact argument signatures.
 4. Does not grant any new privilege, alter RLS/policies, change function definitions, drop objects, modify audit rows, or affect authenticated/anon grants.
 5. Leaves the Admin website's authenticated Admin calls and postgres-owned SECURITY DEFINER internals intact.
@@ -9367,14 +9367,14 @@ Added `tools/test_service_role_admin_audit_privileges.sql` and wired it into the
 - `admin_audit_logs` remains postgres-owned with RLS enabled.
 - service_role has no table-level SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER privilege.
 - service_role has no column-level privilege on any audit-table column.
-- service_role has no USAGE, SELECT or UPDATE privilege on the audit identity sequence.
+- anon, authenticated and service_role have no USAGE, SELECT or UPDATE privilege on the audit identity sequence; PUBLIC has no sequence ACL.
 - service_role cannot EXECUTE any of the 13 enumerated Admin functions.
 - service_role cannot EXECUTE any current or future public function whose name begins `api_admin_*`; this catches default-ACL regrant on a newly added Admin RPC during replay.
 - postgres retains EXECUTE on each enumerated function.
 - the existing authenticated Admin RPC grants remain present.
 - authenticated retains only the existing direct SELECT table grant; direct audit-table writes remain unavailable.
 
-Extended `tools/test_rpc_grants.py` with a source-level contract that verifies the forward migration contains the table, sequence and exact function revocations, adds no grants, and is included in migration replay. The source contract is not a substitute for the SQL catalog test; both are required. The disposable replay now seeds the live `postgres/public` default EXECUTE grant to service_role before applying migrations, and the SQL contract asserts that fixture is present. This is necessary because the original replay harness did not model the hosted function default ACL; without that fixture, the future-`api_admin_*` assertion could pass while failing to reproduce the hosted default-grant behavior.
+Extended `tools/test_rpc_grants.py` with a source-level contract that verifies the forward migration contains the table, sequence and exact function revocations, adds no grants, and is included in migration replay. The source contract is not a substitute for the SQL catalog test; both are required. The disposable replay now seeds the live `postgres/public` default ACLs for tables, sequences and functions (broad grants to anon, authenticated and service_role) before applying migrations, and the SQL contract asserts that all three object-family fixtures are present. This is necessary because the original replay harness did not model hosted default grants; without these fixtures, new-object privilege regressions could pass in CI while differing from the hosted database. PostgreSQL 16 replay does not include PostgreSQL 17's additional MAINTAIN table privilege, so a PG17 parity run remains required.
 
 ### 64.4 Explicitly deferred privilege work
 
