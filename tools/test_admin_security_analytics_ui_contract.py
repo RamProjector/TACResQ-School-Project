@@ -78,7 +78,10 @@ assert "window.confirm(" in ADMIN
 assert "window.addEventListener(\"beforeunload\", warnBeforeUnload);" in ADMIN
 assert "window.removeEventListener(\"beforeunload\", warnBeforeUnload)" in ADMIN
 assert "if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;" in ADMIN
-assert "if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;" in ADMIN
+assert 'if ((activeSection !== "settings" || page !== settingsPage) && !confirmDiscardPreferenceChanges()) return;' in ADMIN
+settings_navigation = ADMIN.split("function navigateToSettingsPage", 1)[1].split("function navigateToContinuityPage", 1)[0]
+assert 'setActiveSection("settings");' in settings_navigation
+assert 'setSettingsPage(page);' in settings_navigation
 assert "setSavedPreferences(preferences);" in ADMIN
 
 
