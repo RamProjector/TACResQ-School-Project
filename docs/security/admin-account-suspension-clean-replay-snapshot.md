@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
-**Current reviewed baseline:** 23 public and 12 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
+**Original replay baseline (historical):** 23 public and 12 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC. The live 2026-11-26 baseline is documented in the appended correction section.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -16,7 +16,7 @@
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot reported 20; the incident-chat upload-reservation migration added `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, and the account-lifecycle foundation added the authenticated-callable `api_admin_list_account_lifecycle_events(integer,integer)` reader and the `api_assign_incident_team(bigint,bigint[])` SECURITY INVOKER wrapper delegating to the authenticated-callable private `tacresq_assign_incident_team_guarded(bigint,bigint[])` SECURITY DEFINER helper. The public callable baseline remains **74** functions (23 public definers and 51 public invokers). The `api_admin_set_account_status(bigint,text,text)` transition routine remains staged with client EXECUTE revoked and is intentionally excluded. The current branch's executable contract locks all 23 public definer signatures and separately locks twelve authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot reported 20; the incident-chat upload-reservation migration added `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, and the account-lifecycle foundation added the authenticated-callable `api_admin_list_account_lifecycle_events(integer,integer)` reader and the `api_assign_incident_team(bigint,bigint[])` SECURITY INVOKER wrapper delegating to the authenticated-callable private `tacresq_assign_incident_team_guarded(bigint,bigint[])` SECURITY DEFINER helper. The public callable baseline remains **74** functions (23 public definers and 51 public invokers). The `api_admin_set_account_status(bigint,text,text)` transition routine remains staged with client EXECUTE revoked and is intentionally excluded. The original replay's executable contract locked its 23 public definer signatures and twelve authenticated-callable private SECURITY DEFINER helpers. These historical counts are superseded by the current 24/14 application API register and 13 private helpers described in the appended correction section.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
