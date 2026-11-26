@@ -1192,7 +1192,7 @@
 }
 .admin-shell .admin-overview-metrics__scope {
   margin: 0;
-  color: var(--muted);
+  color: #718081;
   font-size: var(--admin-ui-label);
   line-height: 1.5;
 }
