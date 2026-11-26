@@ -1,3 +1,14 @@
+## PostgreSQL 17 privilege replay harness correction — 2026-11-27
+
+- **Exact-head finding:** The PR #370 exact-head runs at `7437a07f96c5d1d7f36c863a5cedde228fe64c73` passed Source checks, Android debug/release builds, Laravel/dashboard integration, advisory prototype checks, QA, Frontend Review, Security, and read-only profile verification. The main migration replay and dedicated RPC grant contract both failed at the same SQL test-harness parse error.
+- **Root cause:** The new `FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT']` loop in `tools/test_supabase_migration_replay.sh` used `privilege_name` without declaring it in the enclosing PL/pgSQL `DO` block. PostgreSQL reported: `loop variable of FOREACH must be a known variable or list of variables`. The failure occurred in the replay assertion, not in application migrations or a hosted database.
+- **Correction:** Added `privilege_name text;` to the block's DECLARE section.
+- **Commit:** `4b3dcd59b65dbe19e17cbbdb9308c09e374ae44e` on `docs/admin-ips-ui-master-plan`.
+- **Validation boundary:** The failing run logs were inspected and the exact source declaration was re-fetched before the correction. The corrected replay and RPC grant contract still require a new exact-head run. No hosted Supabase migration, grant change, production data change, Render change, or deployment occurred.
+- **Next:** Verify the new exact-head CI; if replay proceeds, inspect the next substantive PostgreSQL 17 privilege result. Keep the PG16 main replay and PG17 dedicated grant contract distinct.
+
+---
+
 ## Admin IPS account governance and lifecycle UX research — 2026-11-26
 
 - Added Section 41 to `docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md`: the Admin portal should retain its single `admin` privilege role; requester/responder/driver/dispatcher remain operational application roles, not Admin sub-roles.
