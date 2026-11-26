@@ -1927,3 +1927,16 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **No code/config change:** No instrumentation SDK, logger, schema, RPC, migration, provider setting, paid service, production write, or UI integration changed. This is documentation/research only.
 - **Evidence boundary:** No live trace/log query, synthetic SOS lifecycle, or cross-provider trace was executed. No direct-client trace header behavior or Supabase correlated log availability was confirmed for every API surface. Current exact-head CI must be checked after docs updates; PR remains unmerged.
 - **Next:** Verify the four documentation files, post a PR #370 research note, and inspect CI for the final exact head.
+
+
+## 2026-11-26 — Synthetic SOS lifecycle verification specification (Section 50)
+
+- **Branch/PR:** Continued on `docs/admin-ips-ui-master-plan`, existing PR #370. PR head before this documentation update: `a2ac05ae3cd7a27f8b7448a540584e034066c999`.
+- **Source audit:** Reviewed `docs/architecture/END_TO_END_EMERGENCY_WORKFLOW_REVIEW.md`, offline SOS resilience, FCM operations/runbook, incident/chat/notification docs, SOS idempotency migration, dispatcher team assignment and per-responder status migrations, field-unit claim migration, assignment event history, FCM delivery queue, chat, location writer, and related existing Python/PHP/SQL/Android tests.
+- **Important correction:** There is no universal responder-acceptance event in the dispatcher-managed team path. Dispatcher team assignment and dispatcher-enabled field-unit claiming are distinct paths and must be tested on separate fixtures. Shared incident progress is dispatcher-managed; GPS sharing is a separate explicit action.
+- **Added:** `docs/QA_SYNTHETIC_SOS_LIFECYCLE_VERIFICATION.md`, with synthetic identities, primary team-assignment workflow, separate claimable workflow, source-backed expected evidence, negative side-effect assertions, failure-injection matrix, existing test coverage/limitations, layered execution strategy, acceptance gate, and official references.
+- **Blueprint and skill:** Added Section 50 to canonical master plan and corresponding skill summary.
+- **Existing suite limitation:** `tools/test_workflow.py` defaults to a local deterministic prototype model; optional HTTP mode does not represent Android direct-Supabase E2E. Existing Python source-contract scripts and Laravel fake FCM tests are component evidence, not a full distributed execution.
+- **Deployment blocker:** FCM dispatcher automatic execution is not configured in current Render Free web-service startup; reviewed Supabase project lacks the required cron/net trigger. Push stage remains Blocked/Not configured; no activation or production changes authorized.
+- **No runtime changes:** No code, migration, RPC, schema, credentials, FCM send, worker, cron, Render plan, production data or service setting changed. No test workflow was executed; this is a test specification only.
+- **Next:** Re-fetch and verify all four documentation files, post the PR #370 note, inspect checks on the exact final head. Do not merge until required checks and reviews are complete.
