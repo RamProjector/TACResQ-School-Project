@@ -5352,3 +5352,148 @@ Render portal recovery should focus on reproducible Git source, Docker build, de
 - No production backup, restore, provider configuration, schema, credential, or paid service is changed by this research.
 
 **Evidence boundary:** This section uses repository source and operator-procedure inspection plus read-only connected Supabase and Render configuration. Supabase currently reports TACResQ as active on PostgreSQL 17, and Render reports the service as Free Docker with no persistent disk in the returned configuration. Supabase billing/backup entitlement, actual backup existence/retention, off-site copy, Auth clone eligibility, and completed restore success remain unverified. The new Supabase restore-to-new-project feature is documented as beta and paid-plan/physical-backup dependent; no eligibility or successful TACResQ restore is claimed.
+
+
+## Section 46 — Security assurance metrics and continuous improvement
+
+**Purpose:** define how TACResQ can assess whether its security controls, telemetry, detection, incident procedures, and governance are effective over time. The Admin IPS must report measured evidence and uncertainty, not produce a decorative security score or imply compliance from incomplete observations.
+
+### 46.1 Measurement principles
+
+1. **Start with a decision.** Every measure must have a stated purpose and identify which operational or governance decision it supports.
+2. **Measure outcomes, not interface activity.** Page views, dashboard refreshes, number of alerts, and number of configured rules do not independently demonstrate security effectiveness.
+3. **Define the denominator and scope.** Every percentage must identify the eligible population, time window, excluded records, and data sources.
+4. **Report data quality and uncertainty.** State source coverage, freshness, missingness, duplicate handling, known blind spots, and confidence limitations alongside the result.
+5. **Keep leading and lagging measures distinct.** Control coverage and test pass rates are not the same as observed incidents, impact, or recovery outcomes.
+6. **Use trends and context.** A measure is useful when definitions remain stable or changes are explicitly versioned. Avoid comparing periods whose source coverage or event taxonomy changed without qualification.
+7. **Use quantitative and qualitative evidence.** Small project teams and low event volumes may not support statistically meaningful rates. Documented scenario tests, reviewer findings, and structured qualitative assessments can be more honest than unstable percentages.
+8. **Do not optimize for the metric.** Pair speed or volume measures with quality, safety, and completeness checks to discourage premature closure, alert suppression, or over-logging.
+
+NIST SP 800-55 Volumes 1 and 2 (final, December 2024) are the current measurement references; the older SP 800-55 Rev. 1 was withdrawn and superseded. NIST Vol. 1 addresses measure selection, data quality, uncertainty, evaluation, and both quantitative and qualitative assessment. Vol. 2 provides a measurement-program workflow. References: [NIST SP 800-55 Vol. 1](https://csrc.nist.gov/pubs/sp/800/55/v1/final), [NIST SP 800-55 Vol. 2](https://csrc.nist.gov/pubs/sp/800/55/v2/final), [NIST publication announcement](https://csrc.nist.gov/News/2024/nist-releases-volumes-1-and-2-of-sp-800-55).
+
+### 46.2 Measurement specification
+
+Each approved measure must have a definition record containing:
+
+- stable measure ID, title, owner, and version;
+- objective and decision supported;
+- control, risk, or workflow being evaluated;
+- numerator, denominator, formula, units, and aggregation method;
+- population, source systems, filters, exclusions, and time window;
+- collection frequency and reporting cadence;
+- source coverage, freshness threshold, known gaps, and missing-data treatment;
+- baseline and rationale for any target or threshold;
+- acceptable uncertainty and minimum sample size, where applicable;
+- interpretation, limitations, and possible gaming/unintended incentives;
+- required action when the result breaches a threshold;
+- validation method, reviewer, last validated date, and next review date.
+
+Do not define a target until a baseline and a defensible operational reason exist. Where a numeric target is not justified, use a documented qualitative assessment with evidence and an explicit reviewer.
+
+### 46.3 Candidate TACResQ assurance measures
+
+The following are candidate definitions, not claims that the repository currently collects the required data.
+
+| Measure | Example definition | Evidence prerequisites and limitations |
+|---|---|---|
+| Critical action audit coverage | Eligible critical actions with a verified durable event / all eligible critical actions observed in the tested scope | Requires a versioned action inventory and end-to-end event verification; do not infer completeness from existing audit rows |
+| Source availability coverage | Required telemetry sources reporting within their freshness objective / all required sources in scope | Must distinguish unavailable, not configured, not monitored, stale, and unknown; a reachable health endpoint is not proof of event ingestion |
+| Event ingestion delay | Time between source event time and trusted ingestion time, summarized by source and period | Requires both timestamps, clock-quality metadata, and known source latency; never substitute UI display time |
+| Detection test effectiveness | Correctly detected positive test cases / eligible positive test cases | Report alongside false-positive and indeterminate outcomes; fixture results are not real-world attack detection rates |
+| False-positive proportion | Confirmed benign detections / all detections reviewed to a defined disposition | Unreviewed or unresolved cases must remain separate; low volume makes the percentage unstable |
+| Detection review timeliness | Time from detection creation/receipt to first documented triage | Requires reliable event timestamps and triage records; report median and upper percentile only when sample size supports them |
+| Investigation completeness | Closed investigations satisfying all mandatory evidence, decision, and disposition fields / investigations closed in scope | A complete form does not prove a correct conclusion; include reviewer quality checks |
+| Response action verification | Approved response actions with independently recorded post-action verification / response actions requiring verification | Must not count an issued command as a successful containment or recovery |
+| Access review completion | Evidence-access grants reviewed by due date / grants due for review | Requires a maintained access inventory and recorded reviewer outcome; no inventory means not measurable |
+| Retention-policy coverage | Record classes with an approved, implemented, tested schedule / record classes identified as requiring retention control | A written schedule alone does not prove actual expiry or disposal across backups and providers |
+| Corrective-action closure quality | Findings retested and passed / findings marked complete | A closed ticket without retest is not verified remediation; preserve failed/reopened outcomes |
+
+Avoid a single weighted composite score initially. If later justified, disclose component weights, missing-data rules, sensitivity, and how the score can hide a severe weakness behind strong unrelated results.
+
+### 46.4 Measurement quality and missing evidence
+
+Every report must distinguish at least these states:
+
+- **Measured:** data was collected from a defined source and passed validation.
+- **Partial:** only part of the intended source/action/population is represented.
+- **Stale:** data exists but exceeds its documented freshness objective.
+- **Unavailable:** the expected source or collection path failed.
+- **Not configured:** no collection mechanism was established.
+- **Not monitored:** the source is explicitly outside current monitoring scope.
+- **Unknown:** evidence is insufficient to determine the state.
+- **Not applicable:** a documented scope decision excludes the measure.
+
+Never translate missing data to zero, “no incidents,” “100% coverage,” or healthy. Show the observation window and “last successful collection” separately from the report generation time. Preserve the difference between no events observed and no telemetry received.
+
+Validate data before calculating measures: event uniqueness, source identity, timestamp plausibility, required fields, expected population, duplicates/retries, late arrivals, ingestion failures, schema changes, and denominator stability. Keep raw source evidence and normalized measurement output traceable.
+
+### 46.5 Validation and interpretation
+
+Before a measure is used for governance or operational decisions:
+
+1. Test the formula against hand-calculated fixtures, including empty, boundary, duplicate, late, malformed, and missing-source cases.
+2. Reconcile numerator and denominator to source records and document exclusions.
+3. Verify time zones, clock assumptions, event ordering, and period boundaries.
+4. Compare the result with an independent sample or manual review.
+5. Assess whether the measure rewards unsafe behavior or can be manipulated.
+6. Document uncertainty and the minimum evidence needed for interpretation.
+7. Version the definition when event taxonomy, sources, filters, or collection logic change.
+8. Retain prior results and definitions so historical trends are not silently recalculated under new rules.
+
+For small samples, present counts alongside percentages and avoid false precision. If there are no eligible observations, display “not enough data” rather than a 0% or 100% rate. For incident and detection metrics, report unresolved and unreviewed outcomes separately instead of silently excluding them.
+
+### 46.6 Continuous-improvement cycle
+
+Use a repeatable cycle:
+
+1. **Set objective:** identify the security outcome and accountable owner.
+2. **Define measure:** document formula, evidence sources, scope, target rationale, and limitations.
+3. **Collect:** gather data from trusted sources without expanding sensitive payload collection unnecessarily.
+4. **Validate:** check source coverage, freshness, quality, and calculation correctness.
+5. **Interpret:** review trends, exceptions, uncertainty, and operational impact.
+6. **Decide:** record whether to accept risk, investigate, change a control, improve telemetry, or revise the measure.
+7. **Implement:** assign a corrective action, owner, due date, and approved change path.
+8. **Retest:** verify the control or process after implementation using repeatable scenarios.
+9. **Review:** update the measure definition and risk assessment when architecture or evidence sources change.
+
+Each improvement record should link the finding, affected control/source, measure version, evidence, decision, approver, owner, due date, implementation reference, retest result, and closure rationale. Reopened or failed items remain visible.
+
+### 46.7 Admin IPS presentation
+
+Keep assurance reporting separate from operational incident queues and raw event browsing:
+
+- **Overview:** only a small number of high-value, evidence-backed summaries; no global security score or generic green all-clear.
+- **Security:** current Admin assurance state and clearly scoped control checks, without implying a complete organization-wide posture.
+- **Activity log:** source coverage and freshness context alongside event results.
+- **Analytics & reports:** operational aggregates remain distinct from security assurance measures; expose measure definitions, periods, and denominators.
+- **Data & continuity:** show retention and recovery test evidence only when actually recorded and independently verified.
+
+Each measure detail should expose its definition, owner, time window, numerator/denominator, source coverage, last collection, uncertainty, validation date, trend comparability, and recommended action. Use accessible tables and restrained visualizations; never rely on color alone to convey state.
+
+### 46.8 Current TACResQ measurement limitations
+
+Based on the previously reviewed repository and backend boundaries:
+
+- Supabase direct Android/Admin activity, Supabase Auth, Storage, Edge Functions, Render/Laravel, Sanctum, and provider telemetry are separate evidence paths.
+- Laravel operation logs cover selected bridge/API operations, not all direct Supabase actions.
+- Existing admin audit, lifecycle history, app action logs, incident status history, and Auth previews have different scopes and must not be combined as if they form a complete event stream.
+- The currently documented health panel probes Render /up, Supabase Auth, and a fixed-result database health RPC; these do not prove FCM, routing, Storage, worker, or end-to-end workflow health.
+- No full durable read/search/export audit coverage, complete source ingestion inventory, validated detection outcome dataset, or approved organization-wide security measurement program has been established by the reviewed evidence.
+
+Therefore, initial assurance reporting should focus on source-by-source coverage and test evidence. Do not publish production rates, targets, trend claims, or compliance scores until data collection and definitions are verified.
+
+### 46.9 Acceptance criteria
+
+1. Every displayed metric has a documented purpose, definition, owner, source, denominator, and time window.
+2. Missing, stale, partial, and unavailable telemetry never appears as zero incidents or full coverage.
+3. Metric calculations are tested against positive, negative, boundary, duplicate, late, and missing-data fixtures.
+4. Source and definition changes are versioned and historical comparability is disclosed.
+5. Small samples display counts and uncertainty; empty populations display not enough data.
+6. Detection quality separates true/false/indeterminate/unreviewed outcomes.
+7. Response metrics distinguish an action being requested from its success being verified.
+8. Corrective actions require evidence-backed retesting before verified closure.
+9. No composite security score or compliance claim is displayed without an approved method and complete evidence scope.
+10. Admin presentation preserves the existing theme, role model, authorization boundaries, and page-specific information architecture.
+
+**Current implementation status:** This section is a measurement and design specification only. It does not add telemetry, metric collection, a measurement registry, targets, dashboards, automated scoring, or security monitoring. All candidate measures remain unimplemented until their sources and definitions are verified.
+
