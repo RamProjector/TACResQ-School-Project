@@ -2009,3 +2009,64 @@ BEGIN
 END;
 $admin_audit_policy_contract$;
 SQL
+
+
+# Verify the trigger-only incident invariant has no direct client/service EXECUTE
+# path after the full migration replay. The application DML path remains protected
+# by the enabled row trigger; callers do not need EXECUTE on the trigger function.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $incident_location_trigger_grant_contract$
+DECLARE
+  trigger_function oid := to_regprocedure(
+    'public.tacresq_require_incident_location()'
+  );
+  bound_trigger_count integer;
+  enabled_trigger_count integer;
+BEGIN
+  IF trigger_function IS NULL THEN
+    RAISE EXCEPTION 'Required incident location trigger function is missing';
+  END IF;
+
+  SELECT count(*),
+         count(*) FILTER (WHERE trigger_row.tgenabled = 'O')
+    INTO bound_trigger_count, enabled_trigger_count
+    FROM pg_catalog.pg_trigger AS trigger_row
+   WHERE NOT trigger_row.tgisinternal
+     AND trigger_row.tgfoid = trigger_function
+     AND trigger_row.tgrelid = 'public.incidents'::regclass
+     AND trigger_row.tgname = 'incidents_require_location_before_write';
+
+  IF bound_trigger_count <> 1 OR enabled_trigger_count <> 1 THEN
+    RAISE EXCEPTION
+      'Expected exactly one enabled incidents_require_location_before_write binding on public.incidents; found % binding(s), % enabled',
+      bound_trigger_count, enabled_trigger_count;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_proc AS function_row
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        coalesce(
+          function_row.proacl,
+          pg_catalog.acldefault('f', function_row.proowner)
+        )
+      ) AS privilege_row
+     WHERE function_row.oid = trigger_function
+       AND privilege_row.grantee = 0
+       AND privilege_row.privilege_type = 'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'PUBLIC must not retain EXECUTE on the trigger-only incident location function';
+  END IF;
+
+  IF has_function_privilege('anon', trigger_function, 'EXECUTE')
+     OR has_function_privilege('authenticated', trigger_function, 'EXECUTE')
+     OR has_function_privilege('service_role', trigger_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Client and service roles must not directly EXECUTE the trigger-only incident location function';
+  END IF;
+
+  IF NOT has_function_privilege('postgres', trigger_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'The function owner must retain EXECUTE on the trigger-only incident location function';
+  END IF;
+END;
+$incident_location_trigger_grant_contract$;
+SQL
