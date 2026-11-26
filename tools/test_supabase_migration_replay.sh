@@ -2026,13 +2026,38 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $pg17_maintain_privilege_contract$
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
-    IF has_table_privilege('authenticated', 'public.profiles', 'MAINTAIN')
-       OR has_table_privilege('authenticated', 'public.incidents', 'MAINTAIN')
-       OR has_table_privilege('anon', 'public.profiles', 'MAINTAIN')
-       OR has_table_privilege('anon', 'public.incidents', 'MAINTAIN')
-       OR has_table_privilege('service_role', 'public.profiles', 'MAINTAIN')
-       OR has_table_privilege('service_role', 'public.incidents', 'MAINTAIN') THEN
-      RAISE EXCEPTION 'Client and service roles must not retain PostgreSQL 17 MAINTAIN on profiles/incidents';
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_class AS relation_row
+      JOIN pg_catalog.pg_namespace AS schema_row
+        ON schema_row.oid = relation_row.relnamespace
+      WHERE schema_row.nspname = 'public'
+        AND relation_row.relkind IN ('r', 'p')
+        AND (
+          has_table_privilege('anon', relation_row.oid, 'MAINTAIN')
+          OR has_table_privilege('authenticated', relation_row.oid, 'MAINTAIN')
+          OR has_table_privilege('service_role', relation_row.oid, 'MAINTAIN')
+        )
+    ) THEN
+      RAISE EXCEPTION 'API roles must not retain PostgreSQL 17 MAINTAIN on public application tables';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_default_acl AS default_acl
+      CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS acl_row
+      WHERE default_acl.defaclrole = 'postgres'::regrole
+        AND default_acl.defaclnamespace = 'public'::regnamespace
+        AND default_acl.defaclobjtype = 'r'
+        AND acl_row.grantee IN (
+          0,
+          'anon'::regrole,
+          'authenticated'::regrole,
+          'service_role'::regrole
+        )
+        AND acl_row.privilege_type = 'MAINTAIN'
+    ) THEN
+      RAISE EXCEPTION 'Postgres/public default ACL must not grant MAINTAIN to API roles for future tables';
     END IF;
 
     IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
