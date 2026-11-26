@@ -408,6 +408,17 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
+    const closeWhenDesktop = () => {
+      if (!window.matchMedia("(min-width: 901px)").matches) return;
+      setMobileSidebarOpen(false);
+      mobileSidebarTriggerRef.current?.focus();
+    };
+    window.addEventListener("resize", closeWhenDesktop);
+    return () => window.removeEventListener("resize", closeWhenDesktop);
+  }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
     const previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     mobileSidebarCloseRef.current?.focus();
@@ -583,6 +594,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         return;
       }
       setMobileSidebarOpen(false);
+      mobileSidebarTriggerRef.current?.focus();
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
       setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
