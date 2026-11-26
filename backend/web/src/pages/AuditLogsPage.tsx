@@ -331,6 +331,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
               <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
               <li><strong>Direct-client API and Storage activity</strong><span>Laravel telemetry does not cover direct Android or browser Supabase calls.</span></li>
+              <li><strong>Laravel API operation telemetry</strong><span>The server-side telemetry source is not included in this feed, is best-effort, and covers only Laravel-mediated requests—not direct Android/browser Supabase or Storage calls.</span></li>
+              <li><strong>FCM delivery attempts</strong><span>The server-only delivery-attempt ledger is not included in this feed. Provider acceptance does not prove device receipt or user acknowledgement.</span></li>
+              <li><strong>Retention and integrity policy</strong><span>A single reviewed retention schedule, export-control policy, and cross-source integrity/restore standard is not established for every audit source.</span></li>
             </ul>
           </section>
         </div>
