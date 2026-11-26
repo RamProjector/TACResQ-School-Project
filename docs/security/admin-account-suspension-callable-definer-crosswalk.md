@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Catalog baseline:** 24 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
+**Application API baseline (live read-only catalog, 2026-11-26):** 38 authenticated-callable public API functions: 24 SECURITY DEFINER and 14 SECURITY INVOKER. There are 13 authenticated-callable private SECURITY DEFINER helpers. The connected project also has one public trigger-only function with default client EXECUTE grants; see the live-catalog reconciliation below. The older 75/24/51 aggregate was extension-schema-dependent and is not an application API count.
 
 ## Public SECURITY DEFINER entry points
 
@@ -46,15 +46,15 @@ The private-function inventory is a separate callable surface. The current sourc
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1. The profile-ID helper now returns NULL for suspended callers; Storage policies that rely on it fail closed. The directly callable incident-assignee helper also checks active status and locks the caller profile. Notification list/detail and incident-chat history RPCs now use this helper directly; claimable-incident discovery requires an active profile under a share lock.
 - `private.tacresq_assign_incident_team_guarded(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3. The dispatcher progress implementation is now separately guarded by `20261124070000_account_lifecycle_dispatch_progress_guard.sql`: it requires an active dispatcher and holds a `FOR SHARE` profile lock for the transaction. Its public `api_update_incident_status(bigint,text)` wrapper remains SECURITY INVOKER; the private implementation is the privileged write boundary.
 - `private.tacresq_require_admin_mfa()` is intentionally not directly executable by client roles; it is a trusted internal authorization helper used by Admin wrappers — Batch 2.
-- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the twelve-function private-definer inventory.
+- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the thirteen-function private-definer inventory.
 
 The full exact private signature list and function bodies are emitted by `tools/check_account_suspension_authorization_surface.sql` during clean replay. Do not treat this short list as the complete private catalog. Every function with client EXECUTE must be checked directly; every internal definer helper must be traced from its caller and checked for authorization assumptions.
 
 ## Invoker functions are not exempt
 
-The clean replay also reports 51 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident_team`, `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
+The live connected project has 14 authenticated-callable application API SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, policies, and helper calls. The 14 exact signatures are enumerated in the live-catalog reconciliation below. Extension-provided routines must be inventoried separately by extension schema.
 
-A complete release matrix must therefore include all 75 public callable functions, not only the 24 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must include all 38 authenticated-callable public API functions (24 definers and 14 invokers), the 13 authenticated-callable private definer helpers, the trigger-only functions, direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
@@ -65,7 +65,7 @@ A complete release matrix must therefore include all 75 public callable function
 This crosswalk connects the 24 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
-1. Finish exact coverage for all 51 invoker functions and all authenticated-callable private functions.
+1. Finish exact coverage for all 14 application API invokers, all 13 authenticated-callable private definers, and every internal helper reached transitively.
 2. Trace each public and private entry point to nested helpers and trigger-mediated effects; document the actual lock order and transaction boundary.
 3. Map every Android, web, and Laravel direct operation to its effective grant, RLS policy, view, RPC, or Storage enforcement point.
 4. Keep the clean-replay inventory contract synchronized with exact callable signatures and effective `anon`/`PUBLIC` EXECUTE grants; treat active-account enforcement as a separate runtime-test requirement.
@@ -153,7 +153,7 @@ The crosswalk now records active-state enforcement at the dispatcher team-assign
 - `20261124100000_account_lifecycle_location_writer_guard.sql`
 - `20261124110000_account_lifecycle_dispatcher_directory_guard.sql`
 
-These additions reduce known callable gaps but do not complete the full 72-public-callable inventory or the private transitive call graph. Before enabling account transitions, still require: a fresh complete catalog replay; explicit review of every newly discovered callable and nested helper; disposable PostgreSQL same-valid-JWT tests for every guarded path; isolated Edge Function tests proving denied paths make no OAuth/FCM calls; Laravel/Sanctum identity-boundary verification; Storage policy and object-operation tests; and concurrency tests for lifecycle transitions racing with assignment and location operations.
+These additions reduce known callable gaps but do not complete the full application API transitive call graph or runtime denial matrix. Before enabling account transitions, still require: a fresh complete catalog replay; explicit review of every newly discovered callable and nested helper; disposable PostgreSQL same-valid-JWT tests for every guarded path; isolated Edge Function tests proving denied paths make no OAuth/FCM calls; Laravel/Sanctum identity-boundary verification; Storage policy and object-operation tests; and concurrency tests for lifecycle transitions racing with assignment and location operations.
 
 No connected Supabase project was queried or modified, no live migration was applied, and no account transition RPC grant was enabled by these documentation commits.
 
@@ -245,3 +245,67 @@ The current executable private callable inventory contains **13**, not twelve, a
 The 13 private signatures are: tacresq_active_responder_locations(), tacresq_actor_role(), tacresq_assign_incident_team_guarded(bigint,bigint[]), tacresq_auth_can_access_incident_chat(bigint), tacresq_auth_profile_id(), tacresq_auth_profile_id_for_token_cleanup(), tacresq_current_account_active(), tacresq_current_account_active_read(), tacresq_dispatch_update_incident_status(bigint,text), tacresq_is_incident_assignee(bigint), tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz), tacresq_release_incident_assignment(bigint,bigint), and tacresq_upload_reservation_allows_insert(text,text,bigint).
 
 Use the canonical master-plan Section 29 for the corrected matrix baseline and full invoker/RLS/view review gate.
+
+
+## Live catalog reconciliation — connected TACResQ Supabase, 2026-11-26
+
+This section records read-only catalog results from the connected project named TACResQ-School-Project. No rows were changed and no migration was applied.
+
+### Exact current callable counts
+
+| Surface | Live count | Classification |
+|---|---:|---|
+| Authenticated-callable public API functions | 38 | 24 SECURITY DEFINER + 14 SECURITY INVOKER |
+| Authenticated-callable private SECURITY DEFINER helpers | 13 | All observed with anon EXECUTE false |
+| Additional public trigger-only function | 1 | SECURITY INVOKER; not an application RPC |
+| Authenticated-callable public functions including trigger-only | 39 | 24 definers + 15 invokers |
+
+The old raw public-schema aggregate of 75 functions (24 definers + 51 invokers) is not portable across extension installation schemas. The connected Supabase project installs pgcrypto, uuid-ossp, and pg_stat_statements in the extensions schema, not public. A clean PostgreSQL replay that installs extension routines into public can inflate a raw public-schema count with extension functions. The application API register must therefore be counted by explicit api_ signatures, with extension routines recorded separately. The source inventory contract was changed to enforce 38 application API callables and their exact 24/14 split rather than a schema-wide 75/24/51 count.
+
+### Exact 14 application SECURITY INVOKER signatures
+
+- public.api_active_responder_locations()
+- public.api_all_incidents()
+- public.api_assign_incident(bigint,bigint)
+- public.api_assign_incident_team(bigint,bigint[])
+- public.api_create_incident(text,text,double precision,double precision,real)
+- public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamp with time zone)
+- public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamp with time zone,text)
+- public.api_dependency_health()
+- public.api_me()
+- public.api_my_incidents()
+- public.api_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)
+- public.api_release_incident_assignment(bigint,bigint)
+- public.api_set_duty_status(text)
+- public.api_update_incident_status(bigint,text)
+
+The separate trigger-only function is public.tacresq_require_incident_location(). It returns trigger and is attached to incidents_require_location_before_write. The live ACL explicitly grants EXECUTE to PUBLIC, anon, authenticated, and service_role. Trigger invocation does not require client EXECUTE; this is unnecessary exposure, not proof of a direct RPC exploit. New migration 20261126100000_revoke_incident_trigger_function_client_execute.sql revokes those direct grants while preserving the trigger. A clean-replay assertion verifies the trigger remains attached and all client/service EXECUTE checks are false. This migration is pending and has not been applied to the connected project.
+
+### Invoker dependency map from live function bodies
+
+| Invoker | Direct dependencies / call edge | Authorization boundary |
+|---|---|---|
+| api_active_responder_locations | private.tacresq_active_responder_locations() | Private definer wrapper enforces active dispatcher and profile share lock; private internal query is not client-callable |
+| api_all_incidents | public.incidents, public.profiles, public.incident_assignments; private.tacresq_actor_role() | SECURITY INVOKER; active dispatcher helper plus base-table RLS |
+| api_assign_incident | public.api_assign_incident_team(...) | Alias only; guarded public team-assignment path |
+| api_assign_incident_team | private.tacresq_assign_incident_team_guarded(...) | Private definer checks active dispatcher and locks profile; underlying assignment implementation is revoked from clients |
+| api_create_incident / v2 / v3 | public.profiles, public.incidents; incident triggers | SECURITY INVOKER; requester role check, incident INSERT RLS and restrictive active-account policy/write trigger. Legacy v1 still has search_path=public, pg_temp; verify this remains safe under the no-client-CREATE schema grant and consider pinning consistently |
+| api_dependency_health | No application table/helper reads; returns a fixed constant | Immutable, data-free diagnostic; anon EXECUTE is intentionally retained |
+| api_me | public.profiles, public.incidents, public.incident_assignments | SECURITY INVOKER; self-profile RLS and active-account restrictive policy |
+| api_my_incidents | public.incidents, public.profiles, public.incident_assignments; private.tacresq_is_incident_assignee(...) | SECURITY INVOKER; direct-table RLS plus active-aware assignee helper |
+| api_record_location_v2 | private.tacresq_record_location_v2(...) | Private definer wrapper checks active responder/driver, assignment, validation and rate limit |
+| api_release_incident_assignment | private.tacresq_release_incident_assignment(...) | Private definer wrapper checks active dispatcher and profile lock |
+| api_set_duty_status | public.profiles, public.incidents | SECURITY INVOKER; active responder/driver role check under FOR UPDATE profile lock; active-incident restriction |
+| api_update_incident_status | private.tacresq_dispatch_update_incident_status(...) | Private definer wrapper checks active dispatcher and profile lock |
+
+### RLS, views, and direct table grants
+
+The live read-only query found no public views or materialized views, so no view-owner or security_invoker bypass path was observed in public at this snapshot. The reviewed operational tables profiles, incidents, incident_assignments, location_logs, incident_status_logs, and fcm_tokens have RLS enabled. The selected incident, assignment, location and status-log tables expose SELECT to authenticated but not table-level INSERT/UPDATE/DELETE. Profiles has SELECT/INSERT/UPDATE table privileges with self/dispatcher SELECT policy, restricted self-update policy, and the restrictive active-account policy. fcm_tokens has SELECT but no direct table DML; its RLS policy includes the intentionally narrow suspended self-cleanup DELETE exception, but a table privilege is also required for direct DML.
+
+RLS policy composition is material: permissive policies combine with OR, restrictive policies combine with AND. The live policies include the restrictive active-account predicate on the reviewed operational tables, while fcm_tokens intentionally uses operation-specific restrictive policies. This source/catlog review does not replace same-valid-JWT negative tests.
+
+### Migration and verification boundaries
+
+The live migration ledger's latest observed entry is 20261125030354, which is not present on the current documentation branch. The branch contains later read-only profile/FCM policy migrations 20261125120000 and 20261125130000 that are not present in the live ledger snapshot. Treat this as branch/deployment drift requiring reconciliation; do not infer that every branch migration is deployed.
+
+The live inventory is a catalog snapshot only. It does not prove behavior under real user JWTs, Storage HTTP, Edge Function provider calls, or concurrent suspension and operational writes. The trigger-function revoke migration and exact invoker contract changes must pass clean replay before merge; any production application requires the normal approved migration process.
