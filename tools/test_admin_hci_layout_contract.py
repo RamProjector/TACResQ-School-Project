@@ -22,6 +22,7 @@ assert "window.localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(sidebarC
 assert 'className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")}' in SOURCE
 assert 'aria-controls="admin-primary-sidebar"' in SOURCE
 assert "document.addEventListener(\"keydown\", closeOnEscape)" in SOURCE
+assert "window.addEventListener(\"resize\", closeWhenDesktop)" in SOURCE
 assert "event.key === \"Escape\"" in SOURCE and "event.key !== \"Tab\"" in SOURCE
 assert "querySelectorAll<HTMLElement>" in SOURCE and "element.getClientRects().length > 0" in SOURCE
 assert 'role={mobileSidebarOpen ? "dialog" : undefined}' in SOURCE
