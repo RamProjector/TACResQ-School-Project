@@ -31,17 +31,29 @@ REVOKE ALL PRIVILEGES ON SEQUENCE
 FROM PUBLIC, anon, authenticated, service_role;
 
 -- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
--- INSERT. Two legacy service-role invoker RPCs also still allocate incident
--- and location IDs; preserve their minimum sequence access until retirement.
--- Client roles never call these legacy server-only paths.
+-- INSERT. Legacy SECURITY INVOKER incident-creation RPCs (api_create_incident,
+-- api_create_incident_v2, and api_create_incident_v3) remain explicitly
+-- callable by authenticated clients and INSERT into public.incidents. Their
+-- direct callers therefore still require sequence access until those
+-- compatibility signatures are retired after client-version review.
+-- The legacy location_logs writer is no longer directly callable by clients;
+-- its server-side path remains service_role-only.
 REVOKE ALL PRIVILEGES ON SEQUENCE
   public.incidents_id_seq,
   public.location_logs_id_seq
-FROM PUBLIC, anon, authenticated;
+FROM PUBLIC, anon;
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.location_logs_id_seq
+FROM authenticated;
 REVOKE UPDATE ON SEQUENCE
   public.incidents_id_seq,
   public.location_logs_id_seq
-FROM service_role;
+FROM authenticated, service_role;
+
+-- Preserve only the sequence capabilities required by the remaining writers.
+GRANT USAGE, SELECT ON SEQUENCE
+  public.incidents_id_seq
+TO authenticated;
 
 GRANT USAGE, SELECT ON SEQUENCE
   public.api_operation_logs_id_seq,
@@ -49,10 +61,9 @@ GRANT USAGE, SELECT ON SEQUENCE
   public.location_logs_id_seq
 TO service_role;
 
--- Preserve the two legacy service-role invoker RPC paths until they are
--- explicitly retired: api_create_incident/v1-v3 can INSERT incidents, and
--- api_record_location can INSERT location_logs. They are not in the current
--- Android/Render bridge allowlist, but remain callable by service_role today.
--- Their sequence privilege is narrowed to USAGE/SELECT, never UPDATE/setval.
+-- Do not revoke authenticated access to incidents_id_seq while v1/v2/v3
+-- remain authenticated-callable SECURITY INVOKER functions. Their access is
+-- bounded to USAGE/SELECT (no UPDATE/setval); retire the RPC grants separately
+-- only after supported-client compatibility and lifecycle-guard review.
 
 COMMIT;
