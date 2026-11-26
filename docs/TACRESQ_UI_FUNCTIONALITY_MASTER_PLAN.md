@@ -6784,3 +6784,82 @@ At head `0b36cf19fcee21368e522897541b3e9295150137`, the repaired Source checks p
 - GitHub Actions job dependency/fail-fast behavior: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs
 
 **Implementation status:** design only. No CLI config, package dependency, pgTAP test, Android endpoint override, CI workflow, credential, hosted Supabase project, Render production service, or external provider changed or exercised.
+
+
+## 54 — Live public RPC authorization reconciliation and caller/helper trace
+
+**Assessment:** 2026-11-26. **Target:** connected TACResQ-School-Project Supabase project. **Method:** read-only PostgreSQL function catalog/ACL/definition queries, private helper inspection, and current-branch migration/call-site crosswalk review. No database or provider changes were made.
+
+### 54.1 Current live callable baseline
+
+Section 53's live catalog snapshot reports 39 public functions executable by `authenticated`: 24 SECURITY DEFINER and 15 SECURITY INVOKER. None of the 24 client-callable public SECURITY DEFINER functions is executable by `anon`. All 24 have `search_path=pg_catalog`. The old 75/24/51 aggregate and prior 38/24/14 application count are not the current live totals.
+
+The 24 authenticated-callable public SECURITY DEFINER entry points:
+
+**Admin/audit (8):** `api_admin_analytics_summary(timestamptz,timestamptz)`, `api_admin_list_account_lifecycle_events(integer,integer)`, `api_admin_list_audit_logs(integer)`, `api_admin_list_audit_logs_page(integer,integer,text,text,timestamptz,timestamptz,bigint,bigint)`, `api_admin_list_investigation_events(integer,integer,text,text,text,timestamptz,timestamptz,bigint,bigint,bigint)`, `api_admin_list_users_page(integer,integer,text,text)`, `api_admin_set_account_status(bigint,text,text,text)`, `api_admin_set_user_role(bigint,text,text)`.
+
+**Requester/field/dispatch (7):** `api_cancel_my_incident(bigint)`, `api_claim_incident(bigint)`, `api_claimable_incidents()`, `api_create_incident_v4(text,text,double precision,double precision,real,text,timestamptz,text,uuid)`, `api_set_incident_claimable(bigint,boolean)`, `api_units()`, `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`.
+
+**Messaging/notifications/FCM (9):** `api_mark_notification_read(bigint)`, `api_my_incident_messages(bigint,integer,bigint)`, `api_my_notification(bigint)`, `api_my_notifications(integer)`, `api_register_fcm_token(text)`, `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)`, `api_send_incident_message(bigint,text,uuid)`, `api_unregister_fcm_token(text)`.
+
+### 54.2 Shared helper review
+
+**Admin MFA:** live `private.tacresq_require_admin_mfa()` is SECURITY DEFINER, owned by postgres, pinned to `search_path=pg_catalog`, and not directly executable by authenticated or anon. It requires non-null `auth.uid()`, JWT AAL `aal2`, a TOTP method in JWT `amr`, and a matching profile with role `admin` and `account_status='active'`. All eight client-callable Admin/audit wrappers call this helper before their data read or mutation. This is a centralized server-side check, not a client-provided role assertion.
+
+**Active profile:** live `private.tacresq_auth_profile_id()` is SECURITY DEFINER, postgres-owned, search-path pinned, authenticated-callable and not anon-callable. It returns a profile ID only for the caller's Auth UUID when the profile is active, and takes a `FOR SHARE` lock. The live RPCs using it are:
+- `api_my_incident_messages`, `api_my_notification`, `api_my_notifications`;
+- `api_reserve_incident_image_upload`, `api_send_incident_image_message`, `api_send_incident_message`.
+
+Chat operations additionally call `private.tacresq_can_access_incident_chat(incident_id, actor_profile_id)`. That helper is postgres-owned, SECURITY DEFINER, search-path pinned and not directly executable by authenticated. It fails closed for unknown roles/Admin, allows requester access only to their own incident, dispatcher access under the current policy, and responder/driver access only when assigned. The public chat wrappers resolve an active caller first.
+
+### 54.3 Admin entry-point disposition
+
+All eight client-callable Admin/audit functions call the shared active Admin + AAL2/TOTP helper. The account-status mutation uses compare-and-set, locks, self/Admin-target restrictions and atomic audit insertion. Role changes share the lifecycle advisory lock and delegate to an internal routine. Audit, investigation, analytics and directory readers validate bounds/filters in their respective code paths.
+
+**Compatibility item:** `api_admin_list_audit_logs(integer)` remains authenticated-callable, but the current Admin web source review did not establish a direct invocation. Treat it as a legacy compatibility surface. Trace Android/web/Laravel and any supported external caller before changing grants. Internal `*_internal` routines are separate functions; their names do not prove they are inaccessible, so retain their own grant/caller review.
+
+**Assessment:** no missing MFA call was observed in these eight live wrappers. This is catalog/body inspection, not runtime proof for AAL1, missing TOTP, suspended Admin or concurrent role/lifecycle transitions.
+
+### 54.4 Non-Admin authorization map
+
+| Family | Live authorization pattern | Still needs runtime proof |
+|---|---|---|
+| Requester create/cancel/edit | Auth UUID to caller profile; active requester; ownership/state checks and row locks | Same-valid-JWT suspended denial, replay, cooldown/audit atomicity and concurrent suspension |
+| Responder/driver claim/queue | Active profile; role/duty/assignment/capacity checks; lock and recheck | Wrong role, suspended user, duplicate/concurrent claim |
+| Dispatcher claimability/units | Active dispatcher and profile lock; role/incident state checks | Suspended target-unit filtering and concurrent lifecycle transitions |
+| Chat history/send | Active profile helper; incident membership; bounded pagination, validation, idempotency and serialization | Suspended same-JWT denial, cross-incident membership, replay and race tests |
+| Image reservation/finalization | Active profile helper; chat membership; deterministic path, MIME/size, reservation ownership and rate limits | Deployed reservation-enforcement value and HTTP Storage upload/download tests |
+| Notification list/detail | Active profile helper; recipient-scoped query; non-owned detail indistinguishable from missing | Same-valid-JWT denial and no metadata leakage |
+| FCM registration | Caller-derived active profile with `FOR SHARE`; token validation | Duplicate token/account-switch and suspended denial |
+| FCM unregister | Deliberate self-cleanup exception; Auth-derived profile and exact caller-owned token predicate | Same-valid-JWT test proving only caller's token can be removed |
+
+### 54.5 Confirmed live inconsistency — mark-notification-read
+
+The live `public.api_mark_notification_read(bigint)`:
+- derives the profile using `profiles.auth_user_id = auth.uid()`;
+- does not check `account_status='active'` and does not call the active-profile helper;
+- updates only the notification whose ID and recipient profile both match;
+- returns `FOUND`, so missing and non-owned IDs are indistinguishable;
+- is authenticated-callable, not anon-callable, and has pinned search path.
+
+This is **not** a cross-user notification exposure: the mutation remains caller-owned. It is a narrow suspension-policy inconsistency because a suspended user with a still-valid JWT can continue changing their own notification read marker. The branch lifecycle read-guard migration updates list/detail/history and claimable reads, but the live mark-read body remains the older definition from `20261105235009_persistent_in_app_notifications.sql`; no later current-branch migration replaces this function.
+
+**Recommended fix:** change the caller resolution to the active-profile helper or equivalent active-profile `FOR SHARE` check, preserving caller-owned UPDATE and false-for-missing/non-owned behavior. Add active-user success, suspended-user same-valid-JWT denial, and cross-owner tests. Create a proper CLI migration, clean-replay it, then verify the live definition only after explicit deployment approval. No live change was made here.
+
+### 54.6 Intentional FCM cleanup exception
+
+The live `api_unregister_fcm_token(text)` deliberately does not require active account status. It requires an authenticated caller, derives the profile from `auth.uid()`, deletes only where both profile ID and exact token match, enables a transaction-local trigger exception for this self-cleanup, then clears that flag. Do not mechanically add the active-profile helper and block a suspended user from removing their own token. Equally, do not broaden this exception to token listing, registration, reassignment or arbitrary profile deletion. Runtime tests must prove the narrow scope.
+
+### 54.7 Non-RPC definer routines
+
+Other public SECURITY DEFINER functions are not authenticated-callable RPCs; examples include trigger functions and FCM delivery worker routines. Preserve their lack of client EXECUTE. Verify trigger bindings and service/job callers separately. This reinforces the Section 53 finding on `tacresq_require_incident_location()`: trigger-only intent should be reflected in effective grants, but direct-call revocation must be tested against normal trigger execution.
+
+### 54.8 Review disposition and next actions
+
+**Positive evidence:** 24 public definer entry points are anon-inaccessible and search-path pinned; all eight Admin wrappers call the active AAL2/TOTP helper; active-profile and chat-membership helpers provide the intended caller/ownership boundaries; FCM unregister is narrowly self-scoped.
+
+**Confirmed follow-up:** mark-read lacks the active-account check in the live body. The legacy Admin audit-list RPC needs compatibility trace before grant changes. Source-only guard migrations are not evidence of deployed enforcement.
+
+**Not established:** no same-valid-JWT integration tests, full clean migration replay, live source/function hash reconciliation, authenticated HTTP Storage tests, Deno provider-spy tests, Render/Sanctum runtime tests or Android end-to-end tests were run here. No exploit or unauthorized access was demonstrated.
+
+**Next sequence:** (1) add mark-read guard and tests to the migration plan; (2) reconcile the 15 public SECURITY INVOKER functions and 13 private callable SECURITY DEFINER helpers; (3) run clean replay and same-valid-JWT tests; (4) reconcile migration history; (5) retain the trigger-only EXECUTE finding until reviewed migration rollout. No live schema, grants, data, policy, Auth, Storage, Render or Android setting was changed.
