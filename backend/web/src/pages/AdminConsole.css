@@ -2100,3 +2100,23 @@
   .admin-analytics-status-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }
   .admin-analytics-card { padding:13px; }
 }
+
+
+/* Final cascade guard: keep preference overrides stronger than workspace defaults. */
+.admin-shell--high-contrast .admin-recovery-card,
+.admin-shell--high-contrast .admin-attachment-card,
+.admin-shell--high-contrast .admin-analytics-card,
+.admin-shell--high-contrast .admin-health-item,
+.admin-shell--high-contrast .audit-event-card,
+.admin-shell--high-contrast .admin-account-details-panel {
+  border-color: #687c70;
+}
+.admin-shell--high-contrast .admin-recovery-card p,
+.admin-shell--high-contrast .admin-attachment-card p,
+.admin-shell--high-contrast .admin-analytics-card p,
+.admin-shell--high-contrast .admin-health-item small,
+.admin-shell--high-contrast .audit-event-card__meta,
+.admin-shell--high-contrast .audit-event-card__details dt,
+.admin-shell--high-contrast .audit-event-card__details dd {
+  color: #344d43;
+}
