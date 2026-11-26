@@ -9081,6 +9081,168 @@ Current repository/live-review boundaries remain: the existing health panel chec
 
 This section is a research and verification specification only. No monitoring agent, heartbeat, canary, collector, alert route, log drain, provider plan, paid service, database schema, policy, role, permission, production configuration or live data was changed.
 
+## Section 63 — Threat intelligence, vulnerability context and risk-based detection prioritization
+
+### 63.1 Purpose and decision boundary
+
+Threat intelligence and vulnerability information can improve prioritization and investigation context, but they are not proof that TACResQ has been compromised. An IP/domain/hash match, CVE publication, high CVSS score, high EPSS probability or KEV entry must not independently become a confirmed attack or trigger automatic blocking.
+
+This section defines a future-compatible design for optional public or institution-approved intelligence while preserving the current Admin-only website and verified architecture boundaries. It does not assert that TACResQ currently has a threat-intelligence feed, vulnerability scanner, SBOM inventory, endpoint/network IDS sensor, automated indicator matcher or vulnerability-management integration. No feed, paid service, role, schema, provider setting, firewall rule, account action or production behavior is enabled by this research.
+
+### 63.2 Intelligence object types and provenance
+
+Keep distinct objects rather than flattening all information into a generic threat record:
+
+- Observable: a typed IP address, domain, URL, file hash, certificate or other value. An observable alone is not malicious.
+- Indicator: a producer's detection assertion or pattern associating observables/behaviors with suspicious or malicious activity.
+- Threat context: actor, campaign, malware, tool, technique, report, mitigation guidance or analyst narrative; this may be uncertain or disputed.
+- Vulnerability record: CVE, affected product/version/configuration, references, severity, exploitability evidence and remediation information.
+- Local asset/exposure record: TACResQ component or deployment instance, exact product/version, environment, network exposure, criticality, dependencies, compensating controls and evidence date.
+- Match/evaluation: reproducible comparison of an indicator or vulnerability with an actual TACResQ observation or verified asset inventory.
+- Finding/investigation: reviewable conclusion with evidence, provenance, confidence and decision history; it is not an imported feed row.
+
+For each imported record preserve source/provider, source-qualified object ID, source reference, publisher, original creation/modification times, retrieval/ingestion time, source version, license/usage restrictions, sharing markings (including TLP where applicable), original source representation, parser/normalizer version and integrity metadata only when actually computed. Keep normalized fields alongside the source representation. Record failed, partial and rejected imports so missing rows are not mistaken for clean intelligence.
+
+NIST SP 800-150 describes threat information as including indicators, adversary tactics/techniques/procedures, suggested response actions and incident-analysis findings. It recommends scoping sharing goals, sources and distribution rules. TACResQ should approve each source's purpose, permitted use, trust, retention, redistribution and handling rules before ingestion; public availability does not imply unrestricted reuse.
+
+### 63.3 Indicator lifecycle, confidence and freshness
+
+Use an explicit lifecycle: received → parsed → validated → eligible for evaluation → active → expired/revoked/superseded/quarantined. Preserve publisher status separately from local processing status. A syntactically valid indicator may still be ineligible because its validity window has not begun/has ended, it was revoked, its source is untrusted, its pattern is unsupported or required telemetry is unavailable.
+
+Minimum metadata:
+- Stable source-qualified identifier and producer.
+- Observable/pattern type, pattern value, pattern language and version.
+- Purpose, description, associated behavior and supported target scope.
+- Publisher confidence and local analyst confidence as separate values.
+- Created, modified, received, first-seen, last-seen, valid-from and valid-until timestamps where supplied or measured.
+- Revocation/supersession state and reason.
+- Provenance, source reliability history, references, sharing marking and license.
+- Matching engine/rule version, normalization version and evaluation time.
+- Match result, matched event/asset reference, context and limitations.
+
+Freshness is source- and indicator-type-specific. Short-lived infrastructure indicators may become stale quickly; stable hashes and historical reports may have different lifetimes. Never extend an explicit publisher valid-until date. If expiry is absent, apply a local review-by date or mark freshness unknown; do not imply indefinite reliability. Re-evaluate on source updates, revocation, threat-context changes and local asset/telemetry changes.
+
+STIX 2.1 is a useful interoperability model, not a requirement to deploy a STIX platform. Its Indicator object supports a detection pattern, validity window (valid_from/valid_until), confidence, revocation and version metadata. STIX object versions are identified by object ID and modified timestamp; revocation is a producer assertion. If adopted later, preserve these semantics and source ownership. TAXII transport success does not validate the content. No current STIX/TAXII support is claimed.
+
+### 63.4 Indicator matching: context, not verdict
+
+A match must identify what was observed, where, when, by which trusted source and under which normalization/matching rule. Do not infer a match from an IP/hostname in a user-controlled field, report description, display name or arbitrary client header.
+
+Validate type and syntax, canonicalize safely, preserve raw values, and document IPv4/IPv6 and domain normalization, wildcard and subdomain semantics. Consider shared hosting, NAT/carrier-grade NAT, VPNs, proxies, CDNs, cloud egress, dynamic allocation, DNS changes, sinkholes and address reassignment. An IP reputation match is weak without a verified network event showing source/destination, timestamp and transport context.
+
+Only compare indicators against telemetry TACResQ actually collects and may lawfully use. The architecture includes browser-to-Supabase and Android-direct Supabase paths that bypass Laravel operation logging; Laravel logs alone cannot establish complete client/network activity. Do not fabricate client IP/device/session attribution, infer a user from a shared address, or claim coverage of all traffic. Show source coverage and collection gaps beside every match result.
+
+A candidate signal should contain the indicator and version, provenance, matched observable, exact source event(s), event/observed times, matching method, network/application context, freshness, confidence, benign explanations and missing evidence. Distinguish exact, normalized, partial/pattern and contextual matches. No match is not an all-clear when telemetry is missing, stale or incomplete.
+
+### 63.5 CVE, CVSS, EPSS and CISA KEV are different signals
+
+- CVE identifies a publicly disclosed vulnerability record. A CVE does not establish that TACResQ runs an affected product/version.
+- CVSS characterizes vulnerability severity. CVSS v4.0 distinguishes Base, Threat, Environmental and Supplemental metric groups. A Base score describes intrinsic severity and is not environmental risk. Display version, vector and nomenclature (such as CVSS-B or CVSS-BTE) when available.
+- EPSS is FIRST's daily 0–1 estimate of the probability that exploitation activity for a CVE will be observed in the wild over the next 30 days. It is a population-level forecast, not proof of attack, not evidence TACResQ is affected, and not a complete local risk score. Preserve score date/model version; show probability separately from percentile. Do not multiply EPSS by CVSS to invent a composite score.
+- CISA KEV records vulnerabilities with evidence of exploitation in the wild. KEV membership is a strong remediation and compromise-assessment prioritization signal when the affected product is present, but it does not prove TACResQ was targeted or compromised. Preserve catalog date/entry and verify product/version applicability.
+
+These answer different questions: CVE identifies; CVSS characterizes severity; EPSS estimates near-term population-level exploitation likelihood; KEV records known exploitation. Direct, verified evidence of exploitation against a TACResQ asset takes precedence over predictive scores. A low EPSS score does not cancel KEV or direct evidence. A high CVSS score does not establish exposure. A high EPSS score for technology TACResQ does not use should not outrank a lower-scoring vulnerability verified on a critical exposed component.
+
+### 63.6 Asset applicability and TACResQ-specific vulnerability context
+
+A vulnerability becomes locally actionable only after applicability is established. Build an evidence-backed inventory from actual lockfiles, dependency manifests, Android Gradle resolution, PHP Composer manifests/lockfiles, frontend package manifests/lockfiles, build artifacts, deployed runtime/version metadata and approved provider configuration. Distinguish declared, resolved, bundled, deployed and runtime-observed versions. A development-only dependency is not automatically a production exposure; absence from one manifest does not prove absence from a transitive bundle or provider-managed service.
+
+Known architecture to assess includes Kotlin/Jetpack Compose Android clients, React/Vite Admin portal served through Laravel, Laravel/PHP APIs and Sanctum, Supabase Auth/PostgreSQL/PostgREST/Storage/Edge Functions, Render-hosted services and CI/deployment workflows. This is a component map, not a verified SBOM or complete version inventory. Do not guess versions or claim a CVE affects a component until affected product, version range, configuration and deployment path are verified from repository/deployment evidence.
+
+For each component record product/package, ecosystem, exact version and dependency path; evidence source/date; declared versus deployed status; environment; internet reachability and exposure path; affected function and prerequisites; asset criticality and confidentiality/integrity/availability consequence; sensitive data/trust boundaries; compensating controls; patch/mitigation availability; upgrade compatibility and rollback constraints; owner; assessment date; applicability decision and evidence gaps.
+
+If no trustworthy asset/version inventory exists, show applicability unknown and prioritize inventory work. Do not mark affected or unaffected by assumption. A dependency CVE is not automatically an observed IDS event.
+
+### 63.7 Risk-based prioritization
+
+Prioritize review using separate, explainable dimensions rather than an opaque score:
+1. Verified applicability: affected / not affected / unknown.
+2. Exposure: internet reachable, authenticated-only, internal, build-time only, provider-managed or unknown.
+3. Exploitation evidence: direct local evidence, KEV listing, reliable external report, EPSS forecast, proof-of-concept availability or none known.
+4. Severity and impact: CVSS vector/metrics plus TACResQ asset criticality and likely consequence.
+5. Preconditions and attack path: privileges, user interaction, reachable vulnerable function and compensating controls.
+6. Confidence and freshness: source reliability, age, version, corroboration, telemetry coverage and uncertainty.
+7. Remediation feasibility: supported patch/upgrade, mitigation, regression risk, maintenance window and rollback.
+
+Show dimensions and rationale so an authorized maintainer can challenge the conclusion. Do not multiply CVSS and EPSS or present an invented risk score unless a separately validated, calibrated and versioned method is approved. Keep remediation priority distinct from attack-detection severity and incident confidence. Unknown applicability or missing telemetry lowers confidence and triggers verification; it must not silently become low risk.
+
+### 63.8 Feed ingestion and operational safety
+
+Any future connector needs an allowlisted source and documented contract: provider, endpoint, authentication, permitted data, pagination, cadence, rate limits, license, sharing rules, timeout, retry/backoff, payload limits, schema version, error handling and source-health signals. Prefer authenticated/signed feeds where offered, but still validate content. Treat feed data as untrusted: defend against malformed patterns, oversized payloads, parser exploits, log injection, unsafe URLs, SSRF, path traversal, HTML/script injection and poisoned/contradictory indicators.
+
+Use staged ingestion: fetch → authenticate transport → validate schema/signature where supported → parse safely → preserve source representation → normalize → deduplicate by stable source ID/version → evaluate validity/revocation → quarantine invalid records → publish eligible intelligence. Distinguish feed outage, delayed update, parser failure, expired credential, rate limit, empty successful response and rejected records. HTTP success does not prove a complete/current feed.
+
+No provider secret/API token belongs in browser code, Android resources, repository files, logs, exports or Admin-visible diagnostics. Do not add paid feeds or services requiring a paid plan without explicit approval. Public/free sources still require licensing, availability, update, privacy and redistribution review. No feed integration is established here.
+
+### 63.9 False positives, false negatives and analyst workflow
+
+False positives can arise from shared IP infrastructure, stale/revoked indicators, benign scanners/research infrastructure, reused domains, inaccurate attribution, broad patterns, NAT/proxy effects, clock skew and incorrect product/version mapping. False negatives can arise from missing sensors, direct Supabase paths not observed by Laravel, encrypted/obfuscated traffic, new/private indicators, feed delay, uncollected endpoints, incomplete inventory, changed indicators and unsupported pattern languages.
+
+For each signal explain why it appeared and show exact evidence, counter-evidence/benign explanations, source age/reliability, confidence, asset applicability, telemetry coverage and next verification step. Reviewer dispositions may include needs review, corroborated, benign/false positive, not applicable, stale, revoked, duplicate or unresolved, each with reason and audit trail. A disposition must not erase original signal or intelligence. Preserve previous decisions on reopening/re-evaluation.
+
+Vulnerability findings should route to an authorized technical maintainer for applicability/remediation assessment. Suspected attack signals follow the investigation workflow in Sections 41–46 and 61. Patch prioritization is not incident response.
+
+### 63.10 Admin IPS presentation
+
+Preserve the existing TACResQ Admin website theme and eight established destinations. Do not add a role or turn the website into a generic threat-feed console. Add contextual information only where it improves Security, Activity log, Overview or Analytics and only after a real backend contract exists.
+
+- Security investigation detail: indicator, provenance, validity, confidence, matched event evidence, matching method, freshness, coverage limitations and disposition.
+- Security prioritization: verified component/version, CVE, CVSS version/vector, EPSS probability/date, KEV membership/date, exposure, asset criticality, applicability confidence and next verification/remediation step.
+- Overview: concise verified priorities only; never show active attack based solely on external intelligence.
+- Activity log: preserve source-qualified event history; show imported intelligence separately from user/system actions.
+- Analytics: feed health, inventory coverage, applicability-unknown count, prioritization aging and remediation outcomes with denominators/freshness. Do not count imported indicators as detected attacks.
+
+Use distinct states: Confirmed local evidence, Corroborated external context, Context-only, Applicability unknown, Stale, Expired, Revoked, Feed unavailable, Inventory incomplete, Not monitored and No matching telemetry. Severity, confidence, freshness, applicability and operational status are separate dimensions; never rely on color alone.
+
+Do not create Block IP, Suspend user, Revoke sessions, Disable account, Patch now or other state-changing controls from a feed match. Future containment/remediation requires a separate authorized workflow, exact target/context, impact assessment, confirmation, rollback/recovery plan and independent verification. External feeds must never directly invoke Supabase lifecycle RPCs, Laravel account controls, provider firewall settings or Storage deletion.
+
+### 63.11 Validation and acceptance matrix
+
+| Scenario | Expected behavior |
+|---|---|
+| Indicator matches trusted timestamped event | Candidate signal includes exact event, indicator version and method; not automatically confirmed compromise |
+| Indicator matches only user-entered report text | No network/host compromise match; treat as untrusted text/context |
+| Indicator is expired or revoked | Exclude from active matching; retain provenance/history |
+| Source unavailable or stale | Show feed-health degradation and evaluation limits; never all-clear |
+| Shared CDN/NAT/VPN address matches | Explain ambiguity; require corroborating context |
+| Network telemetry absent | Unable to assess that path; do not infer no attack |
+| High-CVSS CVE, product not used | Not an affected TACResQ asset |
+| CVE applicability, version inventory missing | Applicability unknown; request inventory verification |
+| KEV applies to verified exposed component | Raise remediation/compromise-assessment priority; do not assert compromise |
+| EPSS high but component absent | No local affected-asset finding |
+| EPSS low but KEV/direct evidence exists | Do not suppress stronger evidence |
+| CVSS/EPSS changes | Preserve historical snapshot/date and reassessment |
+| Sources conflict | Preserve both and surface conflict for review |
+| Malformed/oversized feed payload | Reject/quarantine safely; retain prior validated intelligence |
+| Duplicate feed retries | Deduplicate by stable source ID/version without merging separate observations |
+| Parser/matcher changes | Version it; replay controlled fixtures and compare before activation |
+| Analyst marks signal benign | Preserve evidence/reason; scope and expire suppression |
+| Feed match would block/suspend | No automatic state change; require separate authorization |
+| Source terms prohibit redistribution | Restrict display/export to permitted fields/audiences |
+| Admin attempts client-side status alteration | Backend authorization and immutable decision history remain authoritative |
+
+### 63.12 Implementation gates and current limitations
+
+1. Confirm source/deployment inventory and establish a versioned asset/dependency evidence baseline.
+2. Approve intelligence sources, purpose, licensing, sharing, retention, privacy and source trust.
+3. Define source-qualified schemas, ingestion isolation, lifecycle, revocation/expiry and provenance.
+4. Build deterministic fixtures for benign, stale, shared-infrastructure, malformed and missing-source cases.
+5. Validate precision, false-positive rate, coverage, latency and analyst usefulness against labeled evidence; use shadow evaluation before alerting.
+6. Approve vulnerability applicability and prioritization policy with the project owner/authorized maintainer.
+7. Add Admin UI only after authorization, audit, query bounds, privacy, feed health and failure-state contracts are tested.
+8. Keep response/containment actions separate and explicitly authorized.
+
+**Current evidence boundary:** research/design guidance only. This section does not establish an SBOM, complete runtime asset inventory, vulnerability scanner, CVE/EPSS/KEV feed, STIX/TAXII connector, network IDS sensor, indicator matcher, threat-intelligence store, automated prioritization engine or response automation. No source code, schema/data, permissions, provider settings, CI, firewall, accounts, sessions or production behavior changed.
+
+**References**
+- NIST SP 800-150, Guide to Cyber Threat Information Sharing: https://csrc.nist.gov/pubs/sp/800/150/final
+- OASIS, STIX Version 2.1, Indicator validity/confidence/patterns and object lifecycle: https://docs.oasis-open.org/cti/stix/v2.1/os/stix-v2.1-os.html
+- OASIS CTI documentation, STIX/TAXII 2.1 specifications: https://oasis-open.github.io/cti-documentation/resources.html
+- FIRST, CVSS v4.0 User Guide: https://www.first.org/cvss/user-guide
+- FIRST, EPSS FAQ: https://www.first.org/epss/faq
+- FIRST, EPSS methodology and limitations: https://www.first.org/epss/how-it-works
+- CISA, Known Exploited Vulnerabilities Catalog: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+
 ## Section 64 — Service-role RPC execution, default ACLs and privileged helper exposure
 
 **Evidence boundary:** read-only live PostgreSQL catalog, default-privilege, role-membership and migration-ledger queries, plus source inspection at the current Admin IPS branch, 2026-11-26. This is a permission and source-contract review, not a runtime exploit test. No function ACLs, default privileges, migrations, role memberships, secrets or production settings were changed.
