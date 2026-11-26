@@ -9624,3 +9624,61 @@ The existing source search identifies the Laravel `ApiOperationAuditLogger` as a
 **Verification boundary:** this section records a test-only replay correction and read-only hosted catalog observations. The new replay has not yet completed. No hosted default ACL, sequence ACL, MAINTAIN grant, or production data was modified.
 
 **Next task:** rerun exact-head replay, then complete the table-by-table sequence writer map and PG17-only authenticated MAINTAIN reduction design. Keep service_role MAINTAIN untouched pending consumer review.
+
+
+## Section 69 — Sequence writer-path reconciliation and authenticated MAINTAIN source
+
+**Objective:** distinguish direct trusted-server inserts from RPC/trigger-owned inserts before removing inherited sequence grants, and establish the source of the two PG17 authenticated MAINTAIN grants.
+
+### 69.1 Writer-path matrix
+
+The source review now distinguishes the identity-sequence consumer from the table's general access model:
+
+| Sequence | Actual insert path | Does service_role need sequence access? | Client sequence access |
+|---|---|---:|---:|
+| `api_operation_logs_id_seq` | Laravel `ApiOperationAuditLogger` sends a direct PostgREST INSERT using the server-only Supabase secret | **Yes — USAGE, SELECT** | No |
+| `device_security_events_id_seq` | Trusted device-security verifier/registry writer; backend-only table contract | **Yes — preserve USAGE, SELECT** | No |
+| `device_integrity_checks_id_seq` | Trusted device-integrity verifier/registry writer; backend-only table contract | **Yes — preserve USAGE, SELECT** | No |
+| `fcm_delivery_attempts_id_seq` | `api_claim_fcm_delivery_batch` SECURITY DEFINER RPC inserts/claims rows; Laravel worker only PATCHes attempt rows by ID | No direct server INSERT | No |
+| `fcm_tokens_id_seq` | `api_register_fcm_token` SECURITY DEFINER RPC inserts/upserts; Laravel worker uses a service-role cleanup RPC/DELETE path | No direct server INSERT | No |
+| `incident_assignment_events_id_seq` | Private SECURITY DEFINER assignment and incident-closure triggers | No direct server INSERT | No |
+| `incident_claimability_logs_id_seq` | SECURITY DEFINER claimability RPC and trigger functions | No direct server INSERT | No |
+| `incident_messages_id_seq` | Authenticated chat RPC writes under SECURITY DEFINER; direct table privileges are closed | No direct server INSERT found | No |
+| `incident_request_edit_logs_id_seq` | Authenticated requester-edit RPC writes the audit row in its transaction | No direct server INSERT found | No |
+| `incident_status_logs_id_seq` | Trusted incident status transition/trigger path; clients have bounded read access | No direct server INSERT found | No |
+| `incidents_id_seq` | Protected incident-creation RPC; direct client INSERT is revoked | No direct server INSERT found | No |
+| `location_logs_id_seq` | Private SECURITY DEFINER location writer behind the authenticated location RPC | No direct server INSERT found | No |
+| `profiles_id_seq` | Auth-user profile bootstrap trigger under its database owner context | No direct server INSERT found | No |
+| `user_notifications_id_seq` | SECURITY DEFINER assignment, status, and requester-edit notification triggers | No direct server INSERT found | No |
+| `admin_audit_logs_id_seq` | Authenticated Admin RPC writer; Section 64 removes service_role and client sequence access | No | No |
+
+The Laravel FCM worker source confirms that it claims work through `api_claim_fcm_delivery_batch`, then updates attempt state through a direct PostgREST PATCH. Its invalid-token cleanup uses the dedicated service-role RPC. It does not directly INSERT delivery attempts or FCM tokens. The queue-claim function is SECURITY DEFINER and therefore uses its owner context for identity-sequence allocation.
+
+The source-level distinction is important: service_role table access for SELECT, UPDATE or DELETE does not imply that service_role needs USAGE on that table's identity sequence. Only a direct INSERT path using the service_role identity needs the sequence grant. Trigger/RPC inserts execute under their function owner and do not require granting sequence access to the invoking client or worker role.
+
+### 69.2 Candidate least-privilege sequence policy
+
+Subject to exact-head replay and regression checks, the candidate policy is:
+
+- Preserve service_role USAGE and SELECT on `api_operation_logs_id_seq`.
+- Preserve service_role USAGE and SELECT on the two device registry sequences already addressed in Section 67.
+- Revoke PUBLIC, anon, authenticated and service_role privileges on the RPC/trigger-owned sequences listed in 69.1; the function owner retains the privileges needed by SECURITY DEFINER writers.
+- Keep authenticated table reads and the existing protected RPC/trigger insert workflows unchanged.
+- Add a complete runtime inventory assertion so newly introduced identity sequences cannot silently inherit unnecessary client or service-role access.
+
+This is a candidate forward migration, not yet an applied change. Before adding it, verify function ownership for every listed writer in the replay catalog and test representative authenticated RPCs/triggers after sequence revocation. Do not change schema-scoped default ACLs to achieve this result.
+
+### 69.3 PostgreSQL 17 MAINTAIN grant provenance
+
+A read-only catalog query on the live PostgreSQL 17 project shows the direct relation ACLs:
+
+- `public.incidents`: owner `postgres`; authenticated has `SELECT, MAINTAIN`; service_role has the broad server ACL.
+- `public.profiles`: owner `postgres`; authenticated has `SELECT, MAINTAIN` and a historical broad ACL that Section 66 narrows for UPDATE; service_role has the broad server ACL.
+
+Both tables' owner-specific `postgres/public` default ACL grants all table privileges to anon, authenticated and service_role. In PostgreSQL 17, table `ALL` includes MAINTAIN. The two effective authenticated MAINTAIN grants are therefore consistent with the broad default ACL history, not a newly identified client maintenance workflow. Section 66's UPDATE reduction does not revoke the separate MAINTAIN bit.
+
+The proposed correction is a PG17-compatible forward migration that dynamically executes `REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated` only when `server_version_num >= 170000`. Keeping the PG17-only privilege name inside dynamic SQL avoids parsing it on the current PG16 replay lane. A PG17-specific SQL contract must verify that authenticated no longer has MAINTAIN while SELECT and the narrowly scoped profile duty-status update path remain intact. Service_role MAINTAIN remains untouched pending separate operational-owner review.
+
+**Verification boundary:** the sequence map is source/catalog analysis; it is not a runtime proof that every worker is deployed or currently active. No sequence ACL or MAINTAIN privilege was changed. The exact-head replay correction from Section 68 is still awaiting CI completion.
+
+**Next task:** add the writer-path sequence migration and runtime inventory test only after the current replay is green; add the guarded PG17 MAINTAIN migration and a dedicated PG17 test lane without changing live defaults or service_role maintenance grants.
