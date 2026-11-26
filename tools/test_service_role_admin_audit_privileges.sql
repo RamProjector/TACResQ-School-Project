@@ -85,6 +85,20 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- Catch future Admin RPCs too: default ACLs or a new migration must not
+  -- silently restore service_role EXECUTE on the Admin API family.
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_proc AS function_row
+    JOIN pg_catalog.pg_namespace AS namespace_row
+      ON namespace_row.oid = function_row.pronamespace
+    WHERE namespace_row.nspname = 'public'
+      AND function_row.proname LIKE 'api_admin_%'
+      AND has_function_privilege('service_role', function_row.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'service_role must not have EXECUTE on any public api_admin_* function';
+  END IF;
+
   -- Preserve the actual authenticated Admin RPC surface; role/MFA checks in
   -- each function remain authoritative and are exercised by separate tests.
   FOREACH function_signature IN ARRAY authenticated_functions LOOP
