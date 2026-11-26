@@ -104,3 +104,10 @@ Specific corrections:
 - The aggregate invoker count includes extension routines. Continue separating extension functions from application RPCs.
 
 These figures are contract expectations, not a fresh replay output. A complete per-signature invoker-to-table/view/RLS/helper/trigger graph and same-valid-JWT integration run remain release requirements.
+
+
+## Live catalog reconciliation — 2026-11-26
+
+The connected TACResQ Supabase database has 14 authenticated-callable public application API SECURITY INVOKER functions, not 51. The old 51 aggregate counted functions by public schema and varied with extension installation schema. The connected project places pgcrypto, uuid-ossp, and pg_stat_statements in extensions. The exact 14 application invoker signatures are listed in the callable crosswalk's live-catalog reconciliation. There are 24 public API definers and 13 directly authenticated-callable private definers.
+
+A separate public trigger-only function, public.tacresq_require_incident_location(), is attached to incidents_require_location_before_write but currently has effective EXECUTE for PUBLIC, anon, authenticated, and service_role. The trigger does not need those direct grants. Branch migration 20261126100000_revoke_incident_trigger_function_client_execute.sql revokes them, and the disposable replay contract verifies that the trigger remains attached while direct EXECUTE is false. Do not describe this as production-fixed until the migration is applied through the approved process.
