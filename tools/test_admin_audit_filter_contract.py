@@ -48,6 +48,10 @@ assert query_effect.index("setLoading(true);") < query_effect.index("window.setT
 assert "setLastSuccessfulRefresh(null);" in AUDIT_PAGE
 assert "setLastSuccessfulRefresh(new Date().toISOString());" in AUDIT_PAGE
 
+# Disclosure controls only reference a details region while that region is mounted.
+assert 'aria-controls={expanded === event.event_id ? "audit-event-details-" + event.event_id : undefined}' in AUDIT_PAGE
+assert '{expanded === event.event_id && (' in AUDIT_PAGE
+
 
 # Account lifecycle history can be refreshed independently, including after
 # a successful read or an empty result; failures retain an explicit retry action.
