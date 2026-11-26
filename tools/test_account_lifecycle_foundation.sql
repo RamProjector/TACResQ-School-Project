@@ -217,6 +217,22 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Legacy and current incident creation paths must be covered by the active-account INSERT trigger';
   END IF;
+
+  -- The location invariant function is a trigger implementation, not a
+  -- PostgREST RPC. Trigger execution does not require caller EXECUTE grants.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_trigger t
+     WHERE t.tgrelid = 'public.incidents'::regclass
+       AND t.tgname = 'incidents_require_location_before_write'
+       AND t.tgenabled = 'O'
+       AND t.tgfoid = to_regprocedure('public.tacresq_require_incident_location()')
+       AND NOT t.tgisinternal
+  ) OR has_function_privilege('anon', 'public.tacresq_require_incident_location()', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.tacresq_require_incident_location()', 'EXECUTE')
+    OR has_function_privilege('service_role', 'public.tacresq_require_incident_location()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Incident location trigger must remain attached and not directly executable by client/service roles';
+  END IF;
 END;
 $schema_contract$;
 
