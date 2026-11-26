@@ -16,8 +16,8 @@ TO service_role;
 -- Other application identity sequences are consumed only inside database-owned
 -- SECURITY DEFINER RPCs, auth bootstrap, or SECURITY DEFINER triggers. The
 -- service_role FCM worker only PATCHes delivery attempts and deletes invalid
--- tokens; it does not allocate IDs for those tables. Keep the two direct
--- service-role INSERT exceptions above and the API telemetry exception below.
+-- tokens; it does not allocate IDs for those tables. Keep the device verifier,
+-- API telemetry, and two legacy invoker-RPC sequence consumers below.
 REVOKE ALL PRIVILEGES ON SEQUENCE
   public.fcm_delivery_attempts_id_seq,
   public.fcm_tokens_id_seq,
@@ -31,7 +31,8 @@ REVOKE ALL PRIVILEGES ON SEQUENCE
 FROM PUBLIC, anon, authenticated, service_role;
 
 -- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
--- INSERT, so it is the only non-device sequence that retains server access.
+-- INSERT. Two legacy service-role invoker RPCs also still allocate incident
+-- and location IDs; preserve their minimum sequence access until retirement.
 GRANT USAGE, SELECT ON SEQUENCE
   public.api_operation_logs_id_seq,
   public.incidents_id_seq,
