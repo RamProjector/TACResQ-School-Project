@@ -255,8 +255,6 @@ RPC_OWNED_SEQUENCES = (
     "incident_messages_id_seq",
     "incident_request_edit_logs_id_seq",
     "incident_status_logs_id_seq",
-    "incidents_id_seq",
-    "location_logs_id_seq",
     "profiles_id_seq",
     "user_notifications_id_seq",
 )
