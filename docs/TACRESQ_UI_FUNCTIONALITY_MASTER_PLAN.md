@@ -8115,3 +8115,134 @@ This test is intentionally a clean-replay CI assertion. It is not evidence that 
 **Change boundary:** read-only hosted catalog and migration-ledger inspection; one CI replay script gained a runtime privilege/binding assertion; this master plan records the evidence and gates. No hosted Supabase grant, migration ledger, production data, Render configuration, application behavior, or user account was changed. The new CI assertion has not yet been observed passing on the updated branch head.
 
 **References:** supabase/migrations/20261126100000_revoke_incident_trigger_function_client_execute.sql; supabase/migrations/20261112215721_require_incident_location_fallback.sql; tools/test_migration_history_alignment.py; tools/test_supabase_migration_replay.sh; PostgreSQL documentation on Trigger Functions (https://www.postgresql.org/docs/current/trigger-definition.html) and Privileges (https://www.postgresql.org/docs/current/ddl-priv.html).
+
+
+## 60. Audit integrity, tamper resistance and retention verification
+
+**Objective:** determine which audit/history records are protected against ordinary mutation, which privileged database roles can still alter or remove them, whether row-level security actually constrains the relevant principals, and what the available database settings do (and do not) establish about retention and recoverability.
+
+**Evidence scope:** read-only connected Supabase catalog and PostgreSQL settings snapshot for project `kttguamhznoflzagfutr` on 2026-11-26, plus the source findings already documented in Sections 58–59. Inspected relation owners/RLS flags, table grants, policies, triggers, selected logging/WAL settings and installed extensions. No audit row contents were read for this section. This does not establish every provider-side backup, PITR, log-retention, object-retention or restore configuration.
+
+### 60.1 Material live finding: Admin role audit is not protected as append-only
+
+The live privilege catalog reports `public.admin_audit_logs` owned by `postgres`, RLS enabled but not forced, and `service_role` granted SELECT, INSERT, UPDATE, DELETE and TRUNCATE (along with other table privileges). The inspected trigger inventory shows the active-account write guard on this table, but no UPDATE/DELETE immutability trigger equivalent to the protections present on the account-lifecycle and app-action audit tables.
+
+Consequences:
+- A backend component using the service-role credential can alter or delete existing Admin role audit records and can truncate the table, subject to the exact credential exposure and call paths. RLS does not constrain service_role in the ordinary way because it has bypass-RLS capability.
+- The active-account trigger is not an immutability control: it checks account state for writes, not whether an existing audit record is being rewritten.
+- Row-level UPDATE/DELETE rejection triggers, even if added, would not stop TRUNCATE; statement-level privilege denial is required for that path.
+- The postgres table owner can bypass RLS because `FORCE ROW LEVEL SECURITY` is false; privileged database administrators remain part of the trusted computing base.
+- This catalog evidence demonstrates excessive mutation capability, not that any record was actually modified or deleted.
+
+**Priority finding:** review and narrow the `service_role` table grants on `admin_audit_logs`. The ordinary application should not need UPDATE, DELETE or TRUNCATE for an append-only audit ledger. A reviewed migration should revoke unnecessary mutation privileges, add database-level UPDATE/DELETE rejection where appropriate as defense in depth, and verify all intended INSERT/SELECT paths. Do not blindly revoke INSERT or SELECT until the exact protected RPC, trigger and Admin reader dependencies are reconciled. A separate controlled retention/archival operator path may be required; it must not be the normal app service credential.
+
+### 60.2 Comparative live grants and protections
+
+| Record table | Live application-role grant snapshot | Integrity controls observed | Assessment |
+| --- | --- | --- | --- |
+| `admin_audit_logs` | `authenticated`: SELECT; `service_role`: SELECT/INSERT/UPDATE/DELETE/TRUNCATE | Active-account write guard; no immutability trigger observed | <strong>High-priority hardening gap:</strong> service-role mutation/truncate capability |
+| `account_lifecycle_audit_logs` | No service_role table grant appeared in inspected grant rows; postgres owner privileges | UPDATE/DELETE rejection trigger; active-account write guard; restrictive Admin/AAL2 read policy | Better client isolation and row-mutation resistance; TRUNCATE/owner/backup paths remain outside row-trigger protection |
+| `app_action_audit_logs` | No service_role table grant appeared in inspected grant rows; postgres owner privileges | UPDATE/DELETE rejection trigger; active-account write guard | Better row-mutation resistance; no universal protection from owner-level operations or TRUNCATE |
+| `api_operation_logs` | `service_role`: INSERT and SELECT | RLS enabled; active-account write guard in inspected trigger inventory | Narrower than Admin audit grants; no complete immutability/retention conclusion from this alone |
+| `device_security_events`, `device_sessions` | Selected service_role INSERT/SELECT and, for device_sessions, UPDATE; registry is backend-only | Active-account write guard; no general append-only guarantee established | Session state may legitimately require updates; separate immutable event history from mutable current-session state |
+| Domain history tables | Grants vary; some authenticated SELECT paths and service-role restrictions | RLS/policies plus table-specific triggers | Business history is not automatically immutable security evidence; validate each table's intended lifecycle |
+
+The `information_schema.role_table_grants` query reports explicit role grants, not every effective privilege through role membership, ownership, SECURITY DEFINER routines or inherited roles. A complete review must also inspect `has_table_privilege`, role membership/attributes, default privileges, sequence privileges, function owners and SECURITY DEFINER call paths. The snapshot is sufficient to identify the explicit `admin_audit_logs` service_role mutation grant, but not to declare every other path safe.
+
+### 60.3 RLS and ownership interpretation
+
+All inspected audit/domain tables were owned by `postgres` and had RLS enabled. Their `relforcerowsecurity` flag was false in the catalog query. This distinction matters:
+- RLS policies constrain ordinary roles when they access a table through the applicable SQL/API path.
+- Table owners normally bypass RLS unless FORCE ROW LEVEL SECURITY is enabled; superusers and roles with BYPASSRLS also bypass it.
+- SECURITY DEFINER routines execute with their owner's privileges and must be reviewed as privileged code paths.
+- A policy that denies authenticated UPDATE/DELETE does not prevent a service-role or owner-level mutation if that role has direct table privileges or uses a privileged routine.
+
+The live Admin audit SELECT policies include Admin role and AAL2/TOTP requirements, plus the active-account restrictive policy. Those policies protect the intended authenticated read path; they do not neutralize the service-role mutation grants described above. Do not treat “RLS enabled” as a blanket tamper-resistance certification.
+
+### 60.4 Trigger protections and bypass limits
+
+The live trigger inventory confirms:
+- `account_lifecycle_audit_logs`: BEFORE UPDATE and DELETE invoke `private.tacresq_reject_account_lifecycle_audit_mutation()`.
+- `app_action_audit_logs`: BEFORE UPDATE and DELETE invoke `private.tacresq_reject_app_action_audit_mutation()`.
+- Several audit/history tables also have a BEFORE write guard that rejects writes for suspended actors.
+- `admin_audit_logs` had no UPDATE/DELETE immutability trigger in the inspected trigger list.
+- No listed row-level UPDATE/DELETE trigger can be relied on to reject TRUNCATE; TRUNCATE is a separate table privilege/statement path.
+
+A BEFORE row trigger is useful defense in depth but is not a substitute for least-privilege grants. It also does not protect against a privileged owner disabling/dropping the trigger, replacing its function, changing table ownership, altering schema, or restoring a modified backup. If immutable evidence is a requirement, the trust model must explicitly address database administrators and privileged credentials, not only authenticated application users.
+
+### 60.5 PostgreSQL logging and WAL settings snapshot
+
+The inspected settings reported:
+- `log_statement = ddl`;
+- `log_min_duration_statement = -1` (no duration-based statement logging threshold configured);
+- `log_connections = off`, `log_disconnections = off`;
+- `log_min_error_statement = error`;
+- `pgaudit.log = none`, `pgaudit.log_parameter = off`;
+- `wal_level = logical`, `archive_mode = on`, `archive_timeout = 120s`;
+- `pgaudit` was not installed in the inspected extension list.
+
+Interpretation:
+- DDL logging can provide evidence of schema-level changes in the provider's database logs, subject to provider log access and retention.
+- These settings do not establish a durable per-user SELECT/INSERT/UPDATE/DELETE audit stream.
+- No connection/disconnection logging is enabled in the inspected settings; this is not a complete Auth session record either way.
+- WAL archiving being enabled is not proof of a customer-accessible backup schedule, retention period, point-in-time recovery window, or successful restore.
+- Logical WAL level is not a human-readable audit trail and does not itself provide actor attribution.
+- No PGAudit statement audit is configured in the inspected settings. Do not enable broad parameter logging casually: it can capture secrets, personal data, message content or sensitive coordinates and create high-volume logs.
+
+Provider-level logs and backup/PITR features need separate dashboard/API evidence for retention, access, export and restoration. SQL settings alone cannot establish those service-level facts.
+
+### 60.6 Retention and archival policy gap
+
+The catalog snapshot did not establish a complete, approved retention schedule or an implemented purge/archive job for the reviewed audit sources. The absence of a visible SQL cleanup job in this limited inspection is not proof that no provider retention or external backup lifecycle exists.
+
+Define retention by evidence class, not one arbitrary global duration:
+- Admin security/audit events;
+- account lifecycle and authorization history;
+- incident operational/domain histories;
+- API metadata telemetry;
+- provider Auth/Storage/Edge/FCM logs;
+- device/session and integrity evidence;
+- backups, WAL archives and exported investigation evidence.
+
+For each class, record owner/approver, purpose, authoritative source, retention trigger, minimum/maximum period, legal/privacy constraints, backup copies, archival format, access controls, hold/exception process, deletion method, deletion verification and review date. Ensure expiry of primary rows does not leave uncontrolled exports, replicas or backup copies; conversely, do not promise immediate backup erasure if provider backup retention is immutable and time-bounded.
+
+No retention period should be invented in the Admin UI. Until an approved schedule and verified provider settings exist, show “retention not verified” rather than a fabricated countdown.
+
+### 60.7 Required remediation and verification sequence
+
+1. Freeze the current evidence snapshot and confirm the exact migration history/branch head before changing grants.
+2. Trace all legitimate `admin_audit_logs` INSERT and SELECT paths, including Admin role-change RPC, trusted provisioning, bounded reader and any service-role backend dependency.
+3. Revoke service_role UPDATE, DELETE and TRUNCATE from `admin_audit_logs` unless a documented, narrowly scoped operational requirement is proven. Keep only required privileges.
+4. Add and test UPDATE/DELETE rejection triggers as defense in depth; separately verify TRUNCATE is denied by privilege checks.
+5. Review service_role grants on every other audit/event table, especially mutable session state versus append-only event history; do not apply one policy indiscriminately.
+6. Inspect all effective privileges, role membership, BYPASSRLS, owners, default ACLs, sequences, SECURITY DEFINER owners and schema privileges.
+7. Test as anon, authenticated non-Admin, Admin without AAL2, Admin with AAL2/TOTP, service_role and a controlled owner/admin role: SELECT, INSERT, UPDATE, DELETE, TRUNCATE and relevant RPC paths.
+8. Verify audit writer transactions still work after grant tightening and that legitimate reads remain bounded and Admin MFA protected.
+9. Test trigger disable/drop/replace and owner-level tampering only in an isolated disposable environment; document that database-owner compromise remains inside the trusted computing base unless independent external anchoring exists.
+10. Define a privacy-reviewed retention schedule and verify Supabase log retention, database backup/PITR, WAL archive retention, Storage object backups and restore procedures separately.
+11. Perform a clean restore drill in an isolated project; verify row counts, constraints, policies, triggers, ownership, audit ordering and associated Storage bytes. A successful SQL dump alone is insufficient.
+12. Consider a separately controlled external append-only/WORM evidence sink or periodic signed digest anchoring only after key management, privacy, availability, recovery and cost are designed. A hash chain stored only in the same mutable database is not independent tamper evidence.
+
+### 60.8 Admin IPS presentation and assurance labels
+
+The Admin IPS must not call the audit stream “immutable” or “tamper-proof” based only on row triggers. Show distinct assurance labels:
+- **Application append-only controls present:** row mutation blocked for ordinary application paths.
+- **Privileged mutation path exists:** explicit elevated grants or owner capabilities can modify evidence.
+- **External retention verified:** provider retention/backup evidence checked for a named environment and date.
+- **Restore tested:** isolated restore drill completed with recorded evidence.
+- **Independent tamper evidence:** external append-only copy or independently anchored digest actually verified.
+- **Unknown / not verified:** required evidence is unavailable.
+
+The Admin UI should not expose destructive audit controls. Any approved retention/archive action belongs to a separate, explicitly authorized operational process with dual review where appropriate, recorded reason, scope, execution evidence and rollback/hold policy.
+
+### 60.9 Current conclusion and change boundary
+
+**Confirmed live finding:** `admin_audit_logs` is owned by postgres, RLS is enabled but not forced, and service_role has explicit UPDATE, DELETE and TRUNCATE privileges; no immutability trigger for this table appeared in the inspected trigger inventory. This is a high-priority audit-integrity hardening gap. It does not prove tampering occurred.
+
+**Confirmed controls:** account-lifecycle and app-action audit tables have row-level UPDATE/DELETE rejection triggers; Admin audit SELECT is constrained by role and AAL2/TOTP policies. These controls do not independently prevent privileged TRUNCATE/owner operations.
+
+**Not established:** provider log retention, backup/PITR retention, WAL archive availability/retention, immutable external copies, successful restore, approved retention periods, and complete effective privilege closure across every inherited/definer path.
+
+**Change boundary:** read-only catalog/settings and source/documentation review. No grants, roles, policies, triggers, functions, extensions, audit rows, retention jobs, backups, WAL settings, provider configuration, application source or production data were changed.
+
+**References:** PostgreSQL documentation on [row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [TRUNCATE](https://www.postgresql.org/docs/current/sql-truncate.html), [database roles and attributes](https://www.postgresql.org/docs/current/role-attributes.html), and [continuous archiving and point-in-time recovery](https://www.postgresql.org/docs/current/continuous-archiving.html); Supabase [Database backups](https://supabase.com/docs/guides/platform/backups), [Logs in Studio](https://supabase.com/docs/guides/observability/logs), and [PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit); OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
