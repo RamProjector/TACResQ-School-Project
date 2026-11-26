@@ -5497,3 +5497,178 @@ Therefore, initial assurance reporting should focus on source-by-source coverage
 
 **Current implementation status:** This section is a measurement and design specification only. It does not add telemetry, metric collection, a measurement registry, targets, dashboards, automated scoring, or security monitoring. All candidate measures remain unimplemented until their sources and definitions are verified.
 
+
+
+---
+
+## 47. Emergency-service continuity, graceful degradation, and truthful degraded-mode UX
+
+**Research date:** 2026-11-26.  
+**Scope:** Trace the actual Android, Supabase, Render/Laravel, location, and FCM paths to define what each TACResQ role can safely do when one dependency fails. This section is a resilience and user-trust contract, not a claim that TACResQ is a certified emergency service or that it can guarantee dispatch, responder arrival, navigation, or push delivery.
+
+### 47.1 Current repository baseline — safeguards already present
+
+The reviewed branch contains several useful resilience controls:
+
+- **Requester SOS:** `TacRepository` and `SessionStore` persist an encrypted pending SOS envelope with original request UUID/idempotency identity, payload fingerprint, payload, and owner identity. The saved envelope remains after ambiguous failures and is cleared only after confirmed server success. Retry reuses the original request ID and payload; a different requester account cannot retry or discard it.
+- **Requester status cache:** the encrypted local requester status snapshot is read-only, owner-scoped, expires after 24 hours, and is cleared on sign-out. Failed refreshes preserve the last confirmed snapshot, which must remain visibly marked as cached with its age.
+- **Automatic synchronization:** `OfflineSyncPolicy` permits only authenticated, network-validated requester incident and notification reads. `OfflineSyncScheduler` schedules a unique, constrained 15-minute periodic read worker with exponential backoff. SOS create/retry/cancel, incident status changes, responder location writes, chat sends, and notification-read mutations are rejected by the automatic policy.
+- **GPS:** `LocationProvider.currentFix()` has explicit permission-denied, service-disabled, timeout, invalid-fix, and unavailable outcomes. It intentionally does not fall back to `Location.lastLocation` for a one-time requester fix. Responder location streaming is an explicit foreground service/flow and uses approximate location.
+- **Push:** the Laravel `FcmNotificationDispatcher` uses a server-side queue claim, a ten-minute claim lease, bounded retry with backoff/jitter, invalid-token handling, and an attempt ledger separate from inbox read state. Android validates that the push recipient matches the restored current account before displaying a generic alert.
+- **Realtime:** app documentation describes Realtime events as refresh hints, with caller-scoped inbox reads and periodic fallback; the inbox/server remains authoritative.
+
+These are source-level findings, not proof of physical-device or production behavior. Preserve these boundaries.
+
+### 47.2 Dependency failure domains — do not report one global “online” state
+
+A connected network interface is not proof that every service is reachable. A healthy Supabase database does not prove Auth, Storage, Realtime, FCM, map tiles, routing, or Render is healthy. A reachable Render API does not prove Supabase direct client operations work. Keep these dependency domains independent:
+
+| Dependency / failure | What becomes unavailable or uncertain | Safe user-visible behavior |
+|---|---|---|
+| Device has no network / captive portal | Server reads/writes and live refresh | Show offline state; preserve permitted local read cache and pending user-reviewed draft; do not claim server submission |
+| Supabase Auth unavailable | Sign-in, token refresh, new authenticated operations | Preserve local session only within its valid local token/session rules; distinguish Auth unavailable from invalid credentials or revoked session; require online re-auth for protected writes when credentials cannot be validated |
+| Supabase Postgres / RPC unavailable | Incident create/read, assignments, status progression, chat, server authorization checks | Show operation-specific service unavailable; preserve ambiguous SOS envelope; no local success or fabricated incident state |
+| Render/Laravel unavailable | Only calls routed through the Render bridge/worker, including the configured FCM worker path | Direct Supabase paths may remain usable if their own dependencies work; do not infer total app outage from Render alone |
+| Supabase Realtime unavailable | Instant refresh hints | Keep last known data with freshness marker; allow manual/foreground inbox refresh; never interpret absence of events as no new incident |
+| FCM unavailable / delayed | Push alert transport | Keep persistent in-app inbox as source of truth; show push as unconfirmed/unavailable only when evidence supports it; do not claim dispatch has been notified |
+| GPS provider/services/permission unavailable | New current fix or responder location updates | Show explicit reason; do not use stale location as current; allow a user-selected map pin/landmark only where the flow supports it and label it as manually supplied |
+| Map tiles unavailable | Visual map context | Keep textual incident/location details and available coordinates; show map unavailable; do not block unrelated confirmed incident actions solely because tiles failed |
+| Routing provider unavailable | Optional route preview | State that route preview is unavailable; retain safe external Maps fallback; never imply guaranteed emergency-vehicle navigation |
+| Supabase Storage unavailable | Chat attachment upload/retrieval | Keep text chat independent where available; mark attachment upload/retrieval failure; preserve the exact retry reservation semantics; never claim an image was sent when upload/commit is ambiguous |
+| Android notification permission disabled / app notification blocked | Local display of incoming FCM notification | Explain notification permission/device settings; keep in-app inbox available when backend reads work; never treat notification absence as proof no event exists |
+
+A failure should be scoped to the dependency and operation actually affected. Avoid generic “TACResQ is offline” when only map tiles or push are unavailable.
+
+### 47.3 Role-specific safe degraded behavior
+
+**Requester**
+- Can inspect the last confirmed requester incident snapshot only while it remains within the documented 24-hour cache freshness window; label it **Cached — last confirmed [time]**, not live.
+- Can review an encrypted pending SOS envelope saved on this device. Show **Saved on this device — not confirmed by dispatch** until the server confirms the original request.
+- If an SOS call times out after possible server commit, preserve the exact envelope and offer an explicit retry of the same request ID/payload after network/auth recovery. Do not create a replacement request or silently submit it in the background.
+- A new SOS needs a valid supported location source and server response. Never present a stale GPS fix as current or infer that a request is delivered from local persistence.
+- If a cached incident status is stale or no cache exists, say that current status cannot be verified. Do not show “no active request” based only on a failed read.
+
+**Responder / driver**
+- Do not treat cached claimable incidents, duty state, assignment state, or responder locations as authoritative for a new claim or progress write.
+- When incident/unit data is stale, block the operation that depends on that data, show the last refresh time, and require a successful server refresh before retry.
+- If location sharing loses permission, provider access, or network, show the last successful coordinate timestamp and **Location update unavailable**. Stop describing the responder as live/current.
+- Do not queue location updates and replay a burst of old coordinates after reconnect. A delayed coordinate must retain its original capture time and must not overwrite newer observations.
+
+**Dispatcher**
+- Distinguish **queue refresh failed** from **no active incidents**. Preserve the last fetched queue only as a timestamped stale view.
+- Require a fresh server-side assignment/claimability decision for every assignment, release, or status transition. On conflict or unavailable service, refresh before offering another attempt.
+- Do not infer responder availability from an old location or old duty state. Show the last reported time and current verification status separately.
+- Keep team assignment and per-member assignment status distinct during partial updates. If the aggregate incident status changes but one member's update is unconfirmed, show the confirmed server state after refresh rather than optimistic convergence.
+
+**Administrator**
+- Keep the Admin Overview's three bounded dependency probes distinct from emergency-workflow readiness. A successful `/up`, Supabase Auth health, and data-free database health check do not prove SOS create/read, dispatch assignment, FCM, GPS, Storage, Realtime, or end-to-end delivery.
+- Show each probe's last checked time, response state, and precise coverage boundary. A missing probe is **Not monitored**, not healthy.
+- During an outage, allow safe read-only investigation of cached/available audit evidence, but do not offer privileged account/assignment or security actions unless the relevant authenticated backend path is reachable and revalidates authorization.
+- Do not add a manual “mark service healthy” switch or let an Admin mark an emergency request delivered.
+
+### 47.4 SOS submission state machine — server confirmation is the only success boundary
+
+Use a clear state model that separates local persistence, network attempt, and server-confirmed incident state:
+
+1. **Draft** — user is still reviewing details; no server request has been attempted.
+2. **Saved on this device** — encrypted owner-bound envelope persisted; not submitted/confirmed.
+3. **Sending** — a foreground request is in progress.
+4. **Outcome unknown** — timeout, disconnect, or transport error means the server may or may not have committed. Preserve the envelope and original idempotency key.
+5. **Confirmed by server** — a valid server response identifies the created incident and the approved payload/location; only now may the UI show server-confirmed submission.
+6. **Rejected by server** — only a definitive response may be treated as a rejection; retain/discard according to the existing safe rejection policy, not by interpreting every 4xx/5xx as definitive.
+7. **Needs user resolution** — saved request cannot be safely restored, owner mismatch, payload corruption, or returned incident data conflicts with the user's submitted details. Do not offer a blind replacement SOS.
+
+Required copy:
+- Saved locally: “Saved on this device. TACResQ has not confirmed that dispatch received it.”
+- Outcome unknown: “We could not confirm whether the request reached the server. Do not create another request. Check your connection and retry this saved request.”
+- Confirmed: “Request recorded by TACResQ” with server incident identifier/status. Do not say “help is on the way”.
+- Stale cache: “Showing the last confirmed update from [time]. Current status could not be refreshed.”
+
+Keep emergency safety advice factual and brief: users must not rely on TACResQ alone for emergency assistance; if immediate danger exists, contact the appropriate local emergency service through a known available channel. Do not invent a hotline or imply TACResQ has contacted an external authority.
+
+### 47.5 Push delivery and in-app inbox — separate transport from operational outcome
+
+FCM's HTTP v1 success/message name means the message was accepted for delivery by FCM, not that the receiving app/device displayed it, a user saw it, or dispatch action occurred. FCM delivery may be delayed or expire; device offline state, app state, notification permission, token invalidation, and platform constraints all affect the outcome.
+
+The current Laravel dispatcher marks its attempt `sent` after the FCM client reports provider acceptance. Therefore:
+- UI/admin terminology should say **Accepted by FCM** or **Provider accepted**, not **Delivered to device**.
+- The in-app notification row is a persistent server record, not a proof the push notification appeared.
+- Notification read/open state is not equivalent to responder acknowledgment, assignment acceptance, or incident progress.
+- A dispatcher action or responder assignment must be recorded through its own authorized server-side workflow, not inferred from a push receipt.
+- The existing canonical Laravel worker/attempt ledger remains the intended delivery path. Do not activate the legacy `tacresq-notify` sender alongside it for the same event families.
+- The repository's end-to-end review says the documented Render service startup does not continuously run the FCM dispatch command and the free-compatible Supabase Cron + pg_net trigger is not enabled in the connected project. Treat automated push scheduling as **not verified/ not active** until the actual scheduler/trigger and test-device behavior are checked. Do not create a paid worker or enable a trigger in this research task.
+
+For Android, a generic push should direct the user into the app to fetch current server data. If session restoration does not complete within the current five-second bound or the current account does not match the intended recipient, the service correctly fails closed and does not show the notification. This can mean a push was received by the app process but not displayed; do not equate the missing local notification with no server event.
+
+### 47.6 Retry, idempotency, and backoff policy
+
+Retry behavior must depend on operation semantics:
+
+| Operation | Automatic retry | Safe policy |
+|---|---|---|
+| Read-only refresh | Yes, bounded | Require validated network and valid authenticated session; exponential backoff; preserve last confirmed cache and age |
+| SOS create/retry | No background replay | Foreground explicit retry with exact saved request ID and payload; server idempotency is final duplicate protection |
+| SOS cancel / incident status / assignment / release | No blind retry | Refresh server state, verify current authorization and preconditions, then require explicit user action |
+| Responder location write | No replay of stale coordinate backlog | Send only current authorized observations while explicit tracking is active; retain capture time/accuracy |
+| Chat text/image send | No blind duplicate send | Preserve client message ID/upload reservation and exact content identity; resolve ambiguous result before allowing different content |
+| Notification mark-read | Explicit user action | Do not mutate read state as part of automatic refresh |
+| FCM server delivery | Bounded server-side retry | Existing attempt ledger, lease, retry time, exponential backoff/jitter, and invalid-token cleanup; preserve terminal failures and avoid parallel senders |
+
+Classify failures rather than retrying everything:
+- no network / timeout / 5xx / provider rate-limit: transient or ambiguous; preserve state and bounded retry only where operation semantics allow;
+- 401: session may need refresh/re-auth; do not repeat a protected write with stale credentials;
+- 403: authorization/account state denial; do not retry until the user/admin state changes and a fresh server check succeeds;
+- validation/definitive 4xx: correct the input or show rejection; do not loop;
+- 409/conflict: refresh authoritative state before any new action;
+- 429: honor server/provider retry guidance and bounded backoff.
+
+Use jitter for background retries to avoid synchronized retry storms. Do not let a retry loop keep a stale SOS, location, or chat operation alive indefinitely.
+
+### 47.7 Degraded-state visual and content rules
+
+- A narrow persistent status strip may identify **Offline**, **Service unavailable**, or **Showing cached data**; avoid a large warning dashboard that pushes the primary emergency action out of reach.
+- Each data panel owns its own freshness marker. One healthy dependency must not clear another panel's stale warning.
+- Keep cached data visually distinct but readable; never gray it out so far that critical location/status text becomes inaccessible.
+- Show last confirmed timestamp and source. If clock/time zone is uncertain, avoid false precision and use the server timestamp as supplied.
+- Separate **not monitored**, **unknown**, **stale**, **unavailable**, **degraded**, and **healthy**.
+- Retry controls must be operation-specific, rate-limited, and disabled while the same operation is in progress.
+- Avoid optimistic success for dispatch-critical writes. Optimistic presentation may be used only for reversible, non-critical UI affordances that cannot be mistaken for server state.
+- Never reveal raw exception messages, stack traces, provider tokens, access tokens, or private incident content in status banners.
+
+### 47.8 Admin IPS monitoring and incident-investigation boundaries
+
+Add no new permanent sidebar item. Use the existing Overview, Security, Activity Log, and Data & Continuity surfaces:
+- **Overview:** dependency probe reachability and freshness only; keep its three-probe scope explicit.
+- **Security:** source health, monitoring gaps, alert/detection pipeline status where evidence exists; distinguish no events from a failed source.
+- **Activity Log:** only events actually captured by the existing source inventory; never claim complete delivery or dispatch audit coverage.
+- **Data & Continuity:** recovery/restore evidence remains separate from live dependency health.
+
+A future operations assurance panel may display a compact matrix of critical workflows (request create/read, dispatch claim/assignment, responder location update, inbox refresh, FCM provider acceptance, in-app notification read, chat/attachment retrieval), each with:
+- last synthetic test time and environment;
+- dependency set and test identity;
+- result, duration, and error category;
+- whether the test is read-only or creates synthetic data;
+- source of truth and correlation ID;
+- known exclusions and next check.
+
+Do not run synthetic writes against production merely to populate green indicators. Any synthetic workflow must use isolated test accounts/data and an explicitly approved environment. A green dependency probe is not an end-to-end test.
+
+### 47.9 Acceptance criteria and regression matrix
+
+- Network connected but Supabase unreachable is not rendered as healthy/online.
+- Auth outage, expired session, invalid credentials, and account suspension have distinct recovery messages and no unsafe write retry.
+- A pending SOS survives timeout, process restart, and account switch without cross-account access or duplicate creation.
+- A timeout after a server commit followed by explicit retry returns the same incident; no second incident is created.
+- Offline/cached requester status always shows its age and expires according to the existing 24-hour policy.
+- A failed refresh is never rendered as an empty queue or “no active request”.
+- GPS permission/provider/timeout/invalid-fix states do not silently reuse an old fix; every displayed coordinate includes capture time and available accuracy.
+- Responder tracking interruption is visible; old coordinates are never replayed as current.
+- Realtime outage falls back to foreground/periodic read refresh and does not hide new server events behind a false empty state.
+- FCM accepted, app received, notification displayed, notification opened/read, responder acknowledged, and dispatch action are separate evidence states.
+- Missing FCM scheduler/trigger remains not active/not verified; no automated push delivery guarantee is claimed.
+- Map tiles/routing/Storage failures do not falsely mark unrelated core operations as failed or successful.
+- Admin Overview continues to show only the three probes it actually runs; no all-clear/dispatch-ready score is invented.
+- Tests cover no-network, captive portal, Auth timeout/401/403, RPC timeout after commit, 409 conflict, 429, 5xx, Realtime disconnect, FCM accepted-but-not-delivered, notification permission denied, stale GPS, map tile failure, Storage failure, process death, and account switch.
+- No new backend, paid service, hotline integration, automatic SOS submission, automatic mutation queue, provider configuration, live trigger, or production test write is introduced by this research.
+
+**Evidence boundary:** This section is based on branch source/docs/tests inspected on 2026-11-26 plus current official Android, Supabase, Firebase, and OWASP guidance. The repository source establishes implemented guardrails and current code paths; physical-device network/permission/process-death tests, live provider delivery, actual FCM scheduler activation, and full end-to-end outage behavior remain unverified. TACResQ remains an educational coordination prototype, not a guaranteed emergency-response provider.
