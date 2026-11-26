@@ -6735,3 +6735,52 @@ Advisor output is a point-in-time diagnostic, not a substitute for query plans, 
 8. Decide whether leaked-password protection can be enabled within the current plan and policy, without purchasing an upgrade.
 
 **Evidence boundary:** this section records a live read-only catalog/advisor snapshot and a source migration-directory comparison. It does not establish clean replay, deployed Render revision, Auth setting change, Storage HTTP behavior, function exploitability, full PostgREST schema exposure, or end-to-end security. No production migration, grant, policy, data, Auth setting, Edge Function, Render configuration or Android release setting was changed.
+
+
+---
+
+## 53. Disposable local Supabase integration testing — feasibility and staged design
+
+**Research date:** 2026-11-26  
+**Detailed plan:** `docs/QA_LOCAL_SUPABASE_INTEGRATION_PLAN.md`
+
+### 53.1 Repository baseline and blocker
+
+The repository contains a substantial Supabase migration set and one legacy `tacresq-notify` Edge Function, but the audited branch has neither `supabase/config.toml` nor `supabase/config.jsonc`. There is no pinned Supabase CLI project dependency/configuration.
+
+The current `tools/test_supabase_migration_replay.sh` is valuable isolated PostgreSQL integration testing: it creates minimal stand-in Auth and Storage schemas/functions, replays the repository migrations, and executes SQL contracts. It is not the complete Supabase local stack. It cannot by itself validate managed Auth, PostgREST/JWT behavior, Storage HTTP API, Realtime, or Edge Function runtime.
+
+### 53.2 Android configuration constraint
+
+`app/src/main/java/com/tacresq/app/AppConfig.kt` hard-codes the hosted Supabase URL and publishable key. The Supabase debug variant therefore cannot be pointed at local Supabase just by starting Docker. A future implementation must add a debug/test-only endpoint/key override, with a build contract that makes it impossible for release builds to consume the override. Never embed the local service-role key in Android or artifacts.
+
+### 53.3 Recommended staged design
+
+1. **CLI/config compatibility spike:** choose and pin a Supabase CLI version, add one canonical local project config, and prove `supabase db reset --local` replays all migrations on a clean actual Supabase local stack. Preserve the existing faster PostgreSQL replay as a separate layer.
+2. **Database-native pgTAP:** add focused tests for RLS, grants, ownership, SOS idempotency, team assignment, the separate claimability path, state transitions, chat, Storage and notification inbox access.
+3. **Local Auth/API integration:** create synthetic Auth identities through local Auth Admin API; allow the signup trigger to create profiles; assign app roles only in the disposable test database; invoke real RPCs with each actor's local JWT; assert persistent state and negative cross-role behavior.
+4. **Android emulator lane:** after the backend stages are stable, inject local endpoint values into a dedicated debug/test variant and exercise selected real Android Supabase flows against the local stack. Keep it separate/manual or advisory initially due startup and emulator cost.
+5. **External effects remain excluded:** no hosted Supabase, Render production, Google FCM, legacy FCM Edge Function, public routing provider, real user, or production incident. FCM device receipt remains a separate controlled staging test.
+
+### 53.4 Synthetic journey and separation
+
+Start with requester create/retry using the same durable submission key and identical payload, proving one incident only. Add dispatcher team assignment and assignment history. Test claimable incident claiming separately, with concurrent single-winner verification. Then add status progression, explicit location, incident chat, Storage object authorization, notification inbox, Realtime reconnect and terminal-state denial.
+
+Do not combine the two assignment paths. Do not treat a notification row or Realtime event as FCM provider acceptance, device receipt, read, responder acknowledgement, or response. Use fixture-owned synthetic IDs and tear down only current-run fixtures.
+
+### 53.5 CI dependency behavior
+
+The audited CI graph makes Laravel/PostgreSQL integration and clean PostgreSQL migration replay depend on the Source checks job. GitHub Actions documents that dependent jobs are skipped when a prerequisite fails or is skipped unless the workflow explicitly overrides that behavior. This is an appropriate fail-fast safety gate; do not add `always()` merely to force downstream jobs to run after failed source contracts.
+
+### 53.6 Current exact-head verification caveat
+
+At head `0b36cf19fcee21368e522897541b3e9295150137`, the repaired Source checks passed, Android debug/release builds and JVM tests passed, prototype capture and local-stack stress passed, and the independent RPC grant contract passed. Laravel integration and the main CI migration replay had started. A subsequent documentation commit changed the branch head to `63cc2e01c98d751288b21377d8bbaeca687dd048`; the earlier in-progress run was superseded/cancelled by the new head before its final Laravel and migration job conclusions could be established. Those results must not be carried forward as completed passes. Fresh checks on the current exact head are required.
+
+### 53.7 Official references
+
+- Supabase CLI local stack and project configuration: https://supabase.com/docs/guides/local-development/cli/getting-started
+- Supabase CLI testing and pgTAP: https://supabase.com/docs/guides/local-development/cli/testing-and-linting
+- Supabase database testing in GitHub Actions: https://supabase.com/docs/guides/deployment/ci/testing
+- GitHub Actions job dependency/fail-fast behavior: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs
+
+**Implementation status:** design only. No CLI config, package dependency, pgTAP test, Android endpoint override, CI workflow, credential, hosted Supabase project, Render production service, or external provider changed or exercised.
