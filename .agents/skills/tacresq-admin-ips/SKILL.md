@@ -194,6 +194,8 @@ Before calling an Admin IPS change complete, verify all applicable items:
 ## Prohibited assumptions and shortcuts
 
 Never:
+- invent additional Admin portal roles or self-service Admin provisioning without a documented separation-of-duties requirement and a complete server-enforced permission model;
+- conflate authorization role, account lifecycle status, and operational duty/assignment state;
 - replace the existing theme because a reference screenshot uses a different palette;
 - rebuild the already-collapsible sidebar without new source evidence;
 - add a permanent second sidebar or duplicate navigation;
@@ -214,5 +216,7 @@ Consult the canonical master plan for detailed evidence and acceptance requireme
 - Sections 20–31: repository source audits, identity/backend boundaries, Admin RPCs, activity logging, notification delivery, and telemetry limitations.
 - Sections 32–35: screenshot-informed layout, sidebar correction, Overview workspace audit, and live database callable/trigger findings.
 - Sections 36–38: Material 3 research, data workflow patterns, and Admin IPS information architecture/wayfinding.
+- Sections 39–40: visual hierarchy, typography, spacing, information density, Overview operations, evidence freshness, and attention hierarchy.
+- Section 41: single Admin-portal role boundary, operational-role separation, account lifecycle UX, safe privileged actions, provisioning boundary, and privacy-safe history.
 
 If the master plan has additional sections beyond this map, read and apply them as well. The canonical document always wins over this summary when it contains more precise or newer evidence.
