@@ -6,21 +6,21 @@
 
 The historical migrations define three invoker functions:
 
-- \`public.api_create_incident(text,text,double precision,double precision,real)\`
-- \`public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamptz)\`
-- \`public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamptz,text)\`
+- `public.api_create_incident(text,text,double precision,double precision,real)`
+- `public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamptz)`
+- `public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamptz,text)`
 
-The current Android Retrofit API (\`SupabaseTacApi.kt\`) and Laravel bridge allowlist call \`api_create_incident_v4\` only. Repository search found no current Android or Laravel client call to v1/v2/v3. The current v4 function is SECURITY DEFINER, requires an active requester before idempotency lookup, and delegates the validated insert to v3 under its owner context.
+The current Android Retrofit API (`SupabaseTacApi.kt`) and Laravel bridge allowlist call `api_create_incident_v4` only. Repository search found no current Android or Laravel client call to v1/v2/v3. The current v4 function is SECURITY DEFINER, requires an active requester before idempotency lookup, and delegates the validated insert to v3 under its owner context.
 
 ## Why the old grants are not compatibility
 
-The connected read-only catalog reported authenticated and service_role had EXECUTE on v1/v2/v3. However, authenticated had no direct INSERT privilege on \`public.incidents\`. Since the three legacy functions are SECURITY INVOKER and directly INSERT into that table, their authenticated EXECUTE grants did not provide a functioning client write path. Function EXECUTE and table INSERT are independent privilege gates.
+The connected read-only catalog reported authenticated and service_role had EXECUTE on v1/v2/v3. However, authenticated had no direct INSERT privilege on `public.incidents`. Since the three legacy functions are SECURITY INVOKER and directly INSERT into that table, their authenticated EXECUTE grants did not provide a functioning client write path. Function EXECUTE and table INSERT are independent privilege gates.
 
 The older functions also predate v4's explicit active-account check. The incident write trigger provides a further active-account enforcement layer, but it does not make an invoker function usable when its caller lacks table INSERT.
 
 ## Branch change
 
-Forward migration \`20261127010000_revoke_legacy_incident_create_rpc_execute.sql\`:
+Forward migration `20261127010000_revoke_legacy_incident_create_rpc_execute.sql`:
 
 - Revokes all function privileges from PUBLIC, anon, authenticated, and service_role on v1/v2/v3.
 - Retains all three signatures; no function is dropped or rewritten.
