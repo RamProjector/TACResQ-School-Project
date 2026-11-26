@@ -6924,3 +6924,121 @@ A sign-out, session deletion, or fresh token would not prove that a still-valid 
 The exact test cases and expected evidence are in `docs/QA_RPC_AUTHORIZATION_RUNTIME_MATRIX.md`. The local Supabase plan in Section 53 should include NR-01–05, FCM-01–06, TRG-01–03 and ADM-01–05 before the runtime suite is considered complete.
 
 This is a test specification and source/migration review only. No migration, grant, policy, hosted RPC, Auth account, token, notification, or live database state was changed. The mark-read correction requires a new migration, clean local replay, same-valid-JWT runtime test, and separate deployment approval.
+
+
+## 55 — Public SECURITY INVOKER and private callable helper reconciliation
+
+**Assessment date:** 2026-11-26. **Target:** connected TACResQ-School-Project Supabase database. **Method:** read-only effective function ACL/definition queries, schema/relation grants, RLS policy catalog, and view/materialized-view inventory. No grants, policies, schema settings, functions or data were changed.
+
+### 55.1 Corrected inventory interpretation
+
+The live catalog contains **15 authenticated-callable public SECURITY INVOKER functions**, but this number includes one trigger-only function. The breakdown is:
+- **14 ordinary public RPC entry points** callable by authenticated users;
+- **one trigger function** `public.tacresq_require_incident_location()`, which is not an ordinary RPC and remains the Section 53 direct-EXECUTE finding.
+
+All 14 ordinary invoker RPCs are not anon-callable. The static health RPC `api_dependency_health()` is the one ordinary invoker entry point also executable by anon; it returns only the constant string `tacresq_database_ok`. This is a deliberate low-information health marker, not a user-data endpoint. Keep its output fixed and never add configuration, exception text, host details or secrets to it.
+
+The 13 authenticated-callable private SECURITY DEFINER helpers remain:
+1. `private.tacresq_active_responder_locations()`
+2. `private.tacresq_actor_role()`
+3. `private.tacresq_assign_incident_team_guarded(bigint,bigint[])`
+4. `private.tacresq_auth_can_access_incident_chat(bigint)`
+5. `private.tacresq_auth_profile_id()`
+6. `private.tacresq_auth_profile_id_for_token_cleanup()`
+7. `private.tacresq_current_account_active()`
+8. `private.tacresq_current_account_active_read()`
+9. `private.tacresq_dispatch_update_incident_status(bigint,text)`
+10. `private.tacresq_is_incident_assignee(bigint)`
+11. `private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)`
+12. `private.tacresq_release_incident_assignment(bigint,bigint)`
+13. `private.tacresq_upload_reservation_allows_insert(text,text,bigint)`
+
+All 13 are owned by postgres, pinned to `search_path=pg_catalog`, executable by authenticated, and not executable by anon in the effective privilege query. The authenticated role has USAGE on the private schema; anon does not. The configured PostgREST exposed-schema list was not available from the database setting query, so **private-schema REST exposure is still unverified**. Do not assume the word `private` alone prevents a function being exposed; verify Dashboard Data API exposed schemas.
+
+### 55.2 Public invoker RPC map
+
+| RPC | Observed behavior and enforcement | Assessment |
+|---|---|---|
+| `api_active_responder_locations()` | Delegates to private definer helper which requires active dispatcher and locks caller profile | Good layered wrapper/helper pattern |
+| `api_all_incidents()` | Requires `private.tacresq_actor_role()='dispatcher'`; aggregates incident queue and requester details | Role check is active-account-aware through helper; verify dispatcher-only same-JWT behavior |
+| `api_assign_incident(bigint,bigint)` | Delegates to team assignment wrapper | Authorization is in downstream guarded helper; test all supplied target IDs and assignment invariants |
+| `api_assign_incident_team(bigint,bigint[])` | Delegates to private guarded assignment helper | Active dispatcher + role/target checks are centralized; test duplicates, capacity, inactive targets and concurrency |
+| `api_create_incident(text,text,double precision,double precision,real)` | Legacy requester check derives Auth UUID, but does not itself check active status | Legacy surface; determine whether direct table grants/RLS make it unusable and whether any client still calls it |
+| `api_create_incident_v2(...)` | Legacy requester check plus input validation; no explicit active-account test in body | Active-account RLS may add a boundary, but same-valid-JWT test and caller trace needed |
+| `api_create_incident_v3(...)` | Legacy requester check plus location-source and input validation; no explicit active-account test in body | Same as v2; check if any release client still invokes it |
+| `api_dependency_health()` | Returns a constant health marker; anon and authenticated callable | Low-risk public probe while response stays constant |
+| `api_me()` | Selects profile by `auth.uid()`; returns profile identity/role/duty fields | Relies on profile RLS; suspension behavior must be checked against active-account restrictive policy and same-JWT test |
+| `api_my_incidents()` | Filters requester, assigned user and incident assignee; relies on incident/profile RLS and helper | Ownership logic is explicit but broad result shape includes contact/location fields; verify each role sees only intended incident set |
+| `api_record_location_v2(...)` | Delegates to private helper requiring active responder/driver | Good layered wrapper/helper pattern; helper also validates incident assignment/location semantics |
+| `api_release_incident_assignment(...)` | Delegates to private helper requiring active dispatcher | Good layered wrapper/helper pattern; test concurrent reassignment and target ownership |
+| `api_set_duty_status(text)` | Locks caller profile FOR UPDATE; validates available/off_duty, responder/driver role, active account, and no active assigned incident | Explicit active-account and concurrency check; test assignment race |
+| `api_update_incident_status(...)` | Delegates to private dispatcher status-transition helper | Active dispatcher/state-transition logic is centralized; test illegal transition and race |
+
+**Search-path finding:** all 14 ordinary invoker functions have pinned search paths, but two legacy functions (`api_create_incident` and `api_set_duty_status`) use `search_path=public, pg_temp`; `api_me`, `api_my_incidents` and `api_all_incidents` include `public` (and `api_all_incidents` also includes `private`). These are SECURITY INVOKER functions, so this is not the same RLS-bypass risk as a definer routine. However, a writable schema or temporary-object shadowing risk must still be assessed against schema CREATE privileges, object qualification and caller-controlled object resolution. The reviewed bodies generally qualify application tables with `public.` and helpers with `private.`; do not change search_path blindly. Prefer `pg_catalog` plus fully qualified references where practical, then regression-test overloads and dependencies.
+
+### 55.3 Effective table grants and RLS context
+
+The read-only relation-grant query found authenticated access on these public tables:
+- `profiles`: SELECT, INSERT and UPDATE;
+- `incidents`, `incident_assignments`, `incident_status_logs`, `incident_assignment_events`, `location_logs`, `fcm_tokens`, `admin_audit_logs`: SELECT only.
+
+The same query found no anon table-level SELECT grants among those returned relations. The authenticated role had no direct INSERT/UPDATE/DELETE grants on those seven non-profile tables in that query. This explains why some legacy SECURITY INVOKER functions that attempt direct INSERTs into incidents may be unusable even though their function EXECUTE grant exists. The actual release path is the current SECURITY DEFINER `api_create_incident_v4`; trace current Android clients before removing any older RPC.
+
+RLS policy inspection found:
+- `profiles` self-read plus dispatcher read, responder/driver self-update, and a restrictive active-account policy.
+- `incidents` requester insert, participant/dispatcher read, dispatcher/assigned-unit update, plus restrictive active-account policy.
+- `incident_assignments`, `incident_status_logs`, `incident_assignment_events`, and `location_logs` have participant/dispatcher or assigned-unit policies plus restrictive active-account policy.
+- `admin_audit_logs` combines Admin role, AAL2/TOTP and active-account restrictive checks.
+- `fcm_tokens` has self-scoped read/insert/delete policies, a narrow suspended-account cleanup helper for delete, and restrictive active-account requirements for select/insert/update.
+
+The profile self-update policy requires the caller's profile and limits the row role to responder/driver in both USING and WITH CHECK; it does not grant a user permission to promote themselves to Admin. Still, column-level grants and trigger behavior should be checked as part of the complete profile mutation contract.
+
+**Important limitation:** a catalog policy definition does not prove runtime result behavior. In particular, Postgres UPDATE also needs a matching SELECT policy; test each supported update path with the same JWT and inspect affected-row counts, not only SQL policy text.
+
+### 55.4 View and materialized-view exposure
+
+The live `pg_views` and `pg_matviews` inventory returned no rows in `public` or `private` at the time of this query. This reduces one common view/RLS bypass concern in those schemas for this snapshot. Re-run after migrations and inspect any future views with PostgreSQL 15+ `security_invoker=true` where appropriate, or keep sensitive views in a non-exposed schema with no client grants.
+
+This does not include foreign tables, functions returning composite/table data, RPC result shapes, Storage metadata, or provider-side API exposure.
+
+### 55.5 Private helper disposition
+
+The 13 private helpers are not a homogeneous API:
+- Caller-facing helpers (`tacresq_actor_role`, `tacresq_auth_profile_id`, `tacresq_auth_can_access_incident_chat`, active-account predicates) are intentionally authenticated-callable for RLS and wrapper composition.
+- Domain mutation helpers (assignment, dispatch status, location recording) independently derive the caller and check active status/role before delegating to internal routines.
+- `tacresq_active_responder_locations` enforces active dispatcher role before returning sensitive live location data.
+- `tacresq_upload_reservation_allows_insert` is a Storage policy predicate; it resolves an active profile, checks the configured reservation-enforcement flag, and when enabled requires a matching unconsumed, unexpired reservation and chat membership.
+- `tacresq_auth_profile_id_for_token_cleanup` deliberately resolves a caller profile without active-status filtering so the FCM self-cleanup exception can remove only that caller's own token.
+
+The ACLs show these helpers are not anon-callable and the private schema is not granted to anon. But because authenticated has private schema USAGE, confirm the Dashboard exposed-schema configuration and whether the Data API publishes private functions. If exposed, assess every helper as a direct callable endpoint, not merely as a nested implementation detail. Consider revoking direct EXECUTE from authenticated only for helpers proven not to need direct client/RLS/Storage-policy invocation; preserve required policy predicates and wrappers.
+
+### 55.6 Confirmed gaps versus items requiring runtime validation
+
+**Confirmed catalog facts**
+- 14 ordinary public invoker RPCs are authenticated-callable; only the constant health marker is anon-callable among those 14.
+- The fifteenth invoker entry is the trigger-only location validation function, which remains anon/authenticated EXECUTE-granted and is tracked in Section 53.
+- 13 private definer helpers are authenticated-callable, none anon-callable; all have pinned search paths.
+- Authenticated has private schema USAGE; anon does not.
+- No public/private views or materialized views were returned by the current view inventory.
+- Legacy incident-create invokers v1/v2/v3 lack an explicit active-account predicate in their own function bodies.
+- The legacy `api_create_incident` and `api_set_duty_status` search paths include `public, pg_temp`; other invokers include public/private schemas where noted.
+
+**Not yet established**
+- Whether the private schema is exposed through Supabase Data API.
+- Whether the public schema CREATE privilege or temporary-object resolution makes the two legacy search paths practically shadowable by an untrusted authenticated caller.
+- Whether legacy v1/v2/v3 create functions remain used by any shipped Android/web build, and whether direct table grants/RLS make them nonfunctional.
+- Runtime suspension behavior for `api_me`, `api_my_incidents`, legacy incident creation, FCM cleanup and each policy path.
+- Exact column-level privileges, all sequence privileges, foreign table grants, all function overloads and all nested helper call graphs.
+- Same-valid-JWT integration tests, clean migration replay, Storage HTTP tests and deployed client version coverage.
+
+### 55.7 Recommended next work
+
+1. Confirm Dashboard Data API exposed schemas and whether `private` is exposed. If exposed, classify all 13 helpers as direct API endpoints and minimize direct EXECUTE without breaking RLS/Storage.
+2. Inspect schema CREATE privileges and object qualification for the legacy `public, pg_temp` search paths. Do not change them until shadowing feasibility and client compatibility are demonstrated.
+3. Trace Android release and Admin web source call sites for `api_create_incident`, v2, v3 and v4; document v1–v3 retirement only after no supported client depends on them.
+4. Verify effective column privileges, sequence grants, foreign tables and function overloads; include the full object privilege matrix in WP0.
+5. Add same-valid-JWT tests for active/suspended accounts across profile reads, incident reads, legacy and current create paths, duty status, dispatch, chat, FCM cleanup and Storage policy helpers.
+6. Continue to treat the trigger-only direct EXECUTE grant and `api_mark_notification_read` active-account inconsistency as separate pending fixes from Sections 53–54.
+7. After clean replay and tests, prepare isolated CLI-generated migrations; do not apply any production grant/function change without explicit approval.
+
+**Evidence boundary:** this section is a live catalog and policy snapshot plus function-body inspection. It is not proof of private Data API exposure, exploitability, runtime denial, client-version compatibility, clean replay or production readiness. No database or provider configuration was modified.
