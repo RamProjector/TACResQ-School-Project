@@ -90,3 +90,17 @@ Review boundary: the wrappers retain the existing operation-specific validation 
 The responder/driver directory and dispatcher incident queue are now included in the account-lifecycle read review. `api_units()` previously used a raw dispatcher-role lookup inside a SECURITY DEFINER body; it now delegates through a private, non-client-callable implementation after an active-profile `FOR SHARE` lock. `api_all_incidents()` uses the shared active-aware role helper while remaining SECURITY INVOKER.
 
 The added replay contract checks these distinctions explicitly. It does not establish runtime behavior until the complete migration chain is replayed against a disposable PostgreSQL/Supabase-compatible database and the resulting privilege catalog is inspected.
+
+
+## Current-branch inventory reconciliation
+
+This review's earlier aggregate counts and callable classifications are historical. The current branch SQL contracts require 75 authenticated-callable public functions (24 SECURITY DEFINER and 51 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. The exact private signature list is in tools/test_account_suspension_private_definer_inventory.sql; the public definer list and 75/24/51 aggregate are in tools/test_account_suspension_definer_inventory.sql.
+
+Specific corrections:
+- api_unregister_fcm_token(text) is classified as a public SECURITY DEFINER function in the current crosswalk and inventory, not an invoker.
+- api_assign_incident_team(bigint,bigint[]) is a public SECURITY INVOKER wrapper delegating to private.tacresq_assign_incident_team_guarded(bigint,bigint[]), not a public definer.
+- api_set_duty_status(text) is the exact duty mutation signature; the older unresolved status is stale.
+- api_reserve_incident_image_upload(bigint,text,bigint,uuid) is the exact reservation signature.
+- The aggregate invoker count includes extension routines. Continue separating extension functions from application RPCs.
+
+These figures are contract expectations, not a fresh replay output. A complete per-signature invoker-to-table/view/RLS/helper/trigger graph and same-valid-JWT integration run remain release requirements.
