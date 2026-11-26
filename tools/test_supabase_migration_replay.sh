@@ -1950,10 +1950,46 @@ BEGIN
         has_sequence_privilege('anon', sequence.oid, 'USAGE')
         OR has_sequence_privilege('anon', sequence.oid, 'SELECT')
         OR has_sequence_privilege('anon', sequence.oid, 'UPDATE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'SELECT')
         OR has_sequence_privilege('authenticated', sequence.oid, 'UPDATE')
       )
   ) THEN
-    RAISE EXCEPTION 'Public sequence grants must not expose anon access or authenticated UPDATE/setval capability';
+    RAISE EXCEPTION 'Public sequence grants must not expose anon or authenticated sequence access';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS sequence
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = sequence.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND sequence.relkind = 'S'
+      AND sequence.relname NOT IN (
+        'api_operation_logs_id_seq',
+        'device_security_events_id_seq',
+        'device_integrity_checks_id_seq'
+      )
+      AND (
+        has_sequence_privilege('service_role', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('service_role', sequence.oid, 'SELECT')
+        OR has_sequence_privilege('service_role', sequence.oid, 'UPDATE')
+      )
+  ) THEN
+    RAISE EXCEPTION 'service_role must not retain access to RPC/trigger-owned application sequences';
+  END IF;
+
+  FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT'] LOOP
+    IF NOT has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Trusted direct-insert sequence consumers lost required % privilege', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Trusted server sequence consumers must not retain UPDATE/setval';
   END IF;
 
   IF EXISTS (
