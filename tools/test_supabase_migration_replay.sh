@@ -1916,9 +1916,10 @@ BEGIN
     SELECT 1
     FROM pg_catalog.pg_default_acl AS defaults
     CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
-    WHERE expanded.grantee IN (0::oid, anon_oid, authenticated_oid)
+    WHERE defaults.defaclnamespace = 0
+      AND expanded.grantee IN (0::oid, anon_oid, authenticated_oid)
   ) THEN
-    RAISE EXCEPTION 'Global/schema default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
+    RAISE EXCEPTION 'Global default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
   END IF;
 
   IF EXISTS (
