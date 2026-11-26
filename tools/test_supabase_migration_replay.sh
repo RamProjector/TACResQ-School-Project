@@ -2070,3 +2070,6 @@ BEGIN
 END;
 $incident_location_trigger_grant_contract$;
 SQL
+
+# Verify the service-role Admin audit boundary and preserve authenticated Admin RPC grants.
+psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
