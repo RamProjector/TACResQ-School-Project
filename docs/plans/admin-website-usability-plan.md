@@ -23,7 +23,7 @@ Improve the TACResQ administrator website's information density, audit visibilit
 - Operational references can be understood before opening their repository documents.
 - Notification counts are derived from returned audit events and clearly labeled as current-page counts.
 - Detailed audit coverage remains available but is collapsed by default.
-- Sidebar collapse/expand is reversible, keyboard accessible, and does not hide navigation controls.
+- Desktop sidebar collapse/expand is reversible and keyboard accessible; the minimized rail retains SVG section icons, active state, accessible names, and tooltips, with the toggle always reachable.
 - Reduced-motion preferences disable decorative transitions.
 - No database schema, RPC authorization, role, or production data changes are introduced.
 - Existing frontend, security, migration, and regression checks remain enabled.
