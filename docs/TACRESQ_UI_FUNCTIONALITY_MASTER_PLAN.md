@@ -9474,3 +9474,54 @@ The live role-membership catalog reports `authenticator` as a member of `service
 **Next implementation gate:** complete a PG17 replay and owner-by-owner explicit-grant inventory before proposing any broad default-ACL migration. Do not revoke the `postgres/public` defaults globally or alter platform-owned defaults as a shortcut.
 
 **References:** existing `docs/security/admin-account-suspension-rpc-review-batch-17-default-privileges.md`; Section 56; Sections 58–65; live `pg_default_acl`, `pg_auth_members` and effective privilege catalog queries; PostgreSQL documentation on [ALTER DEFAULT PRIVILEGES](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html) and [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
+
+
+## Section 66 — Profile lifecycle-column authorization gap exposed by default-ACL replay
+
+**Objective:** resolve the first real migration-replay failure caused by modeling the hosted `postgres/public` default table grants. Preserve the legitimate duty-status update path while removing the broader authenticated table-level UPDATE capability that also covered account lifecycle fields.
+
+### 66.1 Confirmed source and live-catalog mismatch
+
+The new default-ACL fixture caused `tools/test_account_lifecycle_foundation.sql` to fail at its existing assertion that authenticated callers cannot UPDATE `account_status`, `suspended_at`, `suspended_by` or `suspension_reason`.
+
+A fresh read-only hosted catalog query confirmed:
+- `public.profiles` grants authenticated table-level SELECT, INSERT and UPDATE (plus a PostgreSQL 17 MAINTAIN privilege in the live ACL).
+- The authenticated role therefore has effective UPDATE on all profile columns, including the four lifecycle fields; this was verified with `has_column_privilege`.
+- The existing `20261125020819_account_lifecycle_foundation.sql` uses `REVOKE UPDATE (account_status, suspended_at, suspended_by, suspension_reason)`. A column-level REVOKE does not cancel an existing table-level UPDATE grant, so the source migration's stated protection was not achieved by that statement alone.
+- The `profiles_update_self` policy permits a responder/driver to update their own row. The reviewed `tacresq_guard_profile_update()` trigger protects identity, role and duty-status rules but does not reject changes to the account lifecycle fields. The suspended-account write trigger rejects writes by an already suspended caller; it does not stop an active caller from changing their own suspension metadata.
+- The Admin lifecycle RPC uses the trusted postgres-owned SECURITY DEFINER path and writes the lifecycle audit event transactionally. A direct authenticated profile UPDATE would not use that RPC's audit path.
+
+**Assessment:** the live ACL plus RLS policy and trigger source establish a credible self-service lifecycle mutation and audit-bypass path for an active responder/driver. No production write was attempted to prove exploitation; this is a source/catalog authorization finding, not a claimed live exploit demonstration.
+
+### 66.2 Required narrow update contract
+
+The only reviewed SECURITY INVOKER client operation that directly updates `public.profiles` is `api_set_duty_status(text)`. It updates `duty_status` and `updated_at`; it does not need table-level UPDATE or permission to modify role, identity or lifecycle metadata.
+
+Added `supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql`:
+1. Revokes table-level UPDATE from `authenticated` on `public.profiles`.
+2. Revokes any prior column-level UPDATE grants on `duty_status` and `updated_at`.
+3. Regrants UPDATE only on `duty_status` and `updated_at` to `authenticated`.
+
+This preserves the invoker RPC's required columns. The existing self-row RLS policy and profile trigger continue to constrain the row and valid duty transitions. Admin role/account lifecycle changes remain in their protected SECURITY DEFINER RPCs. No direct Android or browser `profiles.update()` callsite was found in the reviewed source searches; Android uses the `api_set_duty_status` RPC.
+
+### 66.3 Runtime regression test
+
+Extended `tools/test_account_lifecycle_foundation.sql` to assert:
+- authenticated has no table-level UPDATE on `profiles`;
+- authenticated retains UPDATE on `duty_status` and `updated_at`;
+- no other profile column has authenticated UPDATE;
+- the four account lifecycle fields remain non-updatable by authenticated;
+- a same-valid responder JWT can still invoke `api_set_duty_status('available')`;
+- the same responder JWT cannot directly update `account_status` and suspension metadata.
+
+Extended `tools/test_rpc_grants.py` with a source contract for the forward migration. The migration replay applies all migration files in timestamp order, so the new migration is tested after the original lifecycle foundation.
+
+### 66.4 Replay interpretation and remaining gate
+
+The first full-default replay failed in the existing lifecycle contract before the new migration was added. This was not a failure of the Section 64 Admin audit migration; it exposed the ineffective column-only REVOKE in the earlier profile lifecycle migration.
+
+The new profile migration and same-valid-JWT regression are committed but **have not yet passed a fresh exact-head clean replay**. The replay also uses PostgreSQL 16.15, whereas the live project is PostgreSQL 17.0. The live profile ACL includes PG17 `MAINTAIN`; the current profile migration intentionally narrows UPDATE only and does not claim to remove that separate maintenance privilege.
+
+Do not apply either new migration to the hosted database until the full replay passes, the profile operation inventory is rechecked, and an approved staging/production migration plan is in place. No hosted profile grant, lifecycle row, audit event or production data was changed.
+
+**References:** Sections 20, 27–29, 53–65; `20261125020819_account_lifecycle_foundation.sql`; `20261112215653_admin_role_audit_foundation.sql`; `20261125020913_account_lifecycle_duty_status_guard.sql`; `20261126170000_restrict_profile_update_to_duty_status.sql`; `tools/test_account_lifecycle_foundation.sql`; `tools/test_rpc_grants.py`; PostgreSQL [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
