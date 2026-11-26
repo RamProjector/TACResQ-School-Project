@@ -118,6 +118,9 @@ assert "api_create_incident_v4" in BRIDGE_CONFIG
 assert all(f"'{name}'" not in BRIDGE_CONFIG for name in LEGACY_INTERNAL_RPCS)
 assert "SECURITY DEFINER" in CURRENT_V4_MIGRATION
 assert "public.api_create_incident_v3(" in CURRENT_V4_MIGRATION
+REPLAY_SCRIPT = Path("tools/test_supabase_migration_replay.sh").read_text()
+assert Path("tools/test_legacy_incident_create_rpc_privileges.sql").is_file()
+assert "psql -v ON_ERROR_STOP=1 -f tools/test_legacy_incident_create_rpc_privileges.sql" in REPLAY_SCRIPT
 
 # Per-responder progress is intentionally retired: the dispatcher owns the
 # shared incident milestone. Keep the historical RPC names revoked rather than
