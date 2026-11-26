@@ -102,7 +102,7 @@ assert 'disabled={lifecycleLoading || lifecyclePage + 1 >= lifecyclePageCount}' 
 assert 'role="status" aria-live="polite"><LoaderCircle' in audit_page
 assert 'role="alert">{lifecycleError}' in audit_page
 assert 'aria-busy={lifecycleLoading}' in audit_page
-assert '{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}' in audit_page
+assert '{lifecycleError ? "Unavailable" : lifecycleLoading ? "Refreshing history…" : lifecycleTotal.toLocaleString() + " recorded" + (lifecycleLastCheckedAt ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " · Asia/Manila" : " · Not yet checked")}' in audit_page
 assert "setLifecyclePage(Math.max(0, Math.ceil(result.total_count / lifecyclePageSize) - 1))" in audit_page
 assert ".audit-page__lifecycle-pagination" in admin_css
 assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
