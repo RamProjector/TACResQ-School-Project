@@ -1955,3 +1955,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **External standards checked:** Supabase current testing guidance for pgTAP and CI, and Android guidance distinguishing JVM tests from instrumented device/emulator tests. These standards support future test design; they do not imply that TACResQ already implements those paths.
 - **No operational side effects:** No live Supabase schema/data, Render configuration, worker schedule, FCM provider, credentials, paid service, production account, or real incident changed or exercised. No complete synthetic SOS was run.
 - **Next:** Re-fetch the three updated documents and matrix; inspect the new exact PR head and all workflow results after the source-contract correction. Fix any subsequent genuine/stale contract failure, then verify that downstream Laravel integration and any CI database job actually execute. Do not merge until all required exact-head checks pass.
+
+
+## 2026-11-26 — Follow-up CI contract correction: Admin recovery navigation
+
+- **Latest audited head before repair:** `cca2ab1a32bd2184d3cbd0e10ce04d055b792665`; PR #370 remained open.
+- **Run:** TACResQ CI `45842444081`.
+- **Finding:** The corrected Admin Overview assertion passed. Source checks advanced to `tools/test_admin_recovery_workspace_contract.py` and failed because one assertion expected `Data &amp; continuity</strong>`, but the actual navigation markup is `<span>Data &amp; continuity</span>`. The route, section and navigation item are present; only the expected wrapper was stale.
+- **Repair:** Updated that single test-only assertion to match the current semantic span markup. Commit: `b2c28dc80dc85ccaeacbaa3f8279e88d09a2028c`. No application UI or behavior changed.
+- **Documentation:** Added this second failure/repair to `docs/QA_CI_COVERAGE_MATRIX.md` and Section 52 of the master plan.
+- **Run state at diagnosis:** Source checks failed at the recovery contract; later steps and downstream Laravel/migration jobs were skipped. Android and RPC workflow results were still in progress at the last check. The latest source repair and documentation commits need another full exact-head CI run.
+- **Next:** Inspect checks for the latest branch SHA; verify the two corrected contracts pass, then address any further stale assertions one at a time. Confirm Laravel integration and migration replay actually execute. Do not merge until all required exact-head checks are green.
