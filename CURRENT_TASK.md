@@ -2023,3 +2023,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Compatibility boundary:** The source review does not reveal every historical APK distributed or the exact minimum supported APK version. The old invoker functions already lacked authenticated table INSERT; this change removes misleading callable grants and preserves all signatures. No hosted ACL/migration, production data, Render config, or deployment changed.
 - **Commits:** migration `e2649a860f8552076390a5db4aa4d06d6734f771`; runtime test `2afd49be82af1b4b44bbe249db7094128bdbe130`; source/migration/docs follow-ups are on the same PR branch.
 - **Next:** Validate the exact new head with source contracts, PostgreSQL 16 replay, PostgreSQL 17 RPC grant replay, Android builds, Security, QA and Laravel integration. Do not merge or apply hosted migrations without approval.
+
+## 2026-11-27 — Service-role default ACL inventory (research only)
+
+- Read-only live catalog query found broad schema-scoped default ACLs for both `postgres/public` and `supabase_admin/public`: anon, authenticated and service_role inherit table DML/MAINTAIN, sequence USAGE/SELECT/UPDATE, and function EXECUTE on future objects. No schema-unspecified/global defaults were returned for the inspected object classes.
+- Effective service_role DML was present on 20 public tables in the pre-migration snapshot. This is a server-only privilege layer separate from RLS; service_role bypasses RLS.
+- Source/catalog traces identified the Laravel operation logger (`api_operation_logs`), legacy service-role `api_record_location` writer (`location_logs`), legacy incident v1/v2/v3 writers (now revoked in Section 72), and current SECURITY DEFINER v4/private location paths.
+- Added Section 73 to the Admin IPS master plan. No blanket service_role revoke or hosted ACL/default-privilege change was made. Next safe step is a table-by-table inventory of Laravel, Edge Functions, FCM, Storage, backup, and external consumers before any further DML reduction.
