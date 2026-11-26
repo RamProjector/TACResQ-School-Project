@@ -2986,3 +2986,201 @@ Use short moderated task tests or card sorting with actual intended administrato
 - [Microsoft Learn — Information architecture principles](https://learn.microsoft.com/en-us/sharepoint/information-architecture-principles)
 
 **Evidence boundary:** Section 38 is research and design specification. It does not claim that navigation has been restructured or usability-tested, and it does not authorize new Admin capabilities or backend changes.
+
+
+---
+
+## 39. Visual hierarchy, typography, spacing, and information density
+
+**Research date:** 2026-11-26.  
+**Scope:** Establish a precise visual hierarchy for the TACResQ Admin IPS website. Preserve the existing DM Sans, Space Grotesk, IBM Plex Mono, current theme colors, backgrounds, and semantic tokens. This section refines the earlier typography guidance; it does not authorize a new theme or a blanket reduction of text sizes.
+
+### 39.1 Core rule: prioritize legibility, then tune density
+
+An administrative interface needs to display many records and controls, but compactness must not make the information harder to read. Optimize the layout before shrinking type:
+1. Remove repeated copy and redundant labels.
+2. Remove decorative containers and unnecessary card padding.
+3. Improve column widths, alignment, and grouping.
+4. Move secondary details into an accessible detail pane or disclosure.
+5. Use responsive composition to reposition content.
+6. Only then consider a smaller typographic role for genuinely dense metadata or tabular values.
+
+Do not make all text small to make the page look “professional”. Keep body text stable across viewports; adapt layout and content presentation before reducing essential interface text. This follows USWDS typography guidance on readable body text, line length, line height, and whitespace, and Home Office guidance on readable layouts. [USWDS Typography](https://designsystem.digital.gov/components/typography/) · [Home Office Layout and typography](https://design.homeoffice.gov.uk/accessibility/page-structure/layout-typography)
+
+### 39.2 Semantic type roles and proposed sizing ranges
+
+Keep the current font families and map these roles to the existing type tokens. The ranges below are starting points for browser testing, not mandatory pixel constants. Prefer relative units and existing CSS variables; respect browser zoom and text scaling.
+
+| Role | Proposed range | Font and treatment |
+|---|---:|---|
+| Page title | 1.5–1.75rem | Space Grotesk, 600; one per page, concise |
+| Major section heading | 1.125–1.25rem | DM Sans or existing display role, 600 |
+| Panel/region heading | 1–1.125rem | DM Sans, 600 |
+| Body and explanatory copy | 0.9375–1rem | DM Sans, 400–500; readable line height |
+| Table primary content | 0.875–0.9375rem | DM Sans, 400–500 |
+| Form labels and control text | 0.8125–0.875rem | DM Sans, 500–600; persistent labels |
+| Secondary metadata | 0.75–0.8125rem | DM Sans, 400–500; limited use |
+| Numeric values and technical identifiers | 0.75–0.875rem | IBM Plex Mono only where alignment/literal syntax benefits |
+| Icon tooltips | 0.8125rem or larger | concise action wording |
+
+Important constraints:
+- These ranges do not override the existing Section 5 typography baseline or WCAG reflow/zoom requirements without visual and accessibility verification.
+- USWDS recommends an effective 16px for most running text. Treat that as a strong readability reference for explanatory body content, not a reason to force every dense table cell or compact control to 16px.
+- Do not use metadata sizing for essential status, permission, error, or action information.
+- Avoid text below 12 CSS px for ordinary interface content. Any exception needs a clear purpose, contrast, zoom, and usability verification.
+- Do not introduce a second display font, use IBM Plex Mono for paragraphs, or change the font family to imitate another product.
+- Use sentence case. Avoid long uppercase headings, excessive letter spacing, and long runs of bold or italic text.
+
+### 39.3 Heading hierarchy and semantic structure
+
+Visual size and HTML heading level must agree with the content hierarchy, not be chosen independently:
+- One descriptive H1 for the page.
+- H2 for major page regions.
+- H3 for subsections within a region.
+- Do not skip heading levels to obtain a desired font size; use CSS variants when necessary.
+- Keep page titles short enough to scan and avoid repeating the same wording in eyebrow, title, subtitle, and first panel.
+- Headings should sit closer to the content they introduce than to the preceding section.
+- Use paragraph text for explanation, labels for controls, and table headers for column meaning; do not simulate structure with bold text alone.
+
+Reference: [Scottish Government Design System — Typography](https://designsystem.gov.scot/styles/typography) and [USWDS Typography](https://designsystem.digital.gov/components/typography/).
+
+### 39.4 Vertical rhythm and spacing system
+
+Use the existing spacing tokens where present. If the current implementation has inconsistent one-off values, define a small semantic spacing scale that aliases existing values rather than creating a new visual theme.
+
+Recommended roles:
+- **Tight:** icon-to-label, inline status, compact control internals.
+- **Related:** label-to-field, table cell content, heading-to-description.
+- **Component:** spacing between controls within one toolbar or form group.
+- **Section:** spacing between logically distinct page regions.
+- **Page:** outer workspace padding and separation from the page shell.
+
+Rules:
+- Related content receives less space than unrelated content.
+- Use consistent page gutters across routes; adapt them to available width without causing content to touch viewport edges.
+- Do not use large empty vertical gaps to create a premium look in an information-processing interface.
+- Do not pack unrelated controls together merely because the screen is wide.
+- Keep page-header spacing consistent, but let page-specific composition determine the distance between the header and primary task.
+- Use dividers sparingly; alignment and spacing should do most of the grouping.
+- Avoid nesting multiple padded cards, which compounds spacing and reduces useful content area.
+- Prefer CSS Grid/Flexbox gap and tokenized padding over arbitrary per-element margins.
+
+USWDS notes that less whitespace groups related elements and more whitespace distinguishes separate elements; it also emphasizes the relationship between heading spacing and the content below it. [USWDS Typography](https://designsystem.digital.gov/components/typography/).
+
+### 39.5 Page-header proportions
+
+The page header should establish identity and immediate action, not dominate the workspace:
+- Left: page title and optional concise context.
+- Right: one primary action and only the secondary actions relevant to that page.
+- Do not force every page to show a subtitle.
+- Avoid a tall hero region, oversized icon, decorative page illustration, or oversized statistic strip.
+- Keep header actions aligned consistently, with a responsive wrap/stack when space is insufficient.
+- If the title wraps, preserve readable line length and avoid squeezing the action controls into the same row.
+- Do not repeat actions in both the page header and first content panel unless the two controls have clearly different scopes.
+
+### 39.6 Information density by component
+
+**Tables**
+- Density should follow the information type. Compact rows may suit numeric audit/analytics records; prose-heavy descriptions need more vertical room.
+- Keep primary identifiers, statuses, and action affordances readable.
+- Normalize number formats and align comparable numeric columns.
+- Use a stable header for long lists only when it does not obscure keyboard focus.
+- Avoid global compact styling for every table.
+- On narrow screens, choose a scrollable or stacked/list-detail presentation based on the record type. Do not remove essential fields just to fit.
+
+**Forms**
+- Keep labels persistent and close to fields.
+- Group fields by task and meaning, not by arbitrary equal-sized cards.
+- Keep validation text close to the field and preserve entered values after safe failures.
+- Avoid placing every field in a separate bordered panel.
+
+**Activity and investigation**
+- Use compact metadata for source, actor, time, and category, but give the event description enough space to be understood.
+- Keep event identity and source provenance visually distinct from the event's narrative.
+- Avoid turning every event into a large card.
+
+**Analytics**
+- Emphasize the measure, unit, period, and definition; do not use oversized numbers without context.
+- Keep labels close to their values and chart legends close to the chart.
+- Use chart space for the data, not decorative framing.
+- Show source and freshness in a consistent secondary location.
+
+**Settings**
+- Use grouped sections and aligned controls rather than a grid of unrelated cards.
+- Keep setting name, current value, scope (local vs server), and save state understandable.
+
+### 39.7 Numeric and tabular typography
+
+- Use tabular numerals for values that users compare vertically: counts, rates, durations, IDs where fixed-width alignment helps, and monetary/percentage figures if present.
+- Use IBM Plex Mono only where literal strings, identifiers, or numeric alignment benefit from it; do not render all metadata in monospace.
+- Right-align numeric columns; keep dates, phone numbers, and other non-quantitative digit strings in their natural readable format.
+- Keep units visible and consistent within a column.
+- Do not use color as the only distinction between positive, negative, warning, or missing values.
+- Distinguish zero, unavailable, not collected, and not applicable. Never render missing values as zero.
+
+Reference: [USWDS Table](https://designsystem.digital.gov/components/table/).
+
+### 39.8 Density modes and user preferences
+
+The existing browser-local density preference may remain, but it must not create separate design systems:
+- A comfortable mode prioritizes readable row spacing and longer descriptions.
+- A compact mode reduces nonessential vertical padding and supports scanning of structured data.
+- Both modes use the same type hierarchy, content, permissions, and available actions.
+- Do not shrink essential labels, status text, focus indicators, or hit targets in compact mode.
+- Keep the selected preference visibly applied and persist only within the scope already supported by the current implementation.
+- Do not claim that a local preference changes organization-wide policy or other administrators' settings.
+- Test both modes at 100%, 200%, and 400% zoom and at narrow widths.
+
+### 39.9 Visual hierarchy and accessibility
+
+- Maintain sufficient contrast using the existing theme's semantic tokens; do not solve hierarchy by introducing new colors.
+- Use weight, size, alignment, spacing, and grouping before adding extra accent colors.
+- Status must include text or a meaningful icon; color alone is insufficient.
+- Focus indicators must remain visible against existing surfaces and must not be clipped by overflow containers.
+- Allow text to wrap at high zoom; do not enforce fixed heights that clip headings, table cells, or validation messages.
+- Keep line length appropriate for reading; USWDS cites 45–90 characters as a useful range for most text blocks.
+- Longer explanatory text needs more generous line height than short labels or buttons.
+- Verify all type roles with actual DM Sans/Space Grotesk/IBM Plex Mono rendering, not only design-tool approximations.
+- Check font-loading fallback and layout shift so content does not jump after web fonts load.
+
+### 39.10 Validation matrix
+
+Review representative screens in both light/dark theme states and both density preferences:
+- Overview: page title, summary values, recent activity, dependency status.
+- User management: dense directory, search/filter row, role/status labels, selected-account pane.
+- Activity log: long event descriptions, timestamps, source metadata, pagination.
+- Security: MFA/session state and consequential controls.
+- Analytics: chart labels, numeric columns, date range, export action.
+- Data & continuity: evidence labels and long operational caveats.
+- Settings: grouped controls, helper text, validation and unsaved state.
+
+For each, inspect:
+- normal desktop, split-window, tablet, compact phone, and the Section 8 viewport matrix;
+- 100%, 125%, 150%, 200%, and 400% zoom;
+- keyboard focus and screen-reader heading/landmark structure;
+- long names, long identifiers, missing values, translated/expanded copy, and empty/error states;
+- font loading failure and fallback;
+- compact and comfortable density.
+
+### 39.11 Acceptance criteria
+
+- Existing TACResQ theme, palette, font families, and light/dark behavior remain unchanged.
+- Typography is role-based and consistent; body copy remains readable.
+- Page titles are compact and subordinate to the actual task content.
+- Whitespace groups related content and separates unrelated content without decorative empty space.
+- No nested-card or all-card layout is introduced.
+- Dense tables are compact only where content supports it; descriptions and critical states remain legible.
+- Numeric values are consistently formatted and aligned.
+- Density preference changes spacing, not semantics, permissions, content, or accessibility.
+- Zoom, reflow, keyboard, and screen-reader checks pass before implementation is declared complete.
+
+### 39.12 Research references
+
+- [U.S. Web Design System — Typography](https://designsystem.digital.gov/components/typography/)
+- [U.S. Web Design System — Table](https://designsystem.digital.gov/components/table/)
+- [Home Office User-Centred Design Manual — Layout and typography](https://design.homeoffice.gov.uk/accessibility/page-structure/layout-typography)
+- [Scottish Government Design System — Typography](https://designsystem.gov.scot/styles/typography)
+- [GOV.UK Design System — Type scale](https://design-system.service.gov.uk/styles/type-scale/)
+- [Intelligence Community Design System — Typography](https://design.sis.gov.uk/styles/typography/)
+
+**Evidence boundary:** Section 39 is a researched visual specification. It does not claim that the Admin UI has been restyled, that accessibility testing has passed, or that any theme tokens or application code have changed.
