@@ -5039,3 +5039,141 @@ References:
 - [ASD ACSC — Best practices for event logging and threat detection](https://www.cyber.gov.au/publication/best-practices-for-event-logging-and-threat-detection)
 - [CISA Joint Guidance — Identifying and Mitigating Living Off the Land Techniques](https://www.cisa.gov/sites/default/files/2025-03/Joint-Guidance-Identifying-and-Mitigating-LOTL508.pdf)
 
+
+
+## Section 45 — Security governance, access accountability, and audit policy
+
+**Purpose:** define accountable ownership for security evidence, policy decisions, access reviews, retention, and exceptions without expanding the Admin website's application-role model or implying governance features that do not exist in the repository.
+
+### 45.1 Governance principles
+
+1. **Keep the existing Admin-only website audience.** Governance responsibilities are documented duties and approval boundaries, not new TACResQ sign-in roles. Do not add auditor, security-officer, supervisor, or compliance roles unless a separately approved product and authorization requirement establishes them.
+2. **Separate capability from authority.** A technically authorized Admin session does not automatically establish authority to approve every policy, legal hold, retention exception, incident containment, or production change.
+3. **Name an accountable owner for each policy.** Every policy must identify its owner, approver, effective date, version, review date, scope, and superseded version.
+4. **Enforce access at the data/API boundary.** Hiding a page, button, field, or export is not a security control. Privileged reads, exports, policy mutations, and evidence access require server/database authorization.
+5. **Make governance evidence inspectable.** Record who made or approved a decision, what was in scope, the reason, when it took effect, and the resulting outcome. Do not claim approval merely because an Admin clicked a control.
+6. **Minimize evidence exposure.** Grant the minimum access necessary, for the shortest justified period, and review it periodically.
+
+This approach follows NIST CSF 2.0's explicit Govern function and OWASP guidance on restricted log access, accountability, sensitive-data minimization, and retention. NIST SP 800-53 AU-9 and AU-11 provide useful control objectives for protecting audit information and defining retention, but do not prescribe a universal retention duration for this project. References: [NIST CSF 2.0 FAQs](https://www.nist.gov/cyberframework/faqs), [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final), [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+### 45.2 Responsibility and approval model
+
+Use a responsibility register rather than inventing application roles:
+
+| Responsibility | Expected accountability | Boundary |
+|---|---|---|
+| System / project owner | Approves project-level security policy, risk acceptance, retention schedule, and material scope changes | Must be an explicitly designated person; repository access or Admin login alone does not establish this authority |
+| Authorized Admin operator | Performs only the Admin functions already granted; reviews permitted evidence; records reasons and follows approved procedures | Existing Admin role and MFA requirements remain authoritative; no implied authority to alter infrastructure or retention |
+| Technical maintainer | Implements approved changes, investigates technical faults, validates migrations and integrations, preserves change evidence | Code or database access does not independently authorize policy approval or incident declarations |
+| Privacy / institutional / legal adviser | Advises on personal-data handling, disclosure, holds, and institutional obligations when engaged | Advisory role only; do not create a new TACResQ account role or imply that such an adviser is currently assigned |
+| Hosting / identity / service provider | Supplies provider-side records and support within its actual service and contract boundaries | Provider logs are not assumed to be exported, retained, or visible in the Admin portal |
+
+For consequential decisions, document proposer, approver, executor, and reviewer separately where the project has distinct people available. If the same person must perform multiple duties in a school-project or small-team environment, record that limitation and require a later independent review for high-impact changes where feasible. Do not fabricate a second approver or block routine work on an approval workflow that the system does not implement.
+
+### 45.3 Security-evidence access policy
+
+Classify evidence before exposing it in the Admin UI:
+
+- **Operational summary:** aggregate counts and dependency probe outcomes; expose only the minimum detail needed for administration.
+- **Security event metadata:** event identifiers, source namespace, actor reference, action, outcome, timestamps, and detection rationale; restrict to authorized investigation use.
+- **Sensitive investigation evidence:** IP addresses, user-agent/device metadata, detailed identity/authentication records, incident references, and potentially identifying context; require a documented investigative purpose and tighter access.
+- **Secrets and authentication material:** passwords, access/refresh tokens, service-role keys, MFA seeds/recovery codes, database credentials, signed URLs, and encryption keys; never display or export as audit evidence.
+- **User content and private attachments:** message bodies, uploaded images/video, precise location history, and private incident media; not included in ordinary Admin audit browsing merely because the Admin can review metadata.
+
+Requirements:
+1. Enforce evidence access in trusted database/API functions and Storage policies; frontend route guards are supplementary only.
+2. Apply server-side pagination, bounded date ranges, bounded result sizes, and field-level minimization to searches and exports.
+3. Record sensitive evidence reads, searches, exports, policy changes, access grants, and denied privileged attempts when the relevant source can reliably capture them. Treat missing read-audit coverage as a documented gap, not as proof that no access occurred.
+4. Record access to the audit system itself. A reviewer should not be able to silently browse, alter, or erase the evidence used to review their own actions.
+5. Do not expose raw provider payloads, secrets, private attachment paths, or arbitrary database rows in general-purpose event detail panels.
+6. Reconfirm access after role, account lifecycle, session assurance, or policy changes. Existing Admin AAL2/TOTP and active-account checks remain in force.
+
+### 45.4 Policy approval and change control
+
+Maintain a versioned policy register (initially as controlled project documentation if no trusted policy-management backend exists). Each policy entry should include:
+
+- stable policy identifier and title;
+- scope, systems, data classes, and actions covered;
+- owner and authorized approver;
+- version, status, effective-from and superseded dates;
+- rationale and source/standard;
+- impact assessment and affected routes/RPCs/tables/providers;
+- implementation references and test evidence;
+- exception criteria, expiry, and compensating controls;
+- review cadence and next review date;
+- change history and approval evidence.
+
+A policy change should follow: proposal → impact/security/privacy review → authorized approval → implementation → regression and authorization testing → controlled release → post-release verification → scheduled review.
+
+No self-service policy editor should be added to Admin until there is a protected backend contract for versioning, approval, authorization, immutable history, validation, and rollback. A client-side form or database table editable by the same broad Admin principal is not sufficient governance.
+
+### 45.5 Audit integrity, access review, and accountability
+
+- Keep authoritative source records append-only or otherwise protected from ordinary application principals; do not let the Admin UI edit or delete audit history.
+- Restrict write privileges to trusted event producers and narrowly scoped server/database functions. Separate log-generation permissions from log-reading permissions where the architecture supports it.
+- Protect logs and logging configuration against unauthorized read, modification, deletion, and interruption. Alert on detectable tampering or loss of critical logging.
+- Record administrative reads, searches, exports, policy changes, role/account lifecycle actions, session/security actions, denied privileged operations, and evidence access where technically observable. Keep event categories and source coverage explicit.
+- Preserve source-qualified event identifiers, original source timestamps, ingestion/observation timestamps, and provenance. Never silently merge Supabase Auth, direct Supabase, Laravel/Sanctum, Render, Storage, Edge Function, Android, or provider events into one assumed identity/session.
+- Review who can access security evidence and policy records at a defined interval and after role, employment/team, or project-responsibility changes. Record reviewer, scope, findings, corrective action, and completion.
+- If the system cannot independently audit a privileged read or policy mutation, state that limitation and use controlled external review records rather than fabricating a database event.
+
+OWASP specifically recommends restricted and periodically reviewed log privileges, recording/monitoring access to logs, tamper detection, and careful handling of sensitive data. NIST SP 800-53 AU-9 emphasizes protecting audit information and tools; AU-11 requires an organization-defined retention period. See [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) and [NIST SP 800-53 Rev. 5, AU-9/AU-11](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final).
+
+### 45.6 Retention, legal hold, and secure disposal
+
+Do **not** invent a universal number of days or years for TACResQ records. The retention schedule must be approved by the responsible project/institutional authority after considering applicable Philippine privacy and records obligations, educational/institutional requirements, provider contracts, security-investigation needs, and operational necessity. This section is a governance design recommendation, not a legal determination.
+
+Create a retention schedule by record class, not one blanket period:
+
+| Record class | Retention decision must consider | Required safeguards |
+|---|---|---|
+| Authentication/provider events | Provider capabilities, export/persistence, investigation value, account lifecycle | Verify actual provider retention and availability; do not promise a period the provider does not expose |
+| Security detections and investigations | Severity, closure, follow-up, recurrence, legal/institutional hold | Preserve source provenance and decision history; restrict case evidence |
+| Admin and policy audit records | Accountability, role/security changes, policy version history | Protect from ordinary Admin modification/deletion; retain approval context |
+| Operational/API diagnostics | Troubleshooting value, sensitivity, volume, provider constraints | Minimize payloads and identifiers; bound access and storage |
+| User/incident content and attachments | Product purpose, privacy notice, operational need, applicable obligations | Keep separate from general security logs; avoid copying content into event records |
+| Exports, backups, and investigation copies | Source record schedule plus copy-specific purpose | Track owner, creation, location, access, expiry, and verified disposal |
+
+For every class, document: retention trigger (creation, closure, account termination, or other defined event), duration, authoritative owner, storage location, backup/copy treatment, legal-hold override, disposal method, and evidence of disposal. Legal holds must suspend scheduled deletion only for the records and scope covered by an authorized hold; record who authorized it, why, when it began, review/expiry date, and release decision.
+
+Deletion must cover managed copies and exports according to the approved schedule, without silently destroying records under hold. For provider-managed logs, backups, and immutable media, document the provider's actual deletion/expiry behavior and any limits. Secure disposal should be verified and recorded; do not claim that deleting a database row also deletes Storage objects, backups, provider logs, or downloaded copies.
+
+NIST AU-11 calls for an organization-defined period aligned with retention policy; OWASP says logs and copies should neither be destroyed before the required period nor kept beyond it. NIST SP 800-92 Rev.1 is in development/planning status and is intended to replace the 2006 edition; use the current NIST log-management project page when tracking its status: [NIST Log Management project](https://csrc.nist.gov/projects/log-management).
+
+### 45.7 Exceptions and emergency access
+
+- Exceptions require a documented business/security reason, scope, owner, approver, start/end time, compensating controls, and review outcome.
+- No permanent blanket exception should be created for convenience.
+- An emergency or break-glass process must be separately designed, approved, monitored, time-limited, and tested before it is represented as available.
+- Do not add an Admin UI “override”, unrestricted evidence export, direct database console, or emergency access switch as a substitute for a real backend authorization workflow.
+- Current repository evidence does not establish a production break-glass account or a complete independent approval system; therefore, do not claim either exists.
+
+### 45.8 Admin IPS presentation
+
+The redesigned website should make governance visible without becoming a policy-management product prematurely:
+
+- **Security:** current Admin assurance/session controls and clearly scoped security posture.
+- **Activity log:** provenance, source, actor namespace, event time, observed time, outcome, and explicit coverage limitations.
+- **User management:** existing guarded role/account actions with reasons and their existing audit history.
+- **Data & continuity:** retention/backup/recovery policy references and verification dates; no fabricated backup inventory or restore status.
+- **Settings / Help & about:** concise read-only policy guidance and ownership/contact instructions only when real owners are designated.
+
+Show a clear state for each governance item: approved/current, review due, expired, exception active, not configured, not verified, or unavailable. Do not use a green “compliant” badge unless the applicable scope has been assessed against defined evidence and an authorized reviewer has recorded the result.
+
+### 45.9 Implementation and acceptance gates
+
+Before implementing governance UI or backend changes, verify:
+
+1. The responsible project/institutional owner and approval authority are actually designated.
+2. Each record class has an approved retention period and disposal owner; no arbitrary period is hardcoded.
+3. The exact evidence sources and their provider retention/availability are verified.
+4. Read/search/export access is enforced server-side and is itself auditable where required.
+5. Audit records cannot be modified/deleted by ordinary Admin client paths.
+6. Policy versions and approvals are immutable or tamper-evident, with tested history.
+7. Legal holds and exceptions have defined scope, authority, expiry, and review.
+8. Supabase and Laravel/Sanctum identity namespaces remain separate unless an explicit trusted mapping is established.
+9. UI labels distinguish implemented controls from policy recommendations, unavailable sources, and unverified controls.
+10. Regression tests cover allowed/denied access, cross-user evidence access, pagination/export scope, tampering attempts, retention boundaries, holds, and audit-write failures.
+
+**Current implementation status:** This section adds governance requirements and a design blueprint only. The reviewed repository evidence does not establish an approved retention schedule, designated governance owners, a full audit-read trail, immutable policy registry, legal-hold workflow, break-glass process, or complete evidence-access review. Do not represent these as implemented or compliant until separately verified.
+
