@@ -254,7 +254,7 @@ assert re.search(
 ), "service_role must have no direct admin_audit_logs table privileges"
 assert re.search(
     r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
-    r"public\.admin_audit_logs_id_seq\s+FROM\s+service_role\s*;",
+    r"public\.admin_audit_logs_id_seq\s+FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
     SERVICE_ROLE_ADMIN_MIGRATION, re.IGNORECASE | re.DOTALL
 ), "service_role must have no direct admin_audit_logs identity-sequence privileges"
 
