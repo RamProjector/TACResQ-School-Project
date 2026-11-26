@@ -2502,3 +2502,37 @@ Acceptance:
 
 **Decision:** The next implementation slice should be the Overview workspace grid and copy/density reduction. Do not spend that slice rebuilding the already-collapsible sidebar. This is a source-grounded design recommendation; no application code, visual regression, or browser test is claimed by this section.
 
+## 35. Live trigger-function EXECUTE grant audit — incident location invariant
+
+**Evidence source:** connected TACResQ Supabase pg_proc, pg_trigger, pg_depend, effective function privileges, and checked-in migration source inspected on 2026-11-26. Read-only only; no ACL, trigger, schema, or data changes were made.
+
+### 35.1 The specific grant defect
+
+The live function public.tacresq_require_incident_location():
+- Returns trigger, is SECURITY INVOKER, and pins search_path=pg_catalog.
+- Has one recorded dependent object: incidents_require_location_before_write on public.incidents.
+- Is a BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description row trigger.
+- Validates paired latitude/longitude, requires either coordinates or nonblank location notes, and requires a description when incident type is other.
+- Has an effective live ACL granting EXECUTE to PUBLIC, anon, authenticated, and service_role.
+
+The original source migration 20261112215721_require_incident_location_fallback.sql creates the trigger function and trigger but does not revoke the default function EXECUTE privilege. This is an unnecessary direct-execution grant for a trigger-only function. Because it returns trigger, this is not evidence of a normal callable RPC endpoint or proof of an exploitable client path; the least-privilege defect is the broader-than-needed function ACL.
+
+### 35.2 Scope of the wider trigger inventory
+
+The read-only inventory of non-system trigger-returning functions found:
+- TACResQ private trigger functions are owned by postgres, pin search_path=pg_catalog, and have no effective anon, authenticated, or service-role EXECUTE.
+- Other TACResQ public trigger functions in the snapshot have service-role EXECUTE only, not anon/authenticated EXECUTE. They should remain a separate review item; do not broaden this one-function patch without checking each function's migration source and operational callers.
+- The reviewed Supabase-owned realtime and storage trigger functions are provider-managed and are outside this TACResQ migration scope.
+
+### 35.3 Proposed correction and release boundary
+
+The branch currently contains 20261126100000_revoke_incident_trigger_function_client_execute.sql, which revokes EXECUTE from PUBLIC, anon, authenticated, and service_role, and documents the trigger-only boundary. It has not been applied. Its filename was not generated with the Supabase CLI, so it remains a draft and must not be treated as merge-ready migration history.
+
+Before merge:
+1. Generate the canonical filename with supabase migration new and move the reviewed SQL into that generated file; update migration-history allowlists/contracts accordingly.
+2. On clean replay, verify the trigger remains enabled and attached to the expected incident columns while has_function_privilege is false for anon, authenticated, and service_role (and PUBLIC inheritance is absent).
+3. In an isolated test database, verify valid incident inserts/updates still pass and malformed coordinate pairs, missing location fallback, and other incidents without descriptions are rejected after revocation.
+4. Confirm ordinary trigger invocation continues to work despite the direct EXECUTE revocation. Do not use production data or apply the migration to the live project as part of this review.
+5. Review the remaining public trigger functions with service-role-only grants individually; do not remove them in bulk.
+
+**Evidence boundary:** This is a catalog/source audit, not a live denial test. No trigger was invoked manually, no ACL was changed, and no migration was applied. The direct grant finding is current for the connected catalog snapshot; runtime behavior after revocation remains unverified.
