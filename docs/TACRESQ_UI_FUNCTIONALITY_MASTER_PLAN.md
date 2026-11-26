@@ -7125,3 +7125,70 @@ Anon currently lacks private schema USAGE and EXECUTE, so the 13 helper set is n
 **Open verification blocker:** the live Dashboard exposed-schema list and authenticated PostgREST reachability were not available from the read-only SQL/project metadata surface. The absence of a database `pgrst.db_schemas` setting is not proof that `private` is absent from the Data API configuration.
 
 **No production changes:** no schema exposure setting, role grant, function ACL, migration, Storage policy, or application code was modified. Do not change the 13 helper grants until the authoritative exposed-schema list and policy/function dependency tests are recorded.
+
+
+## 57 — Private helper direct-call safety review and dependency boundaries
+
+**Assessment date:** 2026-11-26. **Target:** connected TACResQ-School-Project Supabase project. **Method:** read-only retrieval of live `pg_get_functiondef`, owner, ACL, security mode and pinned function settings for all 13 private functions with authenticated EXECUTE; read-only inspection of the internal routines called by the guarded wrappers. This is source/catalog review, not an authenticated PostgREST request, JWT runtime test, concurrency test or production mutation.
+
+### 57.1 Executive finding
+
+The 13 authenticated-callable private functions are not all equally sensitive. The reviewed bodies fall into three groups:
+
+1. **Caller-scoped identity and predicate helpers** return the caller's active role/profile identifier, active-account state, chat eligibility, assignment relationship, or upload-reservation eligibility.
+2. **Guarded domain operations** independently derive the actor from `auth.uid()`, require an active profile and the appropriate dispatcher/responder/driver role, validate domain state, and then call internal implementation routines.
+3. **A deliberate suspended-account cleanup helper** resolves the caller's own profile ID without requiring active status, so a suspended user can remove their own FCM token. It does not accept an arbitrary target profile ID.
+
+No reviewed callable helper accepts a caller-supplied actor identity and then trusts it as the acting principal. All 13 are postgres-owned SECURITY DEFINER functions with `search_path=pg_catalog`; their ACLs grant EXECUTE to authenticated and postgres, not anon or PUBLIC.
+
+**No confirmed privilege-escalation path was established by this static review.** This does not establish that private is hidden from PostgREST, nor does it replace runtime tests.
+
+### 57.2 Direct-call review by helper
+
+| Helper | Direct-call behavior observed | Assessment |
+|---|---|---|
+| `tacresq_actor_role()` | Returns only the active caller's role using `auth.uid()` | Caller-scoped predicate |
+| `tacresq_auth_profile_id()` | Returns only the active caller's profile ID; locks profile row FOR SHARE | Caller-scoped identity helper |
+| `tacresq_auth_profile_id_for_token_cleanup()` | Returns only the caller's profile ID even if suspended; no target ID argument | Deliberate self-cleanup exception; test narrowly |
+| `tacresq_current_account_active()` | Checks current caller's profile and locks it FOR SHARE | Caller-scoped lifecycle predicate |
+| `tacresq_current_account_active_read()` | Returns active/inactive state for current caller | Caller-scoped read predicate |
+| `tacresq_auth_can_access_incident_chat(bigint)` | Resolves active caller profile, then checks incident membership/access | Caller-scoped membership predicate |
+| `tacresq_is_incident_assignee(bigint)` | Requires active caller, validates incident ID, checks caller's assignment | Caller-scoped membership predicate |
+| `tacresq_upload_reservation_allows_insert(text,text,bigint)` | Resolves active caller; checks configured reservation policy and caller-owned reservation/path/type/size | Storage policy predicate; test both enforcement modes |
+| `tacresq_active_responder_locations()` | Requires active dispatcher before returning recent assigned-unit coordinates | Sensitive read; role-gated |
+| `tacresq_assign_incident_team_guarded(bigint,bigint[])` | Requires active dispatcher, then delegates to team assignment implementation | Privileged mutation; wrapper enforces active status |
+| `tacresq_dispatch_update_incident_status(bigint,text)` | Requires active dispatcher, validates allowed transitions and locks incident before mutation | Privileged mutation; role/state-gated |
+| `tacresq_record_location_v2(...)` | Requires active responder/driver, delegates to internal assignment/status/coordinate/rate-limit checks | Sensitive mutation; layered guard |
+| `tacresq_release_incident_assignment(bigint,bigint)` | Requires active dispatcher before delegating to release implementation | Privileged mutation; wrapper enforces active status |
+
+### 57.3 Internal routine dependency checks
+
+The nested implementation routines inspected are not part of the 13 authenticated-callable helper set. Their current bodies show:
+
+- Team assignment rechecks dispatcher role, validates 1–5 distinct users, locks the incident and selected profiles, checks team capacity, field-unit roles/availability and conflicting active assignments, and inserts membership idempotently.
+- Incident release rechecks dispatcher role, locks incident and membership rows, refuses release outside allowed statuses or release of the last unit, and maintains the primary assignee and duty-state consistency.
+- Location recording validates coordinates, accuracy and timestamp bounds; requires the caller's responder/driver profile to be assigned to the incident while both incident and assignment are `en_route`; serializes writes and enforces an eight-second minimum interval.
+- Active responder-location retrieval checks dispatcher role again and returns only recent location rows belonging to assigned units on `en_route` incidents.
+- Chat-access evaluation fails closed for unknown roles and checks requester ownership, dispatcher role, or responder/driver assignment.
+
+These nested checks reduce reliance on wrapper-only assumptions. The wrappers still remain the supported and documented call surface; internal routines should not be granted to client roles.
+
+### 57.4 Remaining security considerations
+
+1. **Schema exposure remains the primary unresolved gate.** If `private` is exposed, authenticated clients may attempt these 13 functions as direct RPCs. The reviewed guards make several calls fail closed or scope results to the caller, but the functions are still not intended as a stable public API.
+2. **Sensitive outputs need role-level review.** Dispatcher-only helpers return incident and requester details, and responder-location helpers return precise coordinates. Their intended role authorization must be verified with normal dispatcher, non-dispatcher, suspended-dispatcher and cross-incident test identities.
+3. **Suspended token cleanup is a narrow exception.** Verify that the token-cleanup RPC only unregisters the caller's own token and cannot be repurposed to inspect or mutate another user's tokens.
+4. **Reservation enforcement is configuration-sensitive.** When `reservation_enforcement_enabled` is false, the predicate intentionally allows authenticated active users past the reservation check. Do not describe strict reservation enforcement as active until the setting is enabled and Storage HTTP tests prove it.
+5. **Static body inspection is not runtime proof.** Re-run tests against a clean migration replay and same-valid-JWT sessions, including concurrent suspension, role changes, location updates, Storage insert/update/delete attempts and direct RPC calls if the schema is exposed.
+
+### 57.5 Required tests and disposition
+
+- Active dispatcher can perform permitted team assignment/status/release; requester/responder/driver and suspended dispatcher are denied.
+- Direct calls cannot substitute another actor ID or mutate an incident outside the caller's permitted scope.
+- Location recording is denied unless the caller is an active assigned field unit and the incident/assignment are both `en_route`; coordinate, timestamp and rate-limit boundaries are tested.
+- Suspended users cannot use ordinary identity/chat/incident helpers; the token-cleanup exception can affect only the caller's own token.
+- Chat and Storage predicates deny non-members, wrong incident paths, mismatched MIME/size, expired/consumed reservations and unauthorized object operations.
+- RLS/Storage policy evaluation still works after any per-function grant adjustment.
+- If Dashboard settings confirm `private` is exposed, run direct authenticated PostgREST RPC tests for all 13 helpers. If it is not exposed, record that authoritative setting and add a configuration drift check.
+
+**Disposition:** retain the current per-function grants pending the authoritative Data API exposed-schema setting and runtime test evidence. Do not blanket-revoke authenticated EXECUTE: the grants are used by policy and wrapper dependencies. No SQL, migration, grant, schema exposure, Storage policy, application code or production setting was changed by this section.
