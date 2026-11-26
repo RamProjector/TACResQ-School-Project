@@ -11,6 +11,12 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN BYPASSRLS;
+
+-- Reproduce the live PostgreSQL default ACL that grants service_role EXECUTE
+-- on future public functions created by the postgres migration owner. This is
+-- needed to make future api_admin_* grant regressions visible in clean replay.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT EXECUTE ON FUNCTIONS TO service_role;
 CREATE SCHEMA auth;
 -- Supabase Auth's investigation feed reads only these allowlisted audit fields.
 CREATE TABLE auth.audit_log_entries (
