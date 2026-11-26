@@ -6227,3 +6227,157 @@ Use synthetic Auth users and profiles with explicit namespace mapping; never con
 - https://firebase.google.com/docs/cloud-messaging/android/receive-messages
 
 **Evidence boundary:** this section and the linked test specification are research/documentation only. No synthetic workflow, database replay, test device push, production write, migration, scheduler, worker, provider configuration, or application code was changed.
+
+
+## 51 — Admin IPS security architecture and defense-in-depth blueprint
+
+**Purpose and status:** translate the threat model and workflow-evidence findings into a layered security architecture for TACResQ. This is a target responsibility model, not a claim that all controls are implemented, deployed or independently verified. Preserve the existing architecture and Admin-only application role model. Do not make the browser the security boundary, replace one backend with another, or duplicate authorization as a substitute for enforcement at the resource owner.
+
+### 51.1 Core architecture principles
+
+1. **Enforce at the resource owner.** Postgres enforces database authorization; Storage enforces object access; Laravel enforces its API and Sanctum domain; Edge Functions authorize before service-role operations; providers enforce their own credentials and quotas.
+2. **Keep identities namespace-qualified.** Supabase Auth/profile IDs and Laravel Eloquent/Sanctum IDs remain separate unless a trusted, immutable mapping is deliberately designed, reviewed and tested. Email, display name, phone or matching role is not an identity key.
+3. **Treat the Admin UI as an untrusted client.** Hidden controls, disabled buttons, route guards, table filters and client-side role labels are usability features, not authorization.
+4. **Use least privilege.** Publishable client configuration is public by design; service-role keys, database credentials and private provider secrets remain server-side.
+5. **Preserve domain invariants.** Ownership, active-assignment, status-transition, idempotency, concurrency and account-lifecycle checks remain authoritative.
+6. **Separate enforcement from evidence.** Audit and detection records support accountability; they do not themselves enforce access.
+7. **Fail safely and report uncertainty honestly.** Authorization failures deny access. Telemetry failure must never be presented as a successful audit write. Missing source coverage remains unknown.
+8. **Prefer additive change.** Preserve routes, RPC contracts, schema compatibility and Android behavior. New policy/event fields require additive migrations and explicit replay/rollback review.
+
+### 51.2 Layer responsibility matrix
+
+| Layer | Security responsibility | Must not be trusted to do |
+|---|---|---|
+| Admin browser UI | Safe input, accessible workflows, bounded filters, confirmations, truthful outcomes and sensitive-state cleanup | Authorization, actor identity, role truth, ownership or audit completeness |
+| Supabase Auth | Authentication, token/session lifecycle and available assurance signals | Laravel Sanctum identity or authorization of every database operation |
+| Postgres RPC/functions | Derive caller; enforce role, assurance, account state, ownership, assignment, validation, concurrency and transactional changes | Trust caller-supplied actor IDs, role fields or ownership claims |
+| RLS and grants | Enforce row visibility and permitted table/function access | UI visibility or assumptions about effective grants |
+| Private schema helpers/triggers | Narrow reusable checks and database invariants with pinned search path and minimal execute grants | Broad client-callable APIs or hidden authorization bypasses |
+| Supabase Storage | Bucket/path, metadata, size/MIME, reservation, active-account and membership access | UI-only restrictions or public URLs for private media |
+| Laravel API/Sanctum | Laravel identity/token validation, route authorization, validation, throttling and resource scope | Supabase profile identity without explicit trusted mapping |
+| Render Supabase bridge | Validate Supabase JWT, enforce RPC allowlist, forward caller context and emit bounded metadata telemetry | Client role claims or service-role substitution |
+| Supabase Edge Functions | Validate bearer/principal/resource/recipient before service-role work | Implicit RLS protection after switching to service-role credentials |
+| FCM/provider adapters | Token ownership, recipient binding, provider response capture, retry limits and invalid-token handling | Device receipt, display, human read or operational acknowledgement from provider acceptance |
+| Observability pipeline | Provenance, correlation, source health, redaction, bounds and retention | Universal event completeness or causal links inferred only from timestamps |
+| CI/repository/deployment | Reviewed changes, least-privilege workflows, secret protection, dependency/build provenance | Runtime authorization or deployed configuration correctness without deployment evidence |
+
+### 51.3 Browser and Admin IPS security contract
+
+The Admin web application must:
+- use approved runtime public configuration; never embed service-role keys, database passwords or private provider credentials in built assets, source maps, browser storage or runtime JSON;
+- treat URL IDs, query parameters, form values, cached profiles, local role labels and client-generated correlation values as untrusted;
+- use protected RPCs for privileged operations and show success only after authoritative confirmation;
+- distinguish authentication, AAL2/TOTP assurance, account lifecycle, authorization denial, stale state, provider outage, telemetry gap and unknown result;
+- avoid optimistic success for role changes, suspension and security settings unless conflict and rollback behavior are explicit;
+- clear sensitive in-memory state on sign-out/account change and avoid persisting secrets or unnecessary personal/incident data;
+- apply CSRF protections appropriate to cookie-authenticated Laravel routes; do not assume this is the same threat model as Supabase bearer-token RPC calls;
+- safely render user-generated content and avoid injecting untrusted HTML;
+- avoid exposing private object URLs, raw provider errors, tokens, precise location, chat bodies or incident details in default errors and audit lists;
+- provide accessible confirmation, focus management, keyboard support and clear denial feedback without weakening server-side policy.
+
+Role-aware navigation is a presentation convenience only. A caller manually invoking a hidden RPC or endpoint must receive the same server-side denial as a caller who never saw the control.
+
+### 51.4 Supabase Auth, database and RPC contract
+
+For each callable function and table surface:
+- inventory effective schema, table, sequence, column and EXECUTE grants for anon, authenticated, service roles and relevant owners;
+- inspect SECURITY DEFINER ownership, pinned search_path, object qualification, dynamic SQL, helper grants and callers; map SECURITY INVOKER dependencies to effective RLS and grants;
+- derive the acting principal from trusted request context such as auth.uid(), never caller-supplied user IDs or roles;
+- enforce Admin role, required AAL2/TOTP assurance and active-account state inside privileged RPCs, not only in React route guards;
+- scope user-facing reads to the caller and enforce ownership/membership at the database boundary;
+- preserve transaction-level status, assignment, idempotency and account-lifecycle invariants, including concurrency and stale-state conflicts;
+- return narrow, typed, bounded results and avoid secrets, unnecessary personal data or unbounded event collections;
+- revoke unnecessary PUBLIC/anon/authenticated execution on private helpers and trigger-only functions only after confirming trigger bindings, owners and legitimate callers;
+- test positive and negative paths with actual JWT claims and assurance states after clean migration replay.
+
+The previously documented 75 public callable functions and 13 private definer helpers are source-contract baselines, not substitutes for a fresh effective catalog.
+
+### 51.5 Laravel, Sanctum and Render bridge contract
+
+Keep the Laravel identity domain explicit:
+- Sanctum tokens authenticate Laravel Eloquent users; they do not automatically identify Supabase profiles.
+- Route middleware and policy/service checks enforce Laravel permissions and resource scope on every endpoint, including direct HTTP invocation.
+- Public registration retains requester-only role behavior; privileged roles are not self-selectable.
+- The Supabase bridge validates the access token against Supabase Auth, allows only reviewed RPC names/arguments and forwards caller context. It does not trust decoded client role claims or replace the caller with service-role authority.
+- Server-side bridge telemetry records metadata only, with server-generated request IDs and bounded provider identifiers. Missing telemetry credentials or write failures are telemetry gaps, not audit success.
+- Apply appropriate rate limits, body-size limits and timeouts. Do not leak SQL, stack traces, provider bodies or credentials.
+- Keep Laravel /up, bridge health, Auth reachability and database health as separate dependency checks.
+
+### 51.6 Edge Functions, Storage, notifications and external providers
+
+**Edge Functions:** validate bearer token, resolve the actual principal, confirm active account and operation-specific incident/recipient authorization before service-role database or provider calls. Keep service-role operations narrowly scoped.
+
+**Storage:** incident media remains private. Enforce object path, bucket, content type/size, reservation, expiry, account status and incident/chat membership at Storage/database boundaries. Verify the deployed reservation_enforcement_enabled setting before claiming strict reservation enforcement. Do not introduce Admin attachment browsing or deletion merely because an Admin role exists.
+
+**Notifications:** persist the operational event separately from FCM attempts. Provider acceptance, device receipt, display, in-app read, human acknowledgement and operational action are distinct states. Bind tokens to the owning profile and validate recipient authorization before dispatch.
+
+**Location and routing:** minimize coordinates and route context sent to providers; document data categories, purpose and provider boundary. Do not expose raw location histories in Admin logs by default. Never fabricate provider identity or accuracy.
+
+### 51.7 Audit, detection and observability contract
+
+- Keep source-native audit/domain records authoritative for their own event families; normalized projections preserve source namespace, source ID, original timestamp and provenance.
+- Keep security detections, domain events, API performance telemetry, provider delivery attempts and workflow correlation as distinct record classes.
+- Record actor identity with namespace and assurance context when known; do not silently map principals across systems.
+- Use server-generated request IDs and verified provider request IDs. W3C trace context is transport correlation, not an authorization token, business interaction ID or idempotency key.
+- Use interaction IDs only on explicitly instrumented workflows. A client-generated value is a correlation hint, not proof of actor identity or causation.
+- Preserve missing/unknown values rather than fabricating session, IP, device or actor metadata. User-agent is not hardware identity.
+- Redact tokens, secrets, message contents, private attachments and unnecessary GPS data.
+- Make source health, ingestion delay and query coverage visible. Empty results from an unavailable source must not appear as “no security events.”
+- Enforce bounded pagination, retention by record class, access control for audit reads/exports and protection against ordinary Admin alteration.
+
+### 51.8 Admin IPS page mapping
+
+| Existing destination | Security responsibility | Explicit exclusions |
+|---|---|---|
+| Overview | Verified service probes, freshness and dependency status | No global secure score, false all-clear or unverified live counts |
+| User management | Authoritative account/role/lifecycle state; privileged changes through protected RPC | No browser-only enforcement, Admin self-promotion or implicit identity merge |
+| Security | Assurance state, evidence-backed detections, source coverage, threat scenarios and investigation status | No fabricated detection engine or automatic containment |
+| Analytics & reports | Sourced metrics with definitions, scope, denominators and freshness | No security KPI without source coverage or defensible denominator |
+| Activity log | Source-qualified events and bounded investigation detail | No claim of complete universal audit history or inferred global timeline |
+| Data & continuity | Verified backup/restore dependencies, retention and evidence status | No casual production restore, private media browser or destructive cleanup |
+| Settings | Existing authorized account/security preferences with verified backend contracts | No self-service policy editor or secrets UI without reviewed privileged workflow |
+| Help & about | Truthful explanation of roles, limitations, support and security practices | No certification, guaranteed emergency response or unsupported compliance claims |
+
+Retain the existing eight-destination information architecture and website theme. This is a responsibility mapping, not a visual redesign or authorization to add navigation items.
+
+### 51.9 Defense-in-depth verification gates
+
+For a security-sensitive change, verify the relevant layers:
+1. **Source and contract:** identify every client and direct endpoint reaching the resource; document authoritative principal and policy.
+2. **Database/provider enforcement:** inspect effective grants, RLS, function security, Storage policies and Edge/service-role checks.
+3. **Negative integration tests:** invoke endpoints with anonymous, wrong-role, wrong-owner, suspended, stale-assurance and cross-namespace identities; assert denial and no unauthorized side effects.
+4. **Operational evidence:** verify expected audit source, source ID, timestamp, actor namespace, outcome and telemetry-failure behavior.
+5. **Client behavior:** test UI state, truthful confirmation, denial, stale conflict, session expiry, accessibility and responsive layout.
+6. **Deployment parity:** compare tested source/migrations/configuration with intended deployed revision through authorized read-only checks; record mismatches.
+7. **Recovery and rollback:** confirm safe rollback or recovery for schema/config changes before production mutation.
+
+A passing UI test never substitutes for database/API authorization. A passing local database test never proves deployed grants or provider behavior. Omitted layers must be justified against the actual changed data flow and threat model.
+
+### 51.10 Implementation sequence and non-goals
+
+**Phase A — preserve and baseline:** maintain current architecture; create route/RPC/Storage/Edge call graph; reconcile migrations and effective catalog; document which source owns each policy.
+
+**Phase B — close highest-risk enforcement gaps:** prioritize Admin RPC, cross-user data access, account lifecycle across direct paths, Edge service-role authorization, Storage membership/reservation and namespace separation. Add tests before changing behavior.
+
+**Phase C — improve evidence:** complete source-to-event coverage, truthful source-health states, server-generated request IDs and narrowly scoped correlation improvements.
+
+**Phase D — Admin IPS presentation:** expose only verified backend contracts through existing pages, with explicit evidence scope and limitations. Keep controls read-only until a secure action API and audit contract exist.
+
+**Phase E — continuous assurance:** run safe deterministic checks in CI; schedule authorized manual/provider/restore exercises; reassess the threat model after boundary changes.
+
+Non-goals: replace Supabase with Laravel or vice versa; route every Android request through Render; merge identity stores by email; create additional app roles; expose service-role credentials; add automatic incident containment; build a global log warehouse prematurely; add paid observability/security services; change the website theme; or make production changes as part of this documentation.
+
+**Current evidence boundary:** this blueprint synthesizes architecture and limitations documented in Sections 19–50. It is a target responsibility model, not a fresh source audit or proof that each layer currently satisfies the contract. Revalidate latest source, effective Supabase catalog, deployed Render configuration, Storage policies, Edge Function implementation, FCM path and provider behavior before implementation. No code, schema, grants, provider settings or production data are changed by this section.
+
+### 51.11 References
+
+- OWASP Application Security Architecture Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Application_Security_Architecture_Cheat_Sheet.html
+- OWASP Authorization Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
+- OWASP REST Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
+- OWASP Secrets Management Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
+- Supabase Row Level Security: https://supabase.com/docs/guides/database/postgres/row-level-security
+- Supabase Edge Functions authentication: https://supabase.com/docs/guides/functions/auth
+- Supabase Storage access control: https://supabase.com/docs/guides/storage/security/access-control
+- Laravel 13 authorization: https://laravel.com/docs/13.x/authorization
+- NIST SP 800-207 Zero Trust Architecture: https://csrc.nist.gov/pubs/sp/800/207/final
+- NIST SP 800-53 Rev. 5 security and privacy controls: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
