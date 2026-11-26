@@ -155,3 +155,27 @@ The PostgreSQL procedure explicitly creates schema, data, and custom-role dump c
 
 **CLI version safety:** Supabase CLI v3 changed database and Storage commands to target the local stack by default. Any hosted export must explicitly pass `--remote=<project-ref>`; the CLI prints a `Target:` line that an operator must verify. Pin the CLI version in future automation and validate its help output before relying on flags. Do not add a scheduled workflow until credentials, encryption, destination, retention, and notification paths are approved and tested.
 
+
+
+---
+
+## 11. Provider recovery-path update — Supabase restore to a new project (2026-11-26)
+
+Supabase documentation updated 2026-11-23 now describes a beta **Restore to a new project** flow. For eligible paid-plan projects with physical backups enabled, the clone can transfer database schema/data/indexes/roles and Auth user data (including account/authentication records), plus the encryption root key and selected infrastructure configuration.
+
+This is a distinct provider-managed recovery path. It does not change the behavior of `supabase db dump`: logical CLI dumps still exclude managed `auth` and `storage` schemas. The beta clone does not transfer Storage object bytes or settings, Edge Functions, Auth settings/API keys, Realtime settings, database settings, integrations, or all project settings/add-ons. Storage object backup remains a separate required component.
+
+**TACResQ eligibility is not verified.** The connected project detail shows an active PostgreSQL 17 project but does not expose the billing plan or physical-backup entitlement. Confirm both in the Supabase dashboard before relying on the clone flow. The documented feature is beta and paid-plan/physical-backup dependent. No clone or restore was performed.
+
+Update to P0 evaluation:
+1. Confirm project billing plan and physical-backup entitlement.
+2. If eligible, test Restore to a new project using an approved isolated target and document exactly which Auth user data is transferred.
+3. Manually reconstruct/verify Auth settings, API keys, Edge Functions, Realtime, Storage bucket configuration/policies, integrations, and other required project settings.
+4. Independently restore Storage object bytes and verify object manifests.
+5. Run the full isolated TACResQ application and authorization smoke-test suite before claiming recovery success.
+
+References:
+- [Supabase — Restore to a new project (beta)](https://supabase.com/docs/guides/platform/clone-project)
+- [Supabase — Database Backups](https://supabase.com/docs/guides/platform/backups)
+
+This update is research only. No backup, project clone, restore, paid upgrade, or provider configuration was changed.
