@@ -2029,8 +2029,10 @@ BEGIN
     IF has_table_privilege('authenticated', 'public.profiles', 'MAINTAIN')
        OR has_table_privilege('authenticated', 'public.incidents', 'MAINTAIN')
        OR has_table_privilege('anon', 'public.profiles', 'MAINTAIN')
-       OR has_table_privilege('anon', 'public.incidents', 'MAINTAIN') THEN
-      RAISE EXCEPTION 'Supabase client roles must not retain PostgreSQL 17 MAINTAIN on profiles/incidents';
+       OR has_table_privilege('anon', 'public.incidents', 'MAINTAIN')
+       OR has_table_privilege('service_role', 'public.profiles', 'MAINTAIN')
+       OR has_table_privilege('service_role', 'public.incidents', 'MAINTAIN') THEN
+      RAISE EXCEPTION 'Client and service roles must not retain PostgreSQL 17 MAINTAIN on profiles/incidents';
     END IF;
 
     IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
