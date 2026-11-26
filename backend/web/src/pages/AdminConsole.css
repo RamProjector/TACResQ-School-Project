@@ -1779,36 +1779,43 @@
 }
 @media (min-width: 901px) {
   .admin-shell--sidebar-collapsed {
-    grid-template-columns: 0 minmax(0, 1fr);
+    grid-template-columns: 76px minmax(0, 1fr);
   }
-  .admin-shell--sidebar-collapsed > .admin-sidebar {
-    width: 0;
-    min-width: 0;
+  .admin-shell--sidebar-collapsed .admin-sidebar {
+    align-items: stretch;
+    padding-inline: 12px;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar__header {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar__header > .brand {
+    justify-content: center;
     padding-inline: 0;
-    overflow: hidden;
-    border: 0;
-    opacity: 0;
-    pointer-events: none;
   }
-  .admin-sidebar-expand {
-    display: inline-grid;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid #dfe7dd;
-    border-radius: 8px;
-    color: #536b63;
-    background: #fffefa;
-    cursor: pointer;
-    transition: color .18s ease, background .18s ease, border-color .18s ease;
+  .admin-shell--sidebar-collapsed .admin-sidebar .brand__wordmark,
+  .admin-shell--sidebar-collapsed .admin-sidebar__context,
+  .admin-shell--sidebar-collapsed .admin-navigation__group-label,
+  .admin-shell--sidebar-collapsed .admin-sidebar__bottom {
+    display: none;
   }
-  .admin-sidebar-expand:hover { border-color: #d2dfd2; color: #29463f; background: #f1f5ef; }
-  .admin-sidebar-expand:focus-visible { outline: 2px solid rgba(243,106,67,.65); outline-offset: 2px; }
+  .admin-shell--sidebar-collapsed .admin-sidebar-toggle {
+    align-self: center;
+    border-color: rgba(145,183,162,.2);
+    color: #d4e1d8;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item span {
+    display: none;
+  }
 }
 @media (max-width: 900px) {
   .admin-shell { transition: none; }
-  .admin-sidebar-expand { display: none; }
   .admin-sidebar-toggle {
     display: none;
   }
@@ -1818,7 +1825,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .admin-shell { transition: none; }
-  .admin-sidebar-toggle, .admin-sidebar-expand {
+  .admin-sidebar-toggle {
     transition: none;
   }
 }
