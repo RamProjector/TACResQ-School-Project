@@ -2536,3 +2536,150 @@ Before merge:
 5. Review the remaining public trigger functions with service-role-only grants individually; do not remove them in bulk.
 
 **Evidence boundary:** This is a catalog/source audit, not a live denial test. No trigger was invoked manually, no ACL was changed, and no migration was applied. The direct grant finding is current for the connected catalog snapshot; runtime behavior after revocation remains unverified.
+
+
+## 36. Material 3 design-system research applied to the Admin IPS website
+
+**Research date:** 2026-11-26.  
+**Scope:** Apply Material Design 3 principles to the TACResQ Admin IPS web portal without replacing its established theme, changing its product identity, or importing Android-only interaction assumptions. These are design and implementation requirements, not claims that the current UI already satisfies them.
+
+### 36.1 Governing principle: adopt behavior and structure, not another visual theme
+
+Material 3 is useful here as a design-system reference for adaptive composition, component behavior, semantic tokens, accessibility, and interaction feedback. It is not authorization to replace TACResQ's existing colors, backgrounds, branding, or light/dark behavior.
+
+- Keep the existing TACResQ theme as the source of truth.
+- Map semantic roles (primary action, surface, border, muted text, success, warning, error, focus) onto existing theme tokens. Do not introduce a parallel Material palette or hard-coded Material colors.
+- Apply Material-style component consistency only where it improves usability and does not conflict with the current brand.
+- Do not add Material Web or another component framework solely to imitate the appearance. Prefer the repository's existing stack and components.
+- Preserve the custom TACResQ administrative SVG icon family. Material icon guidance may inform consistency and optical sizing, but must not replace the requested distinctive iconography.
+
+### 36.2 Adaptive layout: resize, reveal, and change presentation
+
+Material 3 adaptive guidance describes three practical strategies: resizing components, showing/hiding detail, and changing presentation as available space changes. It also cautions against simply stretching every component across a large screen. See the [Material adaptive layout guidance](https://developer.android.com/codelabs/adaptive-material-guidance) and [responsive navigation guidance](https://developer.android.com/develop/ui/views/layout/build-responsive-navigation).
+
+Apply these strategies to the web portal:
+
+1. **Resize:** allow workspace columns, panels, and table regions to use available space while retaining readable maximum widths and sensible minimum widths.
+2. **Reveal:** show secondary metadata, descriptions, and supporting controls when there is room; keep essential actions and status visible at every size.
+3. **Reposition:** move supporting panels beside the main task on wide windows and below it when the content column becomes constrained.
+4. **Change presentation:** convert multi-column detail layouts into stacked or list-detail flows when needed; do not merely shrink controls.
+5. **Preserve continuity:** when a layout changes, preserve selected record, active filters, sort order, pagination, scroll context where practical, and unsaved form state.
+
+The existing Section 8 viewport matrix remains the test matrix. Material window-size classes are useful conceptual categories, not a replacement for content-driven breakpoints or the existing 31 width test points.
+
+### 36.3 Navigation: retain the actual desktop sidebar, fix its geometry
+
+Material 3 responsive navigation guidance differentiates compact, medium, and expanded windows and describes navigation bars, rails, and drawers as alternatives suited to available space. It also warns against showing competing navigation systems simultaneously.
+
+For this Admin IPS portal:
+
+- Keep the established desktop sidebar as the primary navigation pattern unless repository testing demonstrates a better equivalent.
+- A collapsed sidebar must be a real compact navigation rail: its containing column and the workspace grid must resize together. Hiding labels alone is not a collapse.
+- Keep the desktop expand/collapse control inside the sidebar header and visible in both expanded and collapsed states. A control must not drift into the workspace when the sidebar changes width.
+- At compact widths, use a temporary drawer opened by a topbar control; do not leave a narrow permanent sidebar consuming the workspace.
+- At intermediate widths, choose between a compact rail and a temporary drawer based on actual available content width and the number of primary destinations.
+- Do not display a bottom navigation bar, rail, and drawer simultaneously.
+- Keep navigation labels available to assistive technology when visual labels are hidden. Provide visible focus, selected state, tooltip on hover/focus where labels are icon-only, and predictable keyboard navigation.
+- Do not mechanically replace the existing multi-destination Admin sidebar with a 3–7 item rail if doing so would hide important destinations or add unnecessary navigation levels.
+
+### 36.4 Workspace composition: use canonical layouts by task
+
+Material 3 adaptive examples identify feed, list-detail, and supporting-pane compositions as useful starting patterns. Translate them into Admin tasks rather than applying one generic dashboard grid to every route.
+
+| Admin task | Recommended composition |
+|---|---|
+| Overview | Primary activity/operational summary with a narrower supporting dependency panel; avoid empty metric tiles |
+| User management | Search/filter toolbar + dense account table; selected account opens a detail side pane on wide screens and a dedicated detail view on narrow screens |
+| Activity/investigation | Filterable event list/table + event detail pane; keep investigation and lifecycle streams distinct |
+| Security detections | Prioritized detection queue + selected detection investigation pane; only show source-backed detections |
+| Analytics/reports | One primary report or chart region with supporting definitions, filters, and provenance; avoid arbitrary multi-card grids |
+| Settings | Grouped settings sections with clear save/cancel state and scoped destructive actions |
+| Data & continuity | Separate evidence/readiness sections; do not imply that guidance-only controls are operational backup or Storage controls |
+
+A two-pane layout must have a clear master/detail relationship. A supporting pane is not a dumping ground for unrelated cards. On constrained widths, preserve task priority and switch to a single-column flow.
+
+### 36.5 Tables and dense administrative data
+
+Material's adaptive composition principles imply that data-heavy content should adapt without sacrificing the task. For this portal:
+
+- Preserve row identity, column meaning, sorting, filtering, pagination, selection, and authorization semantics when the table changes presentation.
+- Use a stable header and consistent alignment for comparable values; right-align numeric values and keep timestamps consistently formatted.
+- Keep row actions discoverable without requiring hover. Hover may add convenience but must not be the only way to access an action.
+- On narrow screens, prioritize columns by task importance, move secondary fields into a row detail disclosure, or use a list-detail presentation. Do not compress text until values become unreadable.
+- Keep bulk actions hidden or disabled until selection exists; communicate selection count and scope.
+- Distinguish loading, empty, filtered-empty, stale, partial, unavailable, and error states.
+- Use pagination or bounded loading for large audit/event histories; avoid rendering unbounded records in the browser.
+- Do not introduce optimistic success for security-sensitive mutations. Show pending, confirmed, rejected, stale-conflict, and outcome-unconfirmed states distinctly.
+- Preserve server-side filtering and pagination where the existing backend contract requires it.
+
+### 36.6 Semantic tokens and component consistency
+
+Material Web documents system tokens for color, typography, and shape, with component-level tokens layered on top. See the [Material Web theming reference](https://github.com/material-components/material-web/blob/main/docs/theming/README.md).
+
+Use the concept, not its default values:
+
+- Define or reuse semantic aliases that point to TACResQ's existing theme variables.
+- Avoid direct color literals inside individual components when a semantic token exists.
+- Keep typography roles consistent: page title, section title, panel title, body, metadata, table header, form label, and validation message.
+- Use a restrained shape scale; do not round every surface identically or add card containers around every section.
+- Elevation/shadow should communicate actual layering (drawer, menu, dialog, popover), not decorate ordinary page regions.
+- Component variants should be intentional and shared: primary, secondary, quiet/tertiary, destructive, selected, disabled, loading.
+- Keep density appropriate for an Admin IPS workflow: compact enough for scanning and comparison, but never below accessible legibility or target-size requirements.
+- Do not let component token changes silently override light/dark theme contrast.
+
+### 36.7 Interaction states, feedback, and motion
+
+Material's theming and component guidance treats interaction feedback as part of component behavior. Apply it consistently:
+
+- Provide distinct default, hover, focus-visible, pressed, selected, disabled, loading, success, warning, and error states where relevant.
+- Keyboard focus must be visible and must not be represented only by a subtle color shift.
+- Every asynchronous action needs an understandable pending state and a truthful completion or failure result.
+- Avoid duplicate toast + banner + inline message for the same event unless each serves a distinct purpose.
+- Confirm destructive or irreversible actions with the affected target and consequence; do not add confirmation friction to routine reversible navigation.
+- Use motion to explain state transitions (drawer opening, pane repositioning, disclosure expansion), not to decorate. Respect reduced-motion preferences and avoid large or blocking transitions.
+- Maintain stable focus when dialogs close, menus open, or responsive navigation changes.
+
+### 36.8 Accessibility and responsive validation
+
+Use Material 3 as a supplement to the existing WCAG 2.2 acceptance baseline, not a replacement.
+
+- Test keyboard-only navigation, visible focus, screen-reader names/roles/states, zoom/reflow, contrast, reduced motion, and touch/pointer interaction.
+- Icon-only controls need accessible names and adequate hit areas.
+- Do not communicate status by color alone; include text or a meaningful icon/label.
+- Validate every layout immediately below, at, and above each content-driven transition point.
+- Test browser zoom and split-window use; ensure the actual application viewport, not the physical monitor size, controls composition.
+- Keep critical controls available when labels or secondary content are hidden.
+- Ensure dialogs, menus, popovers, and temporary navigation have correct focus entry, escape behavior, and focus return.
+
+### 36.9 Implementation sequence and acceptance criteria
+
+**Recommended order:**
+
+1. Audit existing theme tokens and map semantic component roles without changing values.
+2. Fix sidebar geometry and responsive navigation behavior.
+3. Implement adaptive workspace primitives (content container, grid, panes, list-detail).
+4. Apply the primitives to Overview, then User Management and Activity/Investigation.
+5. Standardize table, filter, form, dialog, menu, notification, and state-feedback behavior.
+6. Extend page-specific patterns to Security, Analytics, Data & Continuity, Settings, and Help.
+7. Run viewport, keyboard, screen-reader, zoom, reduced-motion, and regression checks.
+
+**Acceptance:**
+- The original TACResQ theme remains visually intact in light and dark modes.
+- The sidebar's expanded/collapsed states resize the sidebar and workspace as one layout; its control stays inside the sidebar header.
+- No navigation mode is duplicated at the same viewport.
+- Every page uses a task-appropriate composition rather than a universal dashboard-card template.
+- Tables remain usable without hover-only actions or unreadable compressed columns.
+- Selected record, filters, pagination, and unsaved form state survive responsive layout changes.
+- Every control exposes truthful pending/success/failure/disabled states and keyboard access.
+- Reduced-motion preference is honored.
+- No new backend, API, data source, permission, role, or paid dependency is introduced by the visual redesign.
+
+### 36.10 Research references
+
+- [Google Android Developers — Design an Adaptive Layout with Material Design](https://developer.android.com/codelabs/adaptive-material-guidance)
+- [Google Android Developers — Build responsive navigation](https://developer.android.com/develop/ui/views/layout/build-responsive-navigation)
+- [Google Android Developers — Create an accessible and personalized theme with Material Design 3](https://developer.android.com/codelabs/m3-design-theming)
+- [Material Web — Theming and system/component tokens](https://github.com/material-components/material-web/blob/main/docs/theming/README.md)
+- [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/)
+
+**Evidence boundary:** This section records researched design guidance and a proposed application plan. It does not claim that the portal has been redesigned, that Material components have been installed, or that browser/accessibility acceptance testing has passed.
