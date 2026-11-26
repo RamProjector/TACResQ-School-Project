@@ -124,6 +124,7 @@ PENDING = {
     "20261126170000_restrict_profile_update_to_duty_status.sql",
     "20261126180000_restrict_device_registry_sequences.sql",
     "20261126190000_restrict_profile_insert_privilege.sql",
+    "20261127010000_revoke_legacy_incident_create_rpc_execute.sql",
 }
 # These two source files use new local timestamps, while the connected
 # project's migration ledger records the same logical migration names under
@@ -148,6 +149,7 @@ UNAPPLIED_FORWARD_MIGRATIONS = {
     "20261126170000_restrict_profile_update_to_duty_status.sql",
     "20261126180000_restrict_device_registry_sequences.sql",
     "20261126190000_restrict_profile_insert_privilege.sql",
+    "20261127010000_revoke_legacy_incident_create_rpc_execute.sql",
 }
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
