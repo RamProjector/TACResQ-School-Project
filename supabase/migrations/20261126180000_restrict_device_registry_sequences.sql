@@ -26,8 +26,6 @@ REVOKE ALL PRIVILEGES ON SEQUENCE
   public.incident_messages_id_seq,
   public.incident_request_edit_logs_id_seq,
   public.incident_status_logs_id_seq,
-  public.incidents_id_seq,
-  public.location_logs_id_seq,
   public.profiles_id_seq,
   public.user_notifications_id_seq
 FROM PUBLIC, anon, authenticated, service_role;
@@ -35,7 +33,15 @@ FROM PUBLIC, anon, authenticated, service_role;
 -- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
 -- INSERT, so it is the only non-device sequence that retains server access.
 GRANT USAGE, SELECT ON SEQUENCE
-  public.api_operation_logs_id_seq
+  public.api_operation_logs_id_seq,
+  public.incidents_id_seq,
+  public.location_logs_id_seq
 TO service_role;
+
+-- Preserve the two legacy service-role invoker RPC paths until they are
+-- explicitly retired: api_create_incident/v1-v3 can INSERT incidents, and
+-- api_record_location can INSERT location_logs. They are not in the current
+-- Android/Render bridge allowlist, but remain callable by service_role today.
+-- Their sequence privilege is narrowed to USAGE/SELECT, never UPDATE/setval.
 
 COMMIT;
