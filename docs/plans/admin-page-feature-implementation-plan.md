@@ -5,7 +5,7 @@ Complete the TACResQ Admin website using verified repository and backend capabil
 
 ## Admin application shell and navigation
 
-The Admin Console uses one application shell for its authenticated workspaces, preserving the existing route state and permission-aware page actions. Desktop navigation can fully retract to a zero-width grid track; the main workspace receives the reclaimed width and a persistent expand control remains in the workspace header. The hidden sidebar is removed from keyboard and assistive-technology navigation. The preference is browser-local and does not trigger a server request.
+The Admin Console uses one application shell for its authenticated workspaces, preserving the existing route state and permission-aware page actions. Desktop navigation collapses to a compact icon-only rail while the main workspace reclaims the available width. Section icons, active-page state, accessible navigation names, and per-item tooltips remain available; the reversible collapse control stays reachable in the sidebar header. The preference is browser-local and does not trigger a server request.
 
 At tablet and mobile widths, the shell uses a full-width workspace with the same navigation in an off-canvas drawer. The drawer has independent scrolling, backdrop and Escape dismissal, focus management, background-scroll locking, and full labels even when the desktop preference is collapsed. Reduced-motion preferences disable the shell and drawer transitions.
 
