@@ -1150,4 +1150,111 @@ A normalized projection is a presentation/compatibility contract, not permission
 - [ ] Per-user log access is tested against cross-user access attempts.
 - [ ] Clean migration replay, RPC grant contract, integration tests, and manual role walkthroughs pass on the exact proposed commit.
 - [ ] The coursework traceability matrix has evidence for every handout criterion.
+---
+
+## 21. Backend responsibility audit — Supabase, Render, and Laravel
+
+**Purpose:** Establish which backend components actually serve the Admin IPS and Android clients before adding administration, audit, or monitoring features. This section is based on repository source and documentation, not a live Render deployment, production database, or Supabase project inspection.
+
+### 21.1 Corrected architecture summary
+
+Render is not an unused backend. It hosts the Laravel service and the Admin web portal. However, the Android app's normal production data path is currently configured for direct Supabase access. The existence of Laravel routes does not mean all Android operations pass through Render.
+
+| Component | Verified responsibility | Important boundary |
+|---|---|---|
+| Supabase Auth + PostgreSQL | Authoritative authentication/data/RPC platform for the current Android direct-Supabase path and Admin web portal | RLS and protected RPCs enforce the Supabase identity path. |
+| Render-hosted Laravel 13 service | Hosts the Admin portal static build, runtime browser-safe Supabase configuration, Laravel API routes, selected Supabase bridge operations, and optional routing proxy | Hosting the portal does not make Laravel the system of record. |
+| Laravel Sanctum + Eloquent | Separate legacy/API identity and data path with its own local User records and personal-access tokens | Do not assume Sanctum accounts, roles, sessions, or audit history synchronize with Supabase Auth/profiles. |
+| Render PostgreSQL TACResQ_DB | A separate database instance documented as disposable staging, not required by the current Render service | Do not use it as production truth or store real emergency/personal data without a separately approved migration and security review. |
+
+Repository evidence:
+- backend/README.md states Laravel 13 hosts the administrator portal on Render; Supabase remains the source of truth for authentication, data, and RPC operations; the temporary Render PostgreSQL database is not required.
+- backend/src/bootstrap/app.php registers Laravel's /up health endpoint.
+- backend/src/routes/api.php contains Laravel API, Sanctum, bridge, and administrative-local-auth routes.
+- backend/src/app/SupabaseBridge.php validates Supabase access tokens against Supabase Auth and forwards only allowlisted RPC calls using the caller's JWT. The bridge does not substitute a service-role token for the caller's business operation.
+- backend/web/ contains the React Admin portal built into Laravel's public /admin/ path. Runtime config exposes only the Supabase URL and publishable key.
+- docs/OWNED_BACKEND_MIGRATION.md records that Android's real API path is direct Supabase, while Laravel endpoints are not yet the single backend used by Android.
+
+### 21.2 Android path selection — do not infer from the presence of Retrofit routes
+
+app/src/main/java/com/tacresq/app/AppConfig.kt derives API selection from build configuration:
+- Debug can default to the in-memory fake API.
+- A configured non-fake build uses the Supabase adapter.
+- USE_RENDER_BRIDGE is an opt-in QA canary for RPCs explicitly allowlisted by Render.
+- The Render routing client is separately gated by route-preview build configuration.
+
+app/src/main/java/com/tacresq/app/AppContainer.kt selects FakeTacApi or SupabaseTacApi for the normal app repository and passes the Render bridge flag into the Supabase adapter. The app's realtime notifications and push-token lifecycle are also separately Supabase-specific in the inspected source.
+
+app/src/main/java/com/tacresq/app/data/remote/TacApi.kt contains the Laravel REST contract and comments describing its routes. The presence of that interface alone does not prove it is the selected production adapter. docs/API.md explicitly scopes that REST contract to the Laravel/Render adapter when both fake and Supabase modes are disabled.
+
+**Required audit rule:** Every Android feature must be traced from the active build variant and dependency-injection selection to the concrete adapter implementation. Do not classify a feature as Render-backed solely because a Retrofit endpoint exists.
+
+### 21.3 What Render currently contributes to the Admin IPS
+
+The Admin web portal is served by Render, but its authentication and privileged data operations use Supabase Auth and protected Supabase RPC/RLS paths. Render's contribution is hosting, static asset delivery, runtime configuration, and selected backend proxy functions.
+
+The current portal's dependency panel has a bounded scope:
+- Laravel /up verifies that the Laravel service booted.
+- Supabase Auth and a fixed-result database health RPC are checked separately.
+- These checks do not prove FCM delivery, routing availability, or end-to-end incident workflow readiness.
+- The panel uses the publishable key and signed-in user session; it must not expose service-role credentials, provider response bodies, or application data.
+
+The Render Laravel service also contains optional route-preview proxy logic. The repository documents that it validates the Supabase caller and assignment context, derives the destination from the authorized incident, and calls a configured routing provider only when explicit backend and Android build gates are enabled. This is a separate optional capability, not the primary incident data API.
+
+### 21.4 What the Laravel API still provides
+
+The repository documents Laravel routes for local Sanctum login/register/logout, account recovery, current-user and duty-status operations, and incident-related endpoints. The Laravel REST contract defines requester registration and server-side role, ownership, status-transition, coordinate, and assignment checks.
+
+The Laravel bridge additionally:
+- Validates Supabase bearer tokens with Supabase Auth rather than trusting decoded client claims.
+- Forwards only configured allowlisted RPC names.
+- Uses the caller's JWT for the forwarded RPC, preserving the caller identity at the database boundary.
+- Records provider-operation metadata such as operation, outcome, HTTP status, duration, and correlation ID through the Laravel API operation audit logger.
+- Rejects non-allowlisted RPC requests and sanitizes upstream failures.
+
+These are useful integration and observability capabilities. They do not mean every direct Supabase Android or web request is automatically audited by Laravel. Direct client-to-Supabase requests bypass the Laravel API operation logger.
+
+### 21.5 Admin IPS implications
+
+The Admin IPS must not present a fictional unified backend status. Use separate, clearly named components and evidence:
+
+1. **Render service:** deployment/boot availability, /up, deployed revision where verified, runtime configuration availability, and Laravel request/error telemetry where actually collected.
+2. **Supabase:** Auth availability, database/RPC availability, migration/schema evidence, and Supabase-side security/audit sources.
+3. **Laravel API:** route-level authorization, Sanctum lifecycle, bridge allowlist, request correlation, API-operation audit coverage, and exception/rate-limit outcomes.
+4. **Android direct-Supabase path:** actions that do not traverse Render must be captured and enforced through the appropriate Supabase/database mechanisms.
+5. **Optional integrations:** FCM and routing must be shown as separately monitored dependencies; do not infer their health from /up.
+
+Do not label a single green Render health check as “System healthy.” Use scoped states such as “Service reachable”, “Supabase Auth reachable”, “Database health RPC succeeded”, “FCM not checked”, or “Routing disabled”.
+
+### 21.6 Consolidation decision — preserve the current architecture until migration evidence exists
+
+Do not immediately migrate all Android traffic to Render, remove Laravel endpoints, or duplicate Supabase tables in Render PostgreSQL. First complete an operation-by-operation path inventory.
+
+For every user-facing action, record:
+- Client screen/handler and active build variant.
+- Selected adapter and destination host.
+- Whether the request is direct Supabase, Render Laravel, Render bridge, or another explicitly configured provider.
+- Authentication principal namespace and token type.
+- Authorization boundary (RLS, RPC checks, Laravel middleware/policy, or provider-specific validation).
+- Authoritative data store and transaction boundary.
+- Domain history and security/audit event source.
+- Error, retry, idempotency, and offline behavior.
+- Whether the Admin portal can inspect the resulting record/event.
+
+A future single-backend decision must compare operational reliability, authorization consistency, observability, offline/retry behavior, migration risk, and cost. It must not be selected merely to make the architecture diagram look simpler.
+
+### 21.7 Concrete audit gaps and next implementation sequence
+
+| Priority | Work | Exit evidence |
+|---|---|---|
+| P0 | Trace active Android build variants and all API adapter selections | Source-backed call graph for fake, direct Supabase, Render bridge, and route-preview paths |
+| P0 | Inventory Admin web Supabase calls and Laravel runtime endpoints | Every privileged read/write mapped to its true authorization and data boundary |
+| P0 | Inventory Laravel API routes and their actual consumers | Used, QA-only, legacy, and unreferenced routes distinguished with evidence |
+| P0 | Trace audit events across direct Supabase and Laravel requests | No claim that Laravel logs cover direct Supabase traffic |
+| P1 | Verify Render deployment revision, /up, runtime configuration, and environment presence through authorized read-only checks | Current live state recorded with timestamp; no secret values disclosed |
+| P1 | Verify whether Render PostgreSQL still exists and its current lifecycle/expiry | Treat as staging only unless separately reviewed and approved |
+| P1 | Define a cross-system identity strategy only if both identity domains must coexist operationally | Immutable verified mapping, lifecycle rules, and cross-system authorization tests; never email-based joining |
+| P2 | Design Admin dependency/observability UI from verified telemetry | Each status has source, timestamp, scope, and explicit unknown/not-checked state |
+
+**Non-claims:** This source review does not establish the current live Render deployment state, whether a Render PostgreSQL instance still exists, whether environment variables are present, whether the optional bridge canary is enabled in a release build, or whether external FCM/routing providers are currently healthy. Those require separate authorized live verification.
 
