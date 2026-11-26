@@ -119,3 +119,30 @@ For every test record the exact commit SHA, workflow/run URL, job and step, envi
 ---
 
 **Safety boundary:** This audit and matrix are documentation and a narrowly scoped test-contract correction only. No production data, live Supabase schema, Render configuration, worker schedule, FCM provider, paid service, credentials, real account, or real incident was changed or exercised.
+
+
+## 10. Follow-up exact-head verification and local Supabase feasibility
+
+### Fresh rerun after the two test-contract repairs
+
+At branch head `0b36cf19fcee21368e522897541b3e9295150137`, the Source checks job passed, allowing both downstream jobs to start. The Android debug/release job passed its full listed steps, including JVM unit tests, instrumentation APK compilation, Android Lint, demo/Supabase debug APKs and release APK. The QA workflow passed both prototype capture and local Laravel/PostgreSQL GET stress. The separate RPC grant workflow passed. Web/Actions CodeQL and repository security guardrails passed.
+
+The Laravel/PostgreSQL integration and the main CI clean-PostgreSQL migration replay were still running. A later commit adding the local Supabase plan changed the branch head to `63cc2e01c98d751288b21377d8bbaeca687dd048`, which superseded the previous in-progress run. Therefore:
+- the Laravel feature-test step was cancelled as the prior run was superseded, and dashboard checks were skipped;
+- the main CI migration replay had not completed;
+- do not claim either downstream job passed on that superseded head.
+
+Fresh exact-head runs are required for the latest branch. Current run links and results are available on PR #370.
+
+### Local Supabase integration feasibility
+
+The audited repository tree has neither `supabase/config.toml` nor `supabase/config.jsonc`. The Android `AppConfig.kt` hard-codes the hosted Supabase URL and publishable key. The existing migration replay script uses minimal stand-in Auth and Storage schemas, not the full Supabase stack. Consequently a full local integration test requires a configuration and client-targeting stage before a workflow can be safely added.
+
+The staged plan is in `docs/QA_LOCAL_SUPABASE_INTEGRATION_PLAN.md` and Section 53 of the master plan. It proposes:
+1. Pin CLI and add one canonical local config; prove all migrations replay with `supabase db reset --local`.
+2. Add focused pgTAP coverage for RLS, grants, ownership, SOS, assignment, claimability, chat, Storage and notifications.
+3. Create synthetic local Auth users and test actual RPC/Storage/Realtime behavior with per-role JWTs.
+4. Add a separate debug/test-only Android local endpoint override and emulator lane only after backend integration is stable.
+5. Exclude hosted Supabase, Render production, FCM provider, real GPS/user data, and external routing from ordinary CI.
+
+The current CI's `needs: source-checks` dependency on Laravel and migration jobs is intentional fail-fast behavior. GitHub documents that dependent jobs are skipped when a prerequisite fails or is skipped unless explicitly overridden. Keep this gate; do not use `always()` just to force integration jobs past a failed source-contract suite.
