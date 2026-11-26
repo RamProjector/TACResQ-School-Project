@@ -9525,3 +9525,64 @@ The new profile migration and same-valid-JWT regression are committed but **have
 Do not apply either new migration to the hosted database until the full replay passes, the profile operation inventory is rechecked, and an approved staging/production migration plan is in place. No hosted profile grant, lifecycle row, audit event or production data was changed.
 
 **References:** Sections 20, 27–29, 53–65; `20261125020819_account_lifecycle_foundation.sql`; `20261112215653_admin_role_audit_foundation.sql`; `20261125020913_account_lifecycle_duty_status_guard.sql`; `20261126170000_restrict_profile_update_to_duty_status.sql`; `tools/test_account_lifecycle_foundation.sql`; `tools/test_rpc_grants.py`; PostgreSQL [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
+
+
+## Section 67 — Backend-only device sequence exposure and broader client sequence inventory
+
+**Objective:** verify that backend-only identity sequences have the same least-privilege boundary as their tables, and identify other sequence grants that are not justified by direct client writes.
+
+### 67.1 Device-registry sequence mismatch
+
+The live PostgreSQL 17 catalog reports the following ACL on both `public.device_security_events_id_seq` and `public.device_integrity_checks_id_seq`:
+
+- `postgres`: USAGE, SELECT, UPDATE (owner privileges)
+- `anon`: USAGE, SELECT, UPDATE
+- `authenticated`: USAGE, SELECT, UPDATE
+- `service_role`: USAGE, SELECT, UPDATE
+
+The corresponding device registry tables have RLS enabled and no direct table privileges for anon/authenticated. Their migration `20261122050845_device_security_registry_foundation.sql` explicitly revokes client table privileges and grants service_role SELECT/INSERT on the event/integrity tables, but it does not revoke the sequence privileges inherited from the live `postgres/public` default ACL. The sequence ACL therefore contradicts the backend-only table intent and the existing `tools/test_device_security_privileges.sql` contract, which already expects client sequence denial and service_role USAGE/SELECT without UPDATE.
+
+Sequence privileges are separate from table privileges. They do not grant table reads or inserts by themselves, but they expose unnecessary sequence operations and can allow callers to advance a backend-only sequence even when they cannot use the associated table.
+
+### 67.2 Forward migration
+
+Added `supabase/migrations/20261126180000_restrict_device_registry_sequences.sql`.
+
+It revokes all sequence privileges on both device registry sequences from PUBLIC, anon, authenticated and service_role, then grants only USAGE and SELECT to service_role. This preserves the existing intended service-role identity-backed insert capability while removing client sequence access and service-role UPDATE.
+
+The existing runtime contract `tools/test_device_security_privileges.sql` already asserts the intended post-migration boundary:
+- anon/authenticated have no USAGE, SELECT or UPDATE on either sequence;
+- service_role retains USAGE and SELECT;
+- service_role does not retain UPDATE.
+
+The new migration is included in the static migration-history inventory as an unapplied forward migration. It is not applied to the hosted project.
+
+### 67.3 Other live client sequence grants requiring call-path review
+
+A fresh live sequence inventory also found anon and/or authenticated USAGE on:
+- `admin_audit_logs_id_seq` — addressed by Section 64's forward migration, which revokes PUBLIC/anon/authenticated/service_role sequence privileges.
+- `device_security_events_id_seq` and `device_integrity_checks_id_seq` — addressed by this section's forward migration.
+- `incident_assignment_events_id_seq` — table is read-only to clients; membership/closure history is trigger-written.
+- `incident_claimability_logs_id_seq` — direct client table access is revoked; writes occur inside trusted dispatcher RPCs.
+- `incident_status_logs_id_seq` — status history is trigger-written; clients have a bounded read path only.
+- `incidents_id_seq` — incident creation and lifecycle writes use protected RPCs; direct authenticated INSERT was revoked.
+- `location_logs_id_seq` — location writes use the private SECURITY DEFINER writer; direct authenticated INSERT was revoked.
+- `profiles_id_seq` — profile creation is trigger-managed; role/lifecycle changes use protected RPCs.
+- `fcm_tokens_id_seq` — token registration/unregistration uses SECURITY DEFINER RPCs; the legacy Edge path reads/deletes tokens with service_role.
+- `fcm_delivery_attempts_id_seq` is service_role-only in the current snapshot; the Laravel worker updates attempts and claims batches through an RPC rather than directly inserting attempts.
+
+The current source review found no direct Android or Admin browser sequence/INSERT call for the listed tables. Specific writers are RPCs, triggers or trusted backend paths. This makes client USAGE grants strong candidates for removal, but each candidate still needs a same-valid-JWT test and an exact source-to-function ownership trace before migration.
+
+### 67.4 PostgreSQL 17 MAINTAIN privilege note
+
+The live PG17 table ACL also grants authenticated `MAINTAIN` on `public.profiles` and `public.incidents`; service_role has MAINTAIN on the reviewed application tables. No client workflow requires database maintenance operations. The current PostgreSQL 16.15 replay lane cannot parse or validate PG17's MAINTAIN privilege, so it does not expose this issue.
+
+Treat authenticated MAINTAIN on application tables as a separate PG17-only privilege-reduction candidate. A compatible forward migration would need a version-gated dynamic statement or a dedicated PG17 deployment lane, plus a live catalog assertion. Do not add a PG17-only privilege name to a migration that must execute on PG16 without a compatibility guard. Do not revoke service_role MAINTAIN globally without reviewing platform and server operations.
+
+### 67.5 Verification boundary and next step
+
+The device sequence migration is repository-only. No live sequence ACL, default ACL, table, role membership or device record was changed. The current source and catalog review does not prove that a device verifier/worker is deployed or actively writing; service_role's USAGE/SELECT grant is preserved for the explicitly intended server-side writer boundary.
+
+**Next task:** reconcile the remaining client sequence grants against all table-specific server/trigger/RPC write paths, then build a single explicit sequence-grant inventory test. Preserve the logger's identity sequence requirement for `api_operation_logs`; distinguish server-side INSERT from read-only and trigger-only tables. Follow with a PG17-specific MAINTAIN review.
+
+**References:** Sections 20–23, 26, 33, 53–66; `20261122050845_device_security_registry_foundation.sql`; `20261122050841_restrict_operational_table_writes.sql`; `20261122050843_restrict_core_table_destructive_privileges.sql`; `20261125020846_account_lifecycle_fcm_token_guards.sql`; `20261126180000_restrict_device_registry_sequences.sql`; `tools/test_device_security_privileges.sql`; PostgreSQL [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
