@@ -48,7 +48,9 @@ assert "not client-callable" in crosswalk
 assert "api_admin_list_account_lifecycle_events(integer,integer)" in crosswalk
 assert "13 authenticated-callable private security definer helpers" in crosswalk
 assert "14 authenticated-callable application api invoker functions" in crosswalk
+assert "11 authenticated-callable application API invoker functions after the legacy requester-create EXECUTE revocation" in crosswalk
 assert "38 authenticated-callable public api functions" in crosswalk
+assert "35 authenticated-callable public API functions after the legacy requester-create EXECUTE revocation" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
 assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md").is_file()
