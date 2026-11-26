@@ -1,3 +1,14 @@
+## TACResQ Admin IPS reusable skill — 2026-11-26
+
+- Created repository skill `.agents/skills/tacresq-admin-ips/SKILL.md` to operationalize the canonical Admin IPS redesign blueprint.
+- The skill links to `docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md` rather than duplicating its detailed evidence. It defines activation triggers, repository-first workflow, Admin IPS product boundaries, theme preservation, existing collapsible sidebar correction, page-specific layouts, adaptive design, SVG icon conventions, accessibility, IDS/IPS/security invariants, validation, and completion checklist.
+- Repository convention check: no existing `SKILL.md` or skill directory was present; `AGENTS.md` and `docs/AGENT_WORKFLOW.md` remain governing instructions. Skill is placed under `.agents/skills/tacresq-admin-ips/`.
+- **Commit:** `aadee9d7e1f18a28552c1921cd06ece0a64a733f`.
+- **Validation:** Skill file created on existing branch; fetch it back and verify content/links. No application code, backend, database, or deployment changed. No skill runtime/tool invocation test was run.
+- **Next:** Verify skill file and PR head/CI, then continue the next requested Admin IPS task under this skill.
+
+---
+
 ## Laravel root-route test syntax follow-up — 2026-11-18
 
 - The first rerun reached PHPUnit and exposed a PHP parse error in the newly added `ExampleTest.php`: the namespace separators had been written as doubled literal backslashes.
