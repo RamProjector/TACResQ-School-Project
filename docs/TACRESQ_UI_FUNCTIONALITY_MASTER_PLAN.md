@@ -6852,7 +6852,7 @@ The live `api_unregister_fcm_token(text)` deliberately does not require active a
 
 ### 54.7 Non-RPC definer routines
 
-Other public SECURITY DEFINER functions are not authenticated-callable RPCs; examples include trigger functions and FCM delivery worker routines. Preserve their lack of client EXECUTE. Verify trigger bindings and service/job callers separately. This reinforces the Section 53 finding on `tacresq_require_incident_location()`: trigger-only intent should be reflected in effective grants, but direct-call revocation must be tested against normal trigger execution.
+Other public SECURITY DEFINER functions are not authenticated-callable RPCs; examples include trigger functions and FCM delivery worker routines. Preserve their lack of client EXECUTE. Verify trigger bindings and service/job callers separately. This reinforces the Section 30 trigger-only grant finding on `public.tacresq_require_incident_location()`: trigger-only intent should be reflected in effective grants, but direct-call revocation must be tested against normal trigger execution.
 
 ### 54.8 Review disposition and next actions
 
@@ -6863,3 +6863,64 @@ Other public SECURITY DEFINER functions are not authenticated-callable RPCs; exa
 **Not established:** no same-valid-JWT integration tests, full clean migration replay, live source/function hash reconciliation, authenticated HTTP Storage tests, Deno provider-spy tests, Render/Sanctum runtime tests or Android end-to-end tests were run here. No exploit or unauthorized access was demonstrated.
 
 **Next sequence:** (1) add mark-read guard and tests to the migration plan; (2) reconcile the 15 public SECURITY INVOKER functions and 13 private callable SECURITY DEFINER helpers; (3) run clean replay and same-valid-JWT tests; (4) reconcile migration history; (5) retain the trigger-only EXECUTE finding until reviewed migration rollout. No live schema, grants, data, policy, Auth, Storage, Render or Android setting was changed.
+
+
+---
+
+## 55. RPC authorization runtime regression plan — suspended JWTs, notification read, FCM cleanup, and trigger-only grants
+
+**Research date:** 2026-11-26  
+**Source audit:** Section 54  
+**Executable test specification:** `docs/QA_RPC_AUTHORIZATION_RUNTIME_MATRIX.md`
+
+### 55.1 Confirmed narrow inconsistency
+
+The Section 54 connected-database audit found that `public.api_mark_notification_read(bigint)` resolves the caller by `auth.uid()` and restricts its update to the caller's own notification, but does not enforce active account status. The repository's original migration `20261105235009_persistent_in_app_notifications.sql` contains the same profile lookup and caller-owned recipient predicate. The effect is narrow: a suspended account retaining a valid JWT can still mark its own notification as read. The reviewed body does not establish a cross-user notification mutation.
+
+**Recommended correction:** a new forward migration should resolve the caller through the established active-profile helper (or an equivalent active, row-locking check), while preserving notification ID + recipient profile ID ownership and false/not-found behavior. Test active success, cross-owner denial, and suspended same-valid-JWT denial. Do not change the hosted function until explicitly approved.
+
+### 55.2 Preserve the FCM self-unregister exception
+
+Migration `20261125020846_account_lifecycle_fcm_token_guards.sql` intentionally provides `private.tacresq_auth_profile_id_for_token_cleanup()` and `public.api_unregister_fcm_token(text)` so a suspended user can remove only their own exact installation token during sign-out cleanup. This is a deliberate narrow exception, not a missing active guard.
+
+Runtime coverage must prove:
+- suspended user can unregister own exact token;
+- suspended user cannot unregister another user's token;
+- suspended user cannot list, register, or update tokens;
+- cleanup does not broaden direct table mutation or leave its transaction-local exception flag active.
+
+Do not mechanically replace the cleanup resolver with the active-only helper.
+
+### 55.3 Trigger-only function grant invariant
+
+`public.tacresq_require_incident_location()` is a trigger function, not an application RPC. The desired boundary is no direct client EXECUTE while the database trigger can still invoke it during normal DML. Test both halves: direct calls are denied, and real INSERT/UPDATE statements still invoke the trigger and enforce the location invariant. This is distinct from changing the trigger binding or weakening the location rule.
+
+### 55.4 Complete API/helper grant inventory
+
+Use exact application signatures, not a raw count of every function in the `public` schema, because extensions can add public-schema routines. Reconcile:
+- 24 public SECURITY DEFINER application entry points;
+- 14 public SECURITY INVOKER application entry points;
+- 13 authenticated-callable private SECURITY DEFINER helpers;
+- the separate trigger-only public function;
+- the intentional data-free anon health RPC;
+- the legacy authenticated-callable `api_admin_list_audit_logs(integer)` compatibility surface.
+
+For each signature, record owner, security mode, pinned search path, anon/authenticated EXECUTE, helper dependencies, role/ownership requirements, active-account requirement, and intended caller. Do not revoke the legacy audit-list grant until Android, Admin web, Laravel, and supported external callers are traced.
+
+### 55.5 Same-valid-JWT test requirement
+
+A valid test must:
+1. create a synthetic local Auth user and sign in;
+2. retain that access token;
+3. suspend the corresponding profile through an owner-controlled fixture connection;
+4. replay the **same token** against PostgREST/RPC endpoints;
+5. verify denied operations and unchanged database rows;
+6. separately verify the explicit FCM self-unregister exception.
+
+A sign-out, session deletion, or fresh token would not prove that a still-valid suspended session is blocked. These tests belong in the disposable local Supabase runtime layer, not a connected production project.
+
+### 55.6 Test and rollout disposition
+
+The exact test cases and expected evidence are in `docs/QA_RPC_AUTHORIZATION_RUNTIME_MATRIX.md`. The local Supabase plan in Section 53 should include NR-01–05, FCM-01–06, TRG-01–03 and ADM-01–05 before the runtime suite is considered complete.
+
+This is a test specification and source/migration review only. No migration, grant, policy, hosted RPC, Auth account, token, notification, or live database state was changed. The mark-read correction requires a new migration, clean local replay, same-valid-JWT runtime test, and separate deployment approval.
