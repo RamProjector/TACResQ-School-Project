@@ -1919,3 +1919,82 @@ The Admin portal must distinguish these states instead of showing one misleading
 - [ ] Keep detection, authentication history, lifecycle success events, and provider health as distinct sources in the Admin UI.
 
 **Reviewed source anchors:** 20261125020823_account_lifecycle_identity_helpers.sql, 20261125020833_account_lifecycle_read_rpc_guards.sql, 20261125020835_account_lifecycle_assignment_helper_guard.sql, 20261125020840_account_lifecycle_chat_idempotency_guards.sql, 20261125020842_account_lifecycle_write_rpc_entry_guards.sql, 20261125020846_account_lifecycle_fcm_token_guards.sql, 20261125020856_account_lifecycle_dispatch_progress_guard.sql, 20261125020857_account_lifecycle_team_assignment_guard.sql, 20261125020859_account_lifecycle_assignment_release_guard.sql, 20261125020901_account_lifecycle_location_writer_guard.sql, 20261125020903_account_lifecycle_dispatcher_directory_guard.sql, tacresq-notify/index.ts, SupabaseBridgeTest.php, and legacy-sanctum-account-lifecycle-boundary.md. Repository-source findings only; no connected provider state is asserted.
+
+
+## 29. Database callable authorization baseline and stale-matrix reconciliation
+
+### 29.1 Current source-contract baseline
+
+The current branch contains executable SQL inventory contracts that define the expected callable surface:
+
+| Surface | Expected count | Evidence |
+|---|---:|---|
+| Authenticated-callable public functions | 75 | Public callable inventory contract |
+| Public SECURITY DEFINER functions | 24 | Exact-signature inventory and aggregate count assertion |
+| Public SECURITY INVOKER functions | 51 | Aggregate count assertion |
+| Authenticated-callable private SECURITY DEFINER helpers | 13 | Exact-signature private inventory contract |
+
+The public inventory is enforced by tools/test_account_suspension_definer_inventory.sql. It enumerates 24 exact public definer signatures and asserts 75 total authenticated-callable public functions, split 24/51. The private inventory is enforced by tools/test_account_suspension_private_definer_inventory.sql and enumerates 13 exact private definer signatures. These are expected clean-replay contract values, not a newly executed live or disposable catalog snapshot in this review. Do not label them as a fresh replay result until the current candidate commit's replay job completes and its output is inspected.
+
+The twelve-helper figure in older documents is stale. The exact current private contract includes:
+- private.tacresq_active_responder_locations()
+- private.tacresq_actor_role()
+- private.tacresq_assign_incident_team_guarded(bigint,bigint[])
+- private.tacresq_auth_can_access_incident_chat(bigint)
+- private.tacresq_auth_profile_id()
+- private.tacresq_auth_profile_id_for_token_cleanup()
+- private.tacresq_current_account_active()
+- private.tacresq_current_account_active_read()
+- private.tacresq_dispatch_update_incident_status(bigint,text)
+- private.tacresq_is_incident_assignee(bigint)
+- private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz)
+- private.tacresq_release_incident_assignment(bigint,bigint)
+- private.tacresq_upload_reservation_allows_insert(text,text,bigint)
+
+Do not confuse directly callable private helpers with private internal functions whose EXECUTE privilege is revoked from client roles. Both groups require review, but only the former belong in the authenticated-callable total.
+
+### 29.2 Corrections to stale review records
+
+The following historical records must not be used as the current authorization register without the corrections recorded here:
+
+- The clean-replay snapshot reports 74 public functions, 23 public definers, and twelve private definers. Those figures are superseded by the current source contracts: 75 / 24 / 51 public and 13 callable private definers. The old snapshot's table/policy counts are historical observations from its original replay, not current counts.
+- The signature-matrix index repeats the old 74 / 23 / 51 and eleven-private figures. Its baseline must point to the current contract values while retaining the historical snapshot as dated evidence.
+- Batch 24 incorrectly labels the duty-status signature unresolved. The current exact signature is public.api_set_duty_status(text), implemented as SECURITY INVOKER with an authenticated grant and active responder/driver check under a profile FOR UPDATE lock.
+- Batch 24's public team-assignment RPC is SECURITY INVOKER, not SECURITY DEFINER. It delegates to private.tacresq_assign_incident_team_guarded(bigint,bigint[]), which is SECURITY DEFINER and authenticated-callable. The preserved underlying implementation has client EXECUTE revoked.
+- Batch 25 omits the exact reservation signature. It is public.api_reserve_incident_image_upload(bigint,text,bigint,uuid).
+- Batch 20 calls api_unregister_fcm_token(text) an invoker path. The current crosswalk and public definer inventory classify it as authenticated-callable SECURITY DEFINER with narrowly scoped self-token cleanup. Do not weaken that ownership boundary.
+- The older matrix's 52-invoker statement is inconsistent with the current 51-invoker aggregate assertion. Treat 52 as historical and verify extension-provided routines separately from TACResQ application RPCs.
+
+### 29.3 Invoker authorization is a full database-boundary review
+
+For each of the 51 public invokers, the release review must establish:
+1. Exact regprocedure signature, owner, execution mode, volatility, pinned search_path, effective authenticated/anon/PUBLIC grants.
+2. Direct table, view, sequence, schema, and column privileges used by its body.
+3. Every RLS policy on every referenced relation, including permissive OR composition and restrictive AND composition.
+4. Whether any referenced view is security-invoker or executes with owner privileges; materialized views require separate stored-data and refresh-owner analysis.
+5. Nested helper calls, including private SECURITY DEFINER helpers, and their effective grants and caller assumptions.
+6. Trigger-mediated writes and side effects, including lock order and whether all effects remain in the initiating transaction.
+7. Same-valid-JWT active and suspended tests for each protected operation, plus positive tests for intentionally retained narrow exceptions.
+
+The current read-only inventory SQL reports public views and materialized views, effective client relation/column privileges, triggers, sequences, schema privileges, role membership in elevated roles, default ACLs, and anon-callable routines. It also prints private SECURITY DEFINER bodies. This is valuable catalog discovery but does not parse a complete transitive function-call graph, prove view security semantics by itself, or execute runtime denial tests. Reviewers must inspect the actual view options/owners, nested source bodies, RLS predicates, and exact replay output.
+
+### 29.4 Application functions versus extension routines
+
+The aggregate public invoker count includes functions that are not TACResQ business RPCs, including extension-provided crypto routines. Keep two inventories:
+- TACResQ application entry points, mapped to Android, Admin web, Laravel, direct PostgREST, and Storage call sites.
+- Extension-provided functions, reviewed for schema exposure, grants, and unintended access to sensitive values but not misrepresented as application workflows.
+
+A function name match or a public schema location alone does not establish that Android or the Admin portal calls it.
+
+### 29.5 Required exact-head evidence and release gate
+
+- [ ] Run the full migration replay at the exact PR head and archive the resulting public/private callable catalog.
+- [ ] Confirm the 75/24/51 and 13 contracts against the actual replay output, not only source assertions.
+- [ ] Reconcile all 51 invoker signatures individually, separating application and extension functions.
+- [ ] Inspect view owner/options, materialized-view contents and refresh authority, direct grants, RLS policy composition, triggers, and nested helper calls.
+- [ ] Confirm no unexpected anon/PUBLIC execution, client schema CREATE, elevated role inheritance, or unsafe default ACL.
+- [ ] Run same-valid-JWT tests for direct RPC, direct table/view reads and writes, private callable helpers, Storage HTTP paths, and service-role Edge Function paths.
+- [ ] Run concurrency tests for suspension against assignment, claim, release, duty, location, incident progress, chat, and notification operations.
+- [ ] Keep the Supabase profile lifecycle and Laravel Sanctum lifecycle as separate identity domains unless a verified immutable mapping and explicit transition contract are implemented.
+
+**Evidence boundary:** The counts above are source-contract expectations on the reviewed branch. They are not a fresh production catalog, a fresh PostgreSQL replay result, or proof that every runtime path is secure. Do not mark the authorization audit complete until exact-head replay output and the still-valid-JWT integration matrix have been inspected.
