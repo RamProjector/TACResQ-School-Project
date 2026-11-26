@@ -477,3 +477,28 @@ for required in (
     "has_function_privilege('service_role', 'public.tacresq_require_incident_location()', 'execute')",
 ):
     assert required in foundation_sql, f"Trigger-only function replay contract is missing: {required}"
+
+
+private_inventory = (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "cardinality(expected_signatures) <> 13",
+    "has_schema_privilege('authenticated', 'private', 'usage')",
+    "has_schema_privilege('anon', 'private', 'usage')",
+    "private.tacresq_active_responder_locations_internal()",
+    "private.tacresq_assign_incident_team(bigint,bigint[])",
+    "private.tacresq_can_access_incident_chat(bigint,bigint)",
+    "private.tacresq_record_location_v2_internal",
+    "private.tacresq_release_incident_assignment_internal",
+    "internal private implementation must remain non-client-executable",
+):
+    assert required in private_inventory, f"Private helper grant boundary is incomplete: {required}"
+
+private_crosswalk = (ROOT / "docs/security/admin-account-suspension-callable-definer-crosswalk.md").read_text(encoding="utf-8").lower()
+for required in (
+    "private callable-helper dependency audit",
+    "tacresq_auth_profile_id_for_token_cleanup",
+    "tacresq_current_account_active_read",
+    "the private schema is intentionally not in the data api surface",
+    "leaked-password protection is disabled",
+):
+    assert required in private_crosswalk, f"Private helper audit documentation is incomplete: {required}"
