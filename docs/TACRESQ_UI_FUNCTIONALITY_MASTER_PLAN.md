@@ -2683,3 +2683,144 @@ Use Material 3 as a supplement to the existing WCAG 2.2 acceptance baseline, not
 - [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/)
 
 **Evidence boundary:** This section records researched design guidance and a proposed application plan. It does not claim that the portal has been redesigned, that Material components have been installed, or that browser/accessibility acceptance testing has passed.
+
+
+
+## 37. Material 3-informed administrative data workflows: tables, search, forms, dialogs, and feedback
+
+**Research date:** 2026-11-26.  
+**Scope:** Extend Section 36 from adaptive composition into the high-frequency interactions used by Admin IPS operators. Material 3 is a behavior and consistency reference; retain TACResQ's existing theme, React stack, current API contracts, and custom administrative icon family.
+
+### 37.1 Administrative table design is about comparison and action, not decoration
+
+Material's historical data-table guidance discusses column density, long headers, inline editing, and selection patterns. Its specific dp values belong to that older platform guidance and must not be copied as web CSS constants. Use the principles only: preserve meaning, keep comparable values aligned, and make editing explicit. See [Material data-table guidance](https://m1.material.io/components/data-tables.html).
+
+For TACResQ:
+- Use semantic HTML tables for genuinely tabular records, with caption, column headers, correct header scope, and row identity. Do not use ARIA grid semantics unless implementing the full keyboard interaction model of a grid.
+- Keep the header row visually stable when scrolling long result sets; ensure sticky headers do not cover focused cells or anchor targets.
+- Use a compact row height only while text remains legible and controls remain operable. Dense is not synonymous with tiny.
+- Keep primary identity and decision-critical status visible. Secondary metadata can be revealed in a row-detail pane or responsive detail view.
+- Do not truncate the only copy of a critical identifier, permission, timestamp, error, or audit description. If truncation is necessary, provide a reliable keyboard-accessible disclosure or detail view, not hover-only text.
+- Prefer horizontal scrolling for genuinely wide analytical tables over silently deleting important fields; provide a visible indication that more columns exist and keep the first identifying column usable where technically reliable.
+- Avoid nested interactive controls inside clickable rows. Give each action its own button/link and prevent ambiguous row activation.
+- Use selection checkboxes only when a real bulk operation exists. Show selected count and scope; clear selection when filters or page context make it ambiguous.
+- Preserve sorting/filter/page state across refresh where appropriate, but reset invalid page offsets when result counts shrink.
+- Make empty, no-match, loading, partial, stale, unavailable, and failed states distinct.
+
+### 37.2 Table actions and inline editing
+
+- Use inline editing only for short, low-risk values with an obvious save/cancel path and a clear changed-state indicator.
+- For security-sensitive changes (role, account status, permissions, MFA, access policy), use a deliberate confirmation workflow that names the target, old value, new value, required reason, and expected effect.
+- Do not use a menu as the only discoverability mechanism for critical actions. Keep frequent actions visible; place secondary actions in a clearly named overflow menu.
+- Menu triggers must expose expanded state and accessible name. Menus must support keyboard operation, predictable focus entry/return, Escape dismissal, and correct disabled/selected semantics. Material Web's menu documentation illustrates anchored positioning and keyboard/typeahead behavior; it is reference behavior, not a requirement to install Material Web. [Material Web menu](https://github.com/material-components/material-web/blob/main/docs/components/menu.md)
+- Never treat a hidden/disabled menu item as authorization. Every privileged mutation remains enforced by the existing database/RPC boundary.
+
+### 37.3 Search and filters: make scope visible
+
+Material's search guidance distinguishes search within a specific view from global search, and recommends choosing an entry point according to the task. For Admin IPS, avoid a global search box that implies access to every source or record when the backend does not provide that capability. See [Material search guidance](https://www.getbook.com/en/book/material-design-3/components/search/guidelines).
+
+Requirements:
+- Label search scope explicitly, e.g. “Search users” or “Search investigation events”, not a generic “Search everything”.
+- Keep search and filters close to the result set they affect.
+- Distinguish text search from structured filters (source, actor, target, category, date range, status).
+- Show active filters as removable chips or a concise filter summary, and provide a clear reset action.
+- Preserve independent filters and pagination for the existing investigation and lifecycle streams; do not visually imply they are one unified feed.
+- Display result count only when it is authoritative for the current query and page scope. Do not invent a total from a partial page.
+- Debounce only text input where appropriate; explicit filter selections should have understandable apply behavior. Avoid firing duplicate expensive requests on every keystroke.
+- Expose loading and query failure separately from a genuine zero-result state.
+- Ensure search works by keyboard and assistive technology; suggestions must not steal focus or obscure the current value.
+- Do not add cross-source global search until a defined backend query, source authorization, retention, and pagination contract exists.
+
+### 37.4 Forms: validation should prevent mistakes and explain recovery
+
+Use a consistent form pattern across Admin settings and privileged dialogs:
+1. A concise title naming the task.
+2. Fields with persistent, programmatically associated labels.
+3. Constraints and examples before the user commits where they materially prevent mistakes.
+4. Field-level error text plus an error summary when a multi-field submission has several errors.
+5. Preserve safe user-entered values after validation or network failure.
+6. Move focus to the error summary or first invalid field in a predictable manner.
+7. Distinguish client validation from server/RPC rejection; server authority always wins.
+8. Do not clear a form on an ambiguous transport outcome; show “outcome unconfirmed” and provide a safe refresh/reconciliation path.
+
+For role changes and account lifecycle:
+- Show target identity and current role/status before mutation.
+- Show the exact requested new value and reason.
+- Preserve the existing reason-length and role allowlist contract.
+- Treat stale-state conflicts as a request to refresh and review, not as a generic failure or an automatic retry.
+- Never report success before the RPC confirms it.
+- Do not add fields or controls for unsupported capabilities (e.g. arbitrary permission editing or cross-system account synchronization).
+
+W3C guidance requires errors to be identified in text or a text alternative; the presentation can be inline, in a summary, or both depending on complexity. [W3C error identification](https://www.w3.org/WAI/WCAG22/Understanding/error-identification)
+
+### 37.5 Dialogs and confirmation flows
+
+Material Web's dialog reference demonstrates headline/content/action regions, labelled dialogs, alert-dialog semantics, and focus trapping. Apply the interaction contract while keeping the existing component stack. [Material Web dialog](https://github.com/material-components/material-web/blob/main/docs/components/dialog.md)
+
+- Use dialogs for focused decisions, not as a substitute for a full multi-step workspace.
+- Use an alert/confirmation dialog only when the consequence warrants interruption (delete, suspend, revoke, or another high-impact action).
+- Dialog title must identify the action; body must identify the affected target and consequence.
+- Primary and secondary actions must be unambiguous; destructive action labels should name the verb, not say “OK”.
+- Keep the dialog within the viewport at high zoom and short heights; content scrolls inside the dialog while actions remain reachable.
+- Trap focus while modal, support Escape when cancellation is safe, and restore focus to the invoking control.
+- If the operation is long-running, show pending state and prevent duplicate submission.
+- If the server result is ambiguous, do not close and imply completion; preserve context and explain how to verify the result.
+- Do not use a modal for every small edit; inline or side-pane editing can preserve context for low-risk tasks.
+
+### 37.6 Feedback and status vocabulary
+
+Use a small, stable state vocabulary across all pages:
+- **Loading:** request in progress; avoid displaying stale data as if refreshed.
+- **Current:** latest successful read with a visible last-checked time when operationally important.
+- **Stale:** last known data remains visible but a refresh has not confirmed it.
+- **Partial:** some sources responded and others did not; identify which.
+- **Unavailable:** the source or feature is not connected/configured.
+- **Empty:** successful query with no records.
+- **No matches:** filters/search returned no matching records.
+- **Error:** request failed; explain safe next action.
+- **Pending:** mutation submitted but not yet confirmed.
+- **Confirmed:** server returned the expected successful outcome.
+- **Outcome unconfirmed:** transport failed after submission or response was ambiguous; reconcile state before retry.
+
+Do not use green/red alone. Pair status with concise text and, where useful, a semantic icon. Avoid duplicate toast, banner, and inline messages that repeat the same content. Persistent security warnings should not disappear as transient toasts.
+
+### 37.7 Accessibility requirements that directly affect implementation
+
+The WCAG 2.2 baseline remains the normative accessibility target; Material patterns do not override it. [WCAG 2.2](https://www.w3.org/TR/WCAG22/)
+
+- All functionality keyboard-operable; no keyboard traps.
+- Visible focus indicator with adequate contrast and not hidden by sticky headers, drawers, or dialogs.
+- Minimum target size follows WCAG 2.2 AA 24 × 24 CSS px or its defined exceptions; choose larger targets where space permits, especially for frequent actions.
+- Use real buttons for actions and links for navigation.
+- Provide labels and accessible names for icon-only controls; decorative SVGs are hidden from assistive technology.
+- Announce async state changes through appropriate live regions without making the whole page noisy.
+- Respect zoom/reflow; no loss of function or two-dimensional scrolling except where content intrinsically requires it (such as a wide data table).
+- Tables must have meaningful headers and relationships; avoid over-complex nested structures.
+- Provide a skip link and meaningful page landmarks/headings; keep page titles descriptive.
+- Test with keyboard, screen reader, zoom, touch, and reduced motion—not only automated axe-style scans.
+
+Useful references: [W3C navigation design](https://www.w3.org/WAI/curricula/designer-modules/navigation-design/), [W3C design accessibility tips](https://www.w3.org/WAI/tips/designing/), [Chrome accessibility coding guidance](https://developer.chrome.com/docs/modern-web-guidance/guides/accessibility/accessibility).
+
+### 37.8 Page-specific application to the current TACResQ Admin portal
+
+| Page | Design requirements |
+|---|---|
+| User management | Search users within the directory; keep role/status and account identity easy to compare; open selected account details in a side pane on wide layouts; privileged actions show current and proposed state and reason |
+| Activity / investigation | Filters belong to the investigation feed; retain source, actor, target, category, date, and incident scope; detail pane exposes event provenance without pretending the feed is complete |
+| Account lifecycle | Keep lifecycle events as a distinct stream with independent pagination; stale state and active-assignment conflicts receive specific explanations |
+| Security | Separate verified authentication/provider events, application audit, denied operations, and unavailable sources; never imply a single complete security timeline |
+| Analytics | Show definition, source, period, and freshness for each metric; do not imply a metric is real-time unless its source and refresh support that claim |
+| Data & continuity | Guidance-only backup and attachment safeguards remain visibly non-operational until live provider evidence and approved workflows exist |
+| Settings | Group settings by purpose; make unsaved changes visible; avoid exposing unsupported role/permission or system policy controls |
+
+### 37.9 Implementation and verification sequence
+
+1. Build a shared semantic table wrapper and verify it against User Management and both Activity streams.
+2. Standardize search/filter toolbar behavior without merging independent data streams.
+3. Standardize privileged forms and dialogs around existing RPC contracts.
+4. Introduce one consistent async state model (loading/current/stale/partial/unavailable/error/pending/confirmed/outcome-unconfirmed).
+5. Validate keyboard and screen-reader behavior for tables, menus, dialogs, filter chips, and side panes.
+6. Verify all layouts against the established viewport matrix, browser zoom, split-window, and short-height cases.
+7. Run source/API regression tests to ensure UI changes do not change authorization, data scope, mutation semantics, or backend calls.
+
+**Evidence boundary:** These are design requirements derived from Material and W3C guidance and the already documented TACResQ source audit. They do not assert that the current UI or backend already implements every behavior, and they do not authorize new data access, privileges, APIs, or paid dependencies.
