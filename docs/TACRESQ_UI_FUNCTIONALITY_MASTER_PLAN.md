@@ -589,3 +589,227 @@ Use these as supporting guidance. Re-check current versions and applicability du
 Update this file when the Admin navigation, page capabilities, theme tokens, icon system, responsive architecture, or acceptance gates materially change. Keep source-backed facts distinct from recommendations. If another document covers a narrow topic (for example, security-event coverage or the operator guide), link to it rather than duplicating its entire content here.
 
 **This plan is the final design direction:** complete TACResQ Admin IPS web UI/UX redesign, existing theme preserved, concise professional interface, distinctive administrative SVG icons, real responsive behavior, and all current authorized functionality retained.
+
+
+---
+
+## 17. Additional research — administrative workflows and data-intensive interfaces
+
+This section extends the existing design foundation with implementation guidance for a real administrative information system. These are design requirements and research conclusions, not claims that every capability already exists in TACResQ. Confirm each capability against current source, schema, RPCs, and authorization before implementing it.
+
+### 17.1 Record lifecycle and end-to-end workflows
+
+Design around the complete lifecycle of an administrative record, not isolated screens.
+
+For every existing record type, document:
+- Who can create, view, search, edit, review, export, archive, or delete it.
+- Which fields are required, optional, immutable, or system-generated.
+- Which state transitions are valid and who may perform them.
+- What reason, confirmation, or supporting evidence is required for consequential changes.
+- What happens when a save fails, a session expires, or another administrator changes the same record.
+- Which events must be auditable and how the user can inspect the resulting history.
+
+Create a workflow map for each current Admin capability: entry point → search/select → inspect → permitted action → confirmation → result → audit/history. Do not add lifecycle states or actions that are not supported by the backend.
+
+**Design implication:** use a directory/list for finding records, a focused detail view for understanding one record, and contextual actions for operations on that record. Avoid forcing users through a dashboard card for every step.
+
+### 17.2 Data tables and record directories
+
+Tables are primary working surfaces in an Admin IPS. Treat them as structured tools, not decorative content.
+
+Required patterns:
+- Clear column names and semantic table headers.
+- Stable row identity and predictable row actions.
+- Sort indicators that disclose the active sort column and direction.
+- Search and filters that apply to the complete result set, not only the currently visible page.
+- Visible active filters with a simple way to clear one or all.
+- Pagination that preserves the current query and filters when moving between pages.
+- A clear result count and current page context.
+- Column widths that prioritize the fields administrators actually use.
+- Local horizontal scrolling or a deliberate compact/stacked alternative for genuinely wide tables; never cause accidental page-wide horizontal overflow.
+- Loading, no-results, empty, error, stale, and permission-denied states.
+- Selection checkboxes only when a real bulk action exists.
+- Row click behavior that does not conflict with nested buttons, links, or checkboxes.
+
+Do not make every column sortable or every field a visible column by default. Prioritize the common decision-making fields and place secondary data in a detail panel.
+
+### 17.3 Search, filtering, and query persistence
+
+Search should help administrators find known records quickly and understand why a result matched.
+
+Specify:
+- Which fields are searchable and whether matching is exact, prefix, or partial.
+- Whether search is case-insensitive and how punctuation/spacing are normalized.
+- How search combines with role, status, date, and other filters.
+- Whether filters are server-side and whether counts reflect the full filtered result set.
+- What happens when a query returns no matches.
+- Whether query state is preserved in the URL so browser Back/Forward, refresh, and shareable links behave predictably.
+- Debounce behavior and cancellation of stale requests.
+- Clear/reset behavior that does not unexpectedly discard unrelated page state.
+
+Avoid an unexplained universal search box if the backend only searches one dataset. Label the search scope accurately.
+
+### 17.4 Bulk actions and imports/exports
+
+Bulk actions can save time but amplify mistakes. Add them only where the existing data model and backend support safe batch operations.
+
+Before implementation, require:
+- Explicit selection count and clear all/none behavior.
+- A preview of the affected records and the exact change.
+- Permission checks for every affected record, not only the first selected row.
+- A reason and confirmation for consequential changes.
+- Defined partial-failure behavior and per-record results.
+- Idempotency or safe retry behavior where supported.
+- An audit event for each affected record or a traceable batch event with item-level outcomes.
+- A safe maximum batch size and clear progress feedback.
+
+For exports, show the applied filters, date range, timezone, included columns, and record count. Keep exports permission-checked and protect CSV output against spreadsheet formula injection. Do not imply that a download contains every record if it is limited to the current page.
+
+Imports must not be introduced merely as a convenience. They require schema validation, duplicate handling, preview, rollback/partial-failure rules, and auditability.
+
+### 17.5 Forms and validation
+
+Use persistent labels, logical grouping, and concise help text only where a field is ambiguous or has consequential requirements.
+
+Recommended form behavior:
+- Validate required and format constraints at the appropriate point without surprising users.
+- Show an error beside the affected field and provide a concise summary for long forms.
+- Link summary errors to the corresponding fields and move focus appropriately after failed submission.
+- Preserve valid entered values when validation or network submission fails.
+- Distinguish field errors, permission errors, network failures, and server conflicts.
+- Explain constraints before submission when users need them to complete the form correctly.
+- Disable duplicate submission while a request is in flight, but do not leave the user with an indefinite spinner.
+- Confirm navigation away only when meaningful unsaved work would be lost.
+- Use explicit save/cancel actions; do not silently autosave privileged or consequential changes.
+- Use confirmation dialogs for irreversible or high-impact actions, with the target and consequence named.
+
+Do not use placeholder text as the only label. Do not make every field show a long explanatory paragraph. Keep security and privacy explanations when they materially affect the user's decision.
+
+### 17.6 Audit trails and activity investigation
+
+Separate operational activity feeds from security audit logs unless source coverage and semantics prove they are the same dataset.
+
+For each event, establish which fields are actually available:
+- Event/action type.
+- Actor identity or system actor.
+- Target record and stable identifier.
+- Timestamp and timezone.
+- Outcome (success, denied, failed, pending) where recorded.
+- Source/channel and correlation/request identifier where available.
+- Reason or change summary where safe and supported.
+
+Audit views should support time range, actor, event type, target, and outcome filters only when the underlying records support them. Keep event details expandable and avoid exposing secrets, session tokens, MFA material, or unnecessary personal data.
+
+Show coverage limitations and retention boundaries. A missing event is not proof that an action did not occur. Never label a partial activity feed as a complete system-wide audit trail.
+
+### 17.7 Permissions and privileged-action UX
+
+Use least privilege and defense in depth:
+- Backend authorization remains authoritative for every read and write.
+- The frontend should explain unavailable actions without exposing privileged data.
+- Hide or disable controls based on verified permission context, but never rely on UI visibility as enforcement.
+- Distinguish “not authorized”, “not configured”, “not available”, and “temporarily failed”.
+- Require stronger confirmation for high-impact actions, with a reason where policy requires it.
+- Do not expose privilege escalation, admin provisioning, role grants, account deletion, or security-policy controls unless the backend has a reviewed and auditable implementation.
+- Keep session and MFA state understandable without displaying secrets or implying a stronger assurance level than the backend reports.
+
+### 17.8 Concurrent edits, stale data, and recovery
+
+Administrative records may be changed by more than one operator. Define behavior for:
+- A record changing after the detail view was loaded.
+- A save conflicting with a newer version.
+- A session expiring during an edit.
+- A network interruption during submission.
+- A retry after an uncertain response.
+- A record becoming inaccessible before the action completes.
+
+Show when data was last refreshed if freshness matters. Prefer an explicit conflict state with a reload/review path over silently overwriting newer data. Preserve user-entered data where safe. Do not claim a mutation failed if the server may have completed it; reconcile the result before allowing a duplicate action.
+
+### 17.9 Notifications and feedback
+
+Use notifications for events that need attention, not as a second activity log.
+
+Define:
+- Which events warrant an in-app notification.
+- Severity and urgency semantics.
+- Read/unread state and whether it is server-backed.
+- Destination when a notification is opened.
+- Dismissal and retention behavior.
+- How duplicate or repeated alerts are grouped.
+- What happens when the destination is no longer accessible.
+
+Use inline feedback for local actions, persistent banners for page-level conditions, and dialogs only when a decision is required. Avoid success toasts for actions that have not been confirmed by the server.
+
+### 17.10 Analytics and reporting integrity
+
+Every report must disclose enough context to interpret it:
+- Metric definition and unit.
+- Date range and timezone.
+- Aggregation level and filters.
+- Data freshness or last successful refresh, if known.
+- Missing-data or coverage limitations.
+- Whether values are live, cached, or historical.
+- Export scope and included fields.
+
+Use a chart only when it helps compare, trend, or understand a distribution. Provide a table or textual equivalent for exact values. Avoid 3D charts, decorative gauges, arbitrary color categories, and dashboards that repeat the same metric in multiple forms.
+
+Do not infer service quality, response performance, or system readiness from metrics that do not measure those outcomes.
+
+### 17.11 Reusable component and design-system governance
+
+Maintain one shared implementation for genuinely shared patterns:
+- Page header and action area.
+- Search/filter toolbar.
+- Data table and pagination.
+- Status label and state description.
+- Form field, field error, and error summary.
+- Confirmation dialog.
+- Empty/loading/error/unavailable state.
+- Detail panel and expandable event content.
+- Toast/banner feedback.
+- Icon button and tooltip.
+
+Document component states and interaction contracts, not just screenshots. Avoid a single giant “universal” component with many unrelated flags. A component should be shared when its semantics and behavior are shared, not merely because two pages look similar.
+
+### 17.12 Operational design acceptance checklist
+
+- [ ] Each existing Admin workflow is mapped from entry to completion.
+- [ ] Record actions and valid state transitions are backed by current server behavior.
+- [ ] Search/filter/sort/pagination operate on the complete intended result set.
+- [ ] Query state survives refresh and browser navigation where appropriate.
+- [ ] Bulk actions have preview, authorization, partial-failure handling, and audit evidence.
+- [ ] Forms preserve input and identify errors accessibly.
+- [ ] Concurrent updates cannot silently overwrite newer records.
+- [ ] Audit/activity views accurately state their source coverage and retention limits.
+- [ ] Permission failures are distinguishable from missing configuration and service errors.
+- [ ] Reports disclose units, period, timezone, freshness, and scope.
+- [ ] Every action has truthful pending/success/failure feedback.
+- [ ] Empty, loading, stale, unavailable, error, and no-permission states are designed consistently.
+- [ ] Shared components have documented states and keyboard behavior.
+
+---
+
+## 18. Additional research references
+
+These references extend the source list in Section 15. Apply the guidance selectively and verify current versions during implementation.
+
+### Administrative tables, navigation, and components
+- [GOV.UK Design System — Components](https://design-system.service.gov.uk/components/) — reusable component patterns and usage guidance.
+- [GOV.UK Design System — Pagination](https://design-system.service.gov.uk/components/pagination/) — responsive pagination, page context, and applying sort/filter behavior to the full result set.
+- [GOV.UK Design System — Error summary](https://design-system.service.gov.uk/components/error-summary/) — accessible form error summaries and field links.
+- [U.S. Web Design System — Patterns](https://designsystem.digital.gov/patterns/) — task-oriented patterns for complex forms and user profiles.
+- [U.S. Web Design System — Validation](https://designsystem.digital.gov/components/validation/) — validation guidance and documented usability/accessibility limitations of its validation component.
+
+### Accessibility and form behavior
+- [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/) — keyboard access, focus, reflow, target size, text alternatives, and input requirements.
+- [W3C WAI — Understanding Error Identification](https://www.w3.org/WAI/WCAG22/Understanding/error-identification) — errors must be identified in text or a text alternative; choose inline or summary patterns according to context.
+
+### Security, sessions, and logging
+- [OWASP ASVS 5.0 — Security Logging and Error Handling (V16)](https://github.com/OWASP/ASVS/blob/master/5.0/en/0x25-V16-Security-Logging-and-Error-Handling.md) — structured security-event logging, log protection, sensitive-data minimization, and secure error handling.
+- [OWASP ASVS 5.0 — Session Management (V7)](https://github.com/OWASP/ASVS/blob/master/5.0/en/0x16-V7-Session-Management.md) — unique sessions, invalidation, and inactivity timeouts.
+- [OWASP Application Security Verification Standard](https://owasp.org/www-project-application-security-verification-standard/) — broader verification framework for privileged web applications.
+
+### Application of research to TACResQ
+- These sources support interface and verification requirements; they do not establish that TACResQ currently has bulk editing, imports, complete audit coverage, concurrent-edit versioning, or notification preferences.
+- Confirm the current implementation and data contracts before specifying any of those features as deliverable behavior.
+- Keep the existing theme and the Admin IPS product identity unchanged.
