@@ -9762,3 +9762,52 @@ Do not claim WCAG 2.2 AA/AAA conformance from a source-contract test, automated 
 
 **Evidence boundary:** This is standards-based research and proposed acceptance criteria. No Admin page has been certified or newly tested for WCAG conformance by this documentation change. No application code, palette token, backend permission, schema, hosted service, or production configuration was changed.
 
+## Section 71 — PostgreSQL sequence and MAINTAIN privilege boundaries
+
+**Objective:** reconcile PostgreSQL 17 table-maintenance privileges and identity-sequence access with the actual callable writers. The changes below are forward-migration source and replay contracts only; they are not applied to the connected Supabase project.
+
+### 71.1 PostgreSQL 17 MAINTAIN is an operational capability
+
+The read-only live catalog reports PostgreSQL 17.11. On both `public.profiles` and `public.incidents`, the effective `MAINTAIN` privilege was true for `authenticated` and `service_role`; `anon` was false. The explicit ACL inventory showed grants to `authenticated` and `service_role` in addition to the owner.
+
+PostgreSQL 17 documents `MAINTAIN` as allowing `VACUUM`, `ANALYZE`, `CLUSTER`, `REFRESH MATERIALIZED VIEW`, `REINDEX`, and `LOCK TABLE` on a relation. These are not ordinary application CRUD permissions and are not required by the reviewed Admin or Android call paths.
+
+The existing forward migration `20261126170000_restrict_profile_update_to_duty_status.sql` already version-gates the PostgreSQL 17-only statement so PostgreSQL 16 can parse and replay the same migration. The branch change extends the revoke target to `PUBLIC, anon, authenticated, service_role`. The owner retains its inherent owner capabilities.
+
+### 71.2 Sequence privileges must follow the actual SECURITY INVOKER writer
+
+The sequence audit exposed why blanket sequence revocation is unsafe:
+
+| Sequence | Remaining caller path | Branch policy |
+|---|---|---|
+| `public.incidents_id_seq` | Legacy `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` remain authenticated-callable SECURITY INVOKER functions that insert into `public.incidents`. The newer `api_create_incident_v4` is SECURITY DEFINER, but that does not retire the independently callable legacy signatures. | Retain authenticated `USAGE` only until the legacy RPC grants are retired after supported-client and lifecycle-guard review. Revoke authenticated `SELECT` and `UPDATE`; no client `setval` capability. |
+| `public.location_logs_id_seq` | Direct authenticated INSERT on `location_logs` is revoked; the current client writer is a guarded SECURITY DEFINER path. The remaining legacy server-side invoker path is service-role scoped. | No authenticated sequence privileges. Preserve only the reviewed service-role `USAGE/SELECT` needed by the legacy server writer; revoke `UPDATE`. |
+| `public.api_operation_logs_id_seq` | Laravel's server-side operation logger directly inserts telemetry rows. | Preserve service-role sequence access for the direct insert path; no client grant. |
+| Device-registry identity sequences | Trusted backend device-verification writers create rows; clients do not write these tables directly. | Preserve service-role `USAGE/SELECT`; revoke client and service-role `UPDATE`. |
+
+The earlier draft incorrectly removed authenticated access to `incidents_id_seq` while leaving three authenticated-callable invoker RPCs in place. The corrected migration preserves only `USAGE` for those legacy create paths and explicitly removes `SELECT` and `UPDATE`. It does not silently revoke the old RPCs; compatibility retirement is a separate, evidence-gated change.
+
+### 71.3 Runtime regression contract
+
+The clean-replay harness now asserts:
+
+- Authenticated has `USAGE`, but not `SELECT` or `UPDATE`, on `incidents_id_seq`.
+- Authenticated has no `USAGE`, `SELECT`, or `UPDATE` on `location_logs_id_seq`.
+- Anon cannot use either sequence.
+- Service-role cannot use `UPDATE` on either legacy sequence.
+- On PostgreSQL 17+, anon, authenticated, and service-role do not have `MAINTAIN` on profiles or incidents.
+- The narrow profile duty-status update and ordinary authenticated read workflows remain intact.
+
+The PostgreSQL 17 assertion is conditional and the PG17-only SQL remains dynamic, so PostgreSQL 16 does not parse an unsupported privilege token. Both the static source contract and runtime clean-replay contract must pass; a source regex alone is not proof of effective ACL behavior.
+
+### 71.4 Migration and deployment boundary
+
+A read-only query of `supabase_migrations.schema_migrations` found no entries for `20261126170000`, `20261126180000`, or `20261126190000` at the time of review. The new/updated migration source therefore remains branch-only. No `REVOKE`, `GRANT`, migration push/repair, data write, or hosted setting change was issued to Supabase.
+
+**References:**
+- PostgreSQL 17, [Privileges](https://www.postgresql.org/docs/17/ddl-priv.html): table `MAINTAIN` semantics and sequence `USAGE`, `SELECT`, and `UPDATE` meanings.
+- PostgreSQL 17, [GRANT](https://www.postgresql.org/docs/17/sql-grant.html): supported table and sequence privilege forms.
+- PostgreSQL 17, [System Information Functions](https://www.postgresql.org/docs/17/functions-info.html): `has_table_privilege` and `has_sequence_privilege` effective privilege checks.
+
+**Evidence boundary:** Live catalog observations are read-only snapshots; they do not prove the forward migrations have been applied. The source trace establishes that legacy requester RPCs remain callable in the reviewed branch, but does not identify every historical Android build still in use. Do not remove their sequence capability until compatibility and same-valid-JWT regression tests prove that doing so is safe.
+
