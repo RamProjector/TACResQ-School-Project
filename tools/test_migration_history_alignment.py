@@ -119,6 +119,10 @@ PENDING = {
     "20261125130000_remove_legacy_fcm_active_account_policy.sql",
     # PR #370: unapplied draft; must be regenerated with `supabase migration new`.
     "20261126100000_revoke_incident_trigger_function_client_execute.sql",
+    # PR #370: repository-only forward migrations; do not deploy without approval.
+    "20261126160000_revoke_service_role_admin_audit_access.sql",
+    "20261126170000_restrict_profile_update_to_duty_status.sql",
+    "20261126180000_restrict_device_registry_sequences.sql",
 }
 # These two source files use new local timestamps, while the connected
 # project's migration ledger records the same logical migration names under
