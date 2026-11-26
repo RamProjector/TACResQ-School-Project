@@ -9785,7 +9785,7 @@ The sequence audit exposed why blanket sequence revocation is unsafe:
 | `public.api_operation_logs_id_seq` | Laravel's server-side operation logger directly inserts telemetry rows. | Preserve service-role sequence access for the direct insert path; no client grant. |
 | Device-registry identity sequences | Trusted backend device-verification writers create rows; clients do not write these tables directly. | Preserve service-role `USAGE/SELECT`; revoke client and service-role `UPDATE`. |
 
-PostgreSQL's sequence privilege meanings matter here: `USAGE` permits `nextval` and `currval`; `SELECT` permits `currval`; `UPDATE` permits `nextval` and `setval`. Since the legacy insert path needs the identity default's `nextval`, `USAGE` is sufficient; `SELECT` is redundant and `UPDATE` would unnecessarily expose sequence mutation.
+PostgreSQL's sequence privilege meanings matter here: `USAGE` permits `nextval` and `currval`; `SELECT` permits `currval`; `UPDATE` permits `nextval` and `setval`. Since the remaining trusted server-side direct-insert paths may need the identity default's `nextval`, `USAGE` is sufficient; `SELECT` is retained conservatively until the full writer trace is complete, and `UPDATE` would unnecessarily expose sequence mutation.
 
 The earlier review initially inferred sequence need from the legacy RPC EXECUTE grants alone. A follow-up live catalog query showed authenticated has no direct INSERT on incidents, while service_role does. The sequence migration therefore removes all client sequence privileges and preserves service-role USAGE/SELECT while the separate service_role direct table INSERT grant remains under review. Section 72 now revokes the stale v1/v2/v3 EXECUTE grants from API roles; v4 retains its SECURITY DEFINER call to v3 under owner privileges.
 
@@ -9812,15 +9812,15 @@ A read-only query of `supabase_migrations.schema_migrations` found no entries fo
 - PostgreSQL 17, [GRANT](https://www.postgresql.org/docs/17/sql-grant.html): supported table and sequence privilege forms.
 - PostgreSQL 17, [System Information Functions](https://www.postgresql.org/docs/17/functions-info.html): `has_table_privilege` and `has_sequence_privilege` effective privilege checks.
 
-**Evidence boundary:** Live catalog observations are read-only snapshots; they do not prove the forward migrations have been applied. The source trace establishes that legacy requester RPCs remain callable in the reviewed branch, but does not identify every historical Android build still in use. Do not remove their sequence capability until compatibility and same-valid-JWT regression tests prove that doing so is safe.
+**Evidence boundary:** Live catalog observations are read-only snapshots; they do not prove the forward migrations have been applied. The source trace establishes that current Android/Laravel callers use v4 and that old requester RPC grants are being retired without dropping signatures. The separate service_role direct table INSERT grants remain a distinct writer-path question; do not remove their sequence capability until every trusted server-side writer is traced.
 
 
 
 ## Legacy requester-create RPC grant reduction — 2026-11-27
 
-The connected catalog snapshot and current source call-site review exposed three stale authenticated-callable SECURITY INVOKER functions: \`api_create_incident\`, \`api_create_incident_v2\`, and \`api_create_incident_v3\`. The live catalog showed their EXECUTE grants, but authenticated lacked direct INSERT on \`public.incidents\`, so those grants did not represent usable requester creation endpoints. Current Android and Laravel source call \`api_create_incident_v4\` only.
+The connected catalog snapshot and current source call-site review exposed three stale authenticated-callable SECURITY INVOKER functions: `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3`. The live catalog showed their EXECUTE grants, but authenticated lacked direct INSERT on `public.incidents`, so those grants did not represent usable requester creation endpoints. Current Android and Laravel source call `api_create_incident_v4` only.
 
-Branch migration \`20261127010000_revoke_legacy_incident_create_rpc_execute.sql\` revokes EXECUTE from PUBLIC, anon, authenticated, and service_role on all three old signatures without dropping or changing them. The current v4 SECURITY DEFINER entry point remains authenticated-callable and invokes v3 under its owner context; the owner retains implicit EXECUTE. v1/v2 have no current in-repository caller.
+Branch migration `20261127010000_revoke_legacy_incident_create_rpc_execute.sql` revokes EXECUTE from PUBLIC, anon, authenticated, and service_role on all three old signatures without dropping or changing them. The current v4 SECURITY DEFINER entry point remains authenticated-callable and invokes v3 under its owner context; the owner retains implicit EXECUTE. v1/v2 have no current in-repository caller.
 
 A new disposable PostgreSQL contract verifies all three old signatures remain present but are not executable by API roles or PUBLIC; verifies owner EXECUTE on v3; and verifies v4 remains SECURITY DEFINER, authenticated-callable, and delegates to v3. Static source contracts ensure Android and Laravel keep using v4. The current live inventory is still 38 functions until this forward migration is applied; expected post-migration count is 35 (24 definers, 11 invokers), with the 13 private callable helpers unchanged.
 
