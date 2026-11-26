@@ -325,7 +325,7 @@ assert re.search(
     r"public\.location_logs_id_seq\s+TO\s+service_role\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
-), "Logger and legacy service-role incident/location RPCs must retain minimum sequence access"
+), "Logger and remaining trusted service-role direct INSERT grants must retain minimum sequence access"
 assert re.search(
     r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
     r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
