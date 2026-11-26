@@ -2030,3 +2030,9 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Effective service_role DML was present on 20 public tables in the pre-migration snapshot. This is a server-only privilege layer separate from RLS; service_role bypasses RLS.
 - Source/catalog traces identified the Laravel operation logger (`api_operation_logs`), legacy service-role `api_record_location` writer (`location_logs`), legacy incident v1/v2/v3 writers (now revoked in Section 72), and current SECURITY DEFINER v4/private location paths.
 - Added Section 73 to the Admin IPS master plan. No blanket service_role revoke or hosted ACL/default-privilege change was made. Next safe step is a table-by-table inventory of Laravel, Edge Functions, FCM, Storage, backup, and external consumers before any further DML reduction.
+
+## 2026-11-27 — Service-role table writer matrix
+
+- Traced current Laravel and Edge Function paths. `SupabaseBridge` forwards the caller JWT; `ApiOperationAuditLogger` directly inserts metadata into `api_operation_logs`; `FcmNotificationDispatcher` uses service-role FCM claim/unregister SECURITY DEFINER RPCs and directly PATCHes `fcm_delivery_attempts`; `tacresq-notify` uses service-role to read profiles/incidents/fcm_tokens and delete invalid FCM tokens.
+- Live catalog confirms `api_claim_fcm_delivery_batch` and `api_unregister_fcm_token_for_delivery` are SECURITY DEFINER, service_role-only RPCs. Legacy `api_record_location` is service_role-callable SECURITY INVOKER and inserts into `location_logs`.
+- Added Section 73.6 with candidate least-privilege table/column grants. No service_role DML grants were changed. Column-level PostgREST PATCH/DELETE behavior requires a real local PostgREST integration test before implementation.
