@@ -8790,3 +8790,83 @@ Supabase documents that secret keys (and the legacy `service_role` key) authoriz
 **Change boundary:** read-only source, live catalog, Edge deployment metadata/source, Supabase logs and Render service/event/log inspection. No service_role grants/default ACLs, database functions, secrets, Edge deployment, Render variables, schedules, provider settings, production data or application code were changed. This section is documentation only.
 
 **References:** Supabase [API keys and service-role behavior](https://supabase.com/docs/guides/getting-started/api-keys), [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth), [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security), [Securing the Data API and default privileges](https://supabase.com/docs/guides/api/securing-your-api); repository files `backend/src/app/ApiOperationAuditLogger.php`, `backend/src/app/FcmNotificationDispatcher.php`, `backend/src/config/tacru.php`, `backend/src/app/Console/Commands/DispatchFcmNotifications.php`, `supabase/functions/tacresq-notify/index.ts`, `supabase/migrations/20261105235016_fcm_delivery_attempts.sql`, `supabase/migrations/20261125020853_fcm_delivery_claim_active_recipient_guard.sql`, `supabase/migrations/20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql`, `supabase/migrations/20261122050811_api_operation_audit_and_fk_indexes.sql`, `tools/test_fcm_server_contract.py`, Sections 21–23, 28, 41–43, 48–52 and 61.
+
+## Section 63 — Live service-role grant reconciliation and privileged consumer contracts
+
+**Evidence boundary:** connected Supabase PostgreSQL catalog snapshot and checked-in source at the current Admin IPS research branch, reviewed read-only on 2026-11-26. This section maps the consumers found in the inspected Laravel worker, Laravel audit logger, Supabase notification Edge Function and relevant migrations. It is not proof that no other operator-created or externally deployed consumer exists. No hosted grants, functions, data, secrets, schedules or provider settings were changed.
+
+### 63.1 Effective table grants and audit-log exposure
+
+The live service_role has BYPASSRLS; RLS therefore does not constrain its direct table access. The inspected relation ACLs show broad table-level INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER privileges on admin_audit_logs, fcm_delivery_attempts, fcm_tokens, incident_assignment_events, incident_assignments, incident_claimability_logs, incident_messages, incident_request_edit_logs, incident_status_logs, incident_submission_keys, incidents, location_logs, profiles and user_notifications. All reviewed application tables are owned by postgres.
+
+The notable narrow exception is api_operation_logs, whose live ACL is service_role INSERT and SELECT. Its source migration explicitly revokes all table privileges from service_role before granting SELECT/INSERT, and gives the role USAGE/SELECT on the identity sequence. The Laravel ApiOperationAuditLogger only POSTs metadata rows; the inspected writer does not read them. SELECT is therefore not justified by that writer alone, although a separate reader/retention job must be ruled out before removing it.
+
+The initial 20261112215653_admin_role_audit_foundation.sql migration revokes admin_audit_logs from PUBLIC, anon and authenticated but omits service_role. The live ACL confirms that service_role retains full table privileges. The protected role-change and audit-reader functions are SECURITY DEFINER, owned by postgres; the role-change function inserts its audit event in the same transaction as the profile update. That insert executes with the function owner's privileges, not the caller's service-role table grant. No inspected Laravel worker, Edge Function or trigger consumer directly reads or mutates admin_audit_logs.
+
+**Finding:** the service-role table grant on admin_audit_logs is not supported by an identified consumer and conflicts with the migration's stated append-only intent. Direct UPDATE, DELETE and TRUNCATE are particularly unnecessary for the reviewed call graph. The evidence supports planning an explicit REVOKE ALL PRIVILEGES on this table from service_role, subject to a final full-repository/deployment-consumer check and clean replay. Do not confuse this privilege finding with evidence that anyone altered an audit row; no tampering was observed.
+
+### 63.2 Consumer-to-privilege map
+
+| Consumer | Observed operation | Minimum contract indicated by source | Live grant assessment |
+|---|---|---|---|
+| Render Laravel ApiOperationAuditLogger | POST metadata-only row to api_operation_logs using server secret | INSERT; identity sequence USAGE/SELECT | Live SELECT is not used by the inspected writer; check for an independent reader before revoking |
+| Render Laravel FcmNotificationDispatcher | Calls api_claim_fcm_delivery_batch; PATCHes one fcm_delivery_attempts row by id; calls exact-pair token cleanup RPC | EXECUTE claim RPC; UPDATE only delivery-state columns; SELECT on id used by PostgREST filter if required by deployed PostgREST permission path; EXECUTE cleanup RPC | Full table CRUD/TRUNCATE/REFERENCES/TRIGGER is excessive relative to this worker |
+| Supabase Edge Function tacresq-notify | Authenticates bearer with Auth; reads actor/recipient profiles; reads incident assignment; selects FCM registrations; deletes only registration IDs returned by its own query | SELECT only required columns from profiles, incidents and fcm_tokens; DELETE on fcm_tokens; SELECT on registration id for delete filter | Full mutation grants on profiles/incidents and unrelated tables are not required by this function's inspected code |
+| Admin role-change RPC | SECURITY DEFINER function owned by postgres updates profile and inserts admin_audit_logs in one transaction | Caller EXECUTE on protected RPC; owner privileges for internal table writes | No service-role table grant is required for the function's internal insert |
+| Admin audit readers | SECURITY DEFINER readers owned by postgres, guarded by Admin identity/MFA logic in reviewed wrappers | Authenticated Admin caller EXECUTE; owner privileges for table reads | Direct service-role table access is not needed for inspected Admin UI path |
+| FCM claim RPC | SECURITY DEFINER function owned by postgres selects notifications/tokens and inserts or reclaims delivery-attempt rows | EXECUTE on narrowly scoped claim RPC | Internal table work runs as function owner; it does not justify direct service-role INSERT/SELECT/DELETE/TRUNCATE on those relations |
+| Supabase Cron/Vault → Render hook | HMAC-authenticated worker trigger described in operations docs | HMAC verification and worker invocation | No direct table grant is established by the hook itself |
+
+The Laravel worker's source is explicit: patchAttempt() sends a PATCH to fcm_delivery_attempts filtered by id; deleteToken() calls api_unregister_fcm_token_for_delivery(profile_id, token). The cleanup RPC validates both values and deletes only the exact profile/token pair. The worker does not directly DELETE from fcm_tokens. The Edge Function is a separate consumer: it selects registration IDs and tokens, then deletes only the selected IDs reported as unregistered by FCM.
+
+### 63.3 Recommended target privilege boundaries
+
+These are target contracts for a reviewed migration, not changes applied in this section:
+
+1. **admin_audit_logs:** revoke all service_role table privileges. Preserve authenticated Admin reads through the protected SECURITY DEFINER reader and authenticated EXECUTE on the approved wrapper. Keep the role-change insert transaction inside its SECURITY DEFINER function. Add a catalog assertion that service_role has no SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER privilege on this table.
+2. **fcm_delivery_attempts:** remove direct service_role INSERT, DELETE, TRUNCATE, REFERENCES and TRIGGER. Retain only narrow UPDATE columns needed to record delivery outcome, provider message name, error code, retry time and update timestamp. Grant SELECT on row identifier only if deployed PostgREST PATCH filter requires it; prove the exact minimal combination with an HTTP integration test. The claim RPC remains the only queue-claim/insert path.
+3. **fcm_tokens:** for the Edge Function, retain only SELECT of id, profile_id and token, plus DELETE, with a tested ID-scoped cleanup path. Do not grant service_role INSERT/UPDATE/TRUNCATE/REFERENCES/TRIGGER for this consumer. The Laravel worker uses the exact-pair cleanup RPC rather than direct table DELETE. Keep client token registration and self-unregistration on their existing authenticated RPCs.
+4. **profiles:** Edge notification resolution requires reads of id, auth_user_id, role and account_status. It does not require service_role writes. Any narrower column grant must be tested against all Edge queries and any additional deployed worker.
+5. **incidents:** Edge notification authorization reads id, requester_id, assigned_to and status. It does not require service_role writes. Keep business mutations behind existing authorization-checked RPCs.
+6. **user_notifications:** the inspected FCM claim function reads notification rows as its postgres owner; the Laravel worker and Edge Function do not directly access this table. No direct service_role grant is justified by these consumers.
+7. **Other operational/history tables:** current inspected consumer evidence does not justify service_role direct mutation of assignment history, claimability logs, message history, requester edit history, status history, submission keys or location logs. Treat each as unexplained pending complete call-graph/deployment inventory, not as safe to revoke blindly. Verify trigger writers, external maintenance jobs, Storage/Realtime internals and operator scripts before a per-table change.
+8. **api_operation_logs:** INSERT is required by the inspected logger. SELECT is a candidate for removal only after checking all readers, retention/diagnostic tooling and operator workflows.
+
+Column-level grants should be preferred where they materially reduce the credential's reach, but they must be tested against PostgREST's actual SELECT requirements for PATCH filters and RETURNING behavior. A privilege plan that looks minimal in SQL but breaks delivery retries is not acceptable.
+
+### 63.4 Function EXECUTE and shared-key implications
+
+The live catalog confirms service_role can execute the dedicated api_claim_fcm_delivery_batch(integer, integer) and api_unregister_fcm_token_for_delivery(bigint, text) functions. Both are SECURITY DEFINER functions owned by postgres, with pinned search_path=pg_catalog; their source explicitly revokes PUBLIC/anon/authenticated and grants EXECUTE to service_role. This is the intended narrow worker interface.
+
+The live function ACL also shows service_role EXECUTE on several Admin audit reader functions and general public RPCs. Some are explicitly granted to authenticated and inherit or retain service_role execution through their ACL/default PUBLIC behavior; their bodies must still be checked for caller-context assumptions. Service-role EXECUTE does not automatically make an RPC safe for key-only calls: any SECURITY DEFINER RPC must independently validate its intended actor, session and authorization context. Conversely, a role with BYPASSRLS and broad table grants can often bypass an RPC boundary by calling PostgREST directly.
+
+The Render logger and FCM worker currently share the same Supabase secret-key configuration, while the Edge Function has its own Supabase service-role environment variable. Separate environment variable names do not create separate database identities or privileges. Any one compromised consumer holding the shared key can exercise the union of grants available to that role. True isolation requires separate database roles/credentials and/or tightly scoped server-side APIs; it cannot be achieved by duplicating the same key.
+
+### 63.5 Migration and verification plan
+
+Before producing a corrective migration:
+
+- Inventory every deployed Edge Function, Render service/worker, scheduled job, operator script, database trigger and external integration that holds or assumes service_role.
+- Reconcile live ACLs with all migration GRANT/REVOKE statements and the hosted migration ledger. Do not assume the current branch migration list is identical to the live history.
+- Recover the exact provenance of broad service_role grants (including Supabase/default ACL behavior) and determine whether any are platform-managed. Do not revoke privileges on managed storage, vault, auth, realtime or extension objects as part of an application-table cleanup.
+- Add catalog tests for every reviewed table, sequence and function; assert both required privileges and forbidden privileges.
+- Run disposable PostgreSQL migration replay and a local Supabase integration environment. Exercise FCM batch claim, success/failure/retry updates, invalid-token cleanup, Edge notification recipient checks, Admin role change/audit insertion, audit pagination and logger insertion.
+- Run same-valid-JWT, no-user-JWT service-key, stale/suspended recipient, duplicate claim, concurrent worker, missing credential and provider failure tests. Verify that queue retries and token cleanup still work.
+- Only after those checks, prepare a separate forward migration and obtain explicit authorization before applying it to the hosted project. Re-read effective privileges and run the same workflow tests after deployment.
+
+### 63.6 Findings and release gates
+
+| Finding | Assessment | Next gate |
+|---|---|---|
+| Full service_role privileges on admin_audit_logs | Unnecessary for inspected consumers | Full consumer check, then revoke all in a reviewed migration |
+| Full service_role privileges on fcm_delivery_attempts | Overbroad | Reduce to minimal update/filter privileges; prove PostgREST behavior |
+| Full service_role privileges on fcm_tokens | Overbroad | Retain only Edge read + scoped cleanup needs |
+| Full service_role privileges on profiles and incidents | Overbroad | Column-read contract for Edge; no direct writes found |
+| Full service_role privileges on remaining operational/history tables | Unexplained | Complete consumer and platform inventory before revocation |
+| SELECT on api_operation_logs | Not used by inspected writer | Search for separate readers before narrowing |
+| Shared service-role credential across Render consumers | Shared blast radius | Design separate identities/privilege paths; no key rotation or split performed |
+| Service-role EXECUTE on Admin/general RPCs | Needs function-by-function review | Verify caller-context checks and remove unnecessary execution only after dependency tests |
+
+**Change boundary:** this is documentation of a read-only live catalog and source-code review. No service-role grants, function ACLs, table contents, migration ledger, secrets, worker schedule, Edge deployment, FCM provider, Render configuration or production behavior changed. No exploit or successful unauthorized operation was demonstrated.
+
+**References:** 20261112215653_admin_role_audit_foundation.sql; 20261122050811_api_operation_audit_and_fk_indexes.sql; 20261114153546_fcm_delivery_queue_hardening.sql; 20261105235016_fcm_delivery_attempts.sql; 20261122050841_restrict_operational_table_writes.sql; 20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql; backend/src/app/ApiOperationAuditLogger.php; backend/src/app/FcmNotificationDispatcher.php; supabase/functions/tacresq-notify/index.ts; live PostgreSQL relation/function ACL queries; Sections 58–61.
