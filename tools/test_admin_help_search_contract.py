@@ -16,4 +16,17 @@ assert '["notifications", "push", "fcm", "delivery", "alert", "inbox"]' in sourc
 assert "setActiveSection(\"settings\");" in source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")], "Help Centre settings links must activate the Settings workspace"
 assert 'url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page' in source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")], "Settings navigation must synchronize both route parameters"
 
+
+settings_navigation = source[source.index("function navigateToSettingsPage"):source.index("function navigateToContinuityPage")]
+assert 'setActiveSection("settings");' in settings_navigation, "Help Centre settings links must activate the Settings workspace"
+assert 'url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page' in settings_navigation, "Settings navigation must synchronize both route parameters"
+assert 'url.searchParams.delete("auditFrom");' in settings_navigation and 'url.searchParams.delete("auditTo");' in settings_navigation, "Leaving the Activity Log for Settings must clear its date-only shortcut filters"
+
+continuity_navigation = source[source.index("function navigateToContinuityPage"):source.index("function navigateToSection")]
+assert 'url.searchParams.delete("auditFrom");' in continuity_navigation and 'url.searchParams.delete("auditTo");' in continuity_navigation, "Leaving the Activity Log for continuity pages must clear its date-only shortcut filters"
+
+section_navigation = source[source.index("function navigateToSection"):source.index("function navigateToTodayActivityLog")]
+assert 'if (section !== "audit")' in section_navigation, "Non-audit workspace navigation must clear stale Activity Log date filters"
+assert 'url.searchParams.delete("auditFrom");' in section_navigation and 'url.searchParams.delete("auditTo");' in section_navigation, "Non-audit workspace navigation must remove both Activity Log date filters"
+
 print("Admin Help Centre search contract: passed")
