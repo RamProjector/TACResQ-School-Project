@@ -320,6 +320,11 @@ assert re.search(
     PG17_MAINTAIN_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "PG17 MAINTAIN revoke must cover future postgres-owned public tables"
+assert "FOR ROLE supabase_admin" not in PG17_MAINTAIN_MIGRATION
+assert "FOR ROLE supabase_auth_admin" not in PG17_MAINTAIN_MIGRATION
+assert "IN SCHEMA storage" not in PG17_MAINTAIN_MIGRATION, (
+    "Application privilege cleanup must not rewrite Supabase-managed Storage defaults"
+)
 
 SERVICE_ROLE_ADMIN_MIGRATION = Path(
     "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
