@@ -529,11 +529,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }
 
   function navigateToSettingsPage(page: AdminSettingsPage) {
-    if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;
+    if ((activeSection !== "settings" || page !== settingsPage) && !confirmDiscardPreferenceChanges()) return;
     closeMobileSidebar(true);
+    setActiveSection("settings");
     setSettingsPage(page);
     const url = new URL(window.location.href);
-    if (url.searchParams.get("adminSettings") !== page) {
+    if (url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page) {
       url.searchParams.set("adminPage", "settings");
       url.searchParams.set("adminSettings", page);
       window.history.pushState({}, "", url.toString());
