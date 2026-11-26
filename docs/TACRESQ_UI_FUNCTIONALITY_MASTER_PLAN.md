@@ -7900,3 +7900,164 @@ Do not use a global zero count as an all-clear. Keep business history, security 
 **Change boundary:** source and documentation review only. No application source, migration, table, trigger, privilege, provider setting, account, log record, Storage object, Render configuration or production behavior was changed.
 
 **References:** repository migrations `20261123045611_20261122230000_app_action_audit_coverage.sql`, `20261125020926_admin_account_lifecycle_compare_and_set.sql`, `20261021103213_isolate_location_writer.sql`; `backend/src/app/ApiOperationAuditLogger.php`; `docs/ADMIN_AUDIT_TRAIL_SOURCE_INVENTORY_2026-11-22.md`; `docs/security/device-security-research-and-implementation-plan.md`; OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html).
+
+
+## Section 60 — Security evidence export, reporting and chain of custody
+
+### 60.1 Purpose and evidence-handling boundary
+
+An Admin IPS export is a curated representation of selected records, not automatically a forensic image, complete event history, legally admissible evidence or proof that no other activity occurred. TACResQ must preserve the distinction between original source records, normalized projections, analyst annotations, generated reports, exported copies, screenshots, and cryptographic digests. A report must state what was collected, from which source, by whom, when, using which query/tool/version, under what scope, and what was unavailable. It must not overstate completeness, attribution, time accuracy, integrity or legal status.
+
+This section specifies a controlled workflow. It does not assert that the project currently has a forensic evidence vault, chain-of-custody system, immutable archive, signed report service or authorized evidence-handling officer.
+
+### 60.2 Evidence package types and permitted claims
+
+| Package type | Contents | Permitted description | Not established by the package alone |
+|---|---|---|---|
+| Operational summary | Health observations, aggregate counts, service status and limitations | Operational snapshot for the stated time/window | Security incident evidence, complete audit coverage or proof of normal operation |
+| Audit extract | Selected source-qualified audit/domain events with filters and provenance | Extract of the named source(s) and query scope | Complete record of all user activity or all seven handout fields |
+| Investigation working set | Selected events, source references, analyst notes and unresolved questions | Working material for a scoped investigation | Confirmed incident, causal attribution or independent verification |
+| Evidence preservation copy | Original source artifact/export, acquisition metadata and digest | Preserved copy of the specified artifact as acquired | Authenticity of the source, completeness of acquisition or admissibility |
+| Final investigation report | Scope, methodology, timeline, evidence references, findings, uncertainty, decisions and approvals | Conclusions limited to documented evidence | Legal determination, institutional finding or proof beyond stated evidence |
+| Compliance/coverage report | Versioned control matrix, test results, source health and gaps | Status of the specific requirements and tests assessed | Universal compliance outside the named scope/environment |
+
+Use precise labels such as **source extract**, **working copy**, **preservation copy**, **analyst interpretation**, **test result**, **unverified observation** and **approved report**. Avoid a generic “forensic proof” label.
+
+### 60.3 Acquisition record and provenance
+
+Every evidence acquisition should create a separate acquisition manifest, whether manual or automated. Proposed manifest fields:
+- unique acquisition/package ID and schema version;
+- case/investigation reference, if an authorized case process exists;
+- requesting principal namespace/ID, approver/authority reference where required, and collector/operator identity;
+- acquisition tool/service and version;
+- source namespace, source instance/environment and source record/object identifiers;
+- exact time range and query/filter parameters, timezone and query semantics;
+- acquisition start/end times, source event times and observed/ingested times kept distinct;
+- item count, byte size, pagination/cursor completion and truncation state;
+- source availability, collection errors, inaccessible ranges and omitted data;
+- original format/encoding, export format, transformation and redaction steps;
+- digest algorithm/value for each acquired file/artifact, only when actually computed;
+- storage destination/reference, classification and custody handoff events;
+- collector notes, warnings and known limitations.
+
+Do not include passwords, access/refresh tokens, MFA codes, private signing keys or service-role credentials. Query parameters can themselves contain sensitive personal data and must be protected accordingly.
+
+For database extracts, preserve query text or versioned query ID, parameters, project/environment identity, snapshot/transaction semantics where known, row ordering, pagination completeness and source IDs. A timestamp-filtered query across mutable records is not automatically a consistent snapshot; disclose if rows could change during acquisition.
+
+For provider logs, record provider, project/resource identity, documented queryable window, filters, page/cursor completion, request IDs where supplied and retention limitations. Do not claim a complete period if the provider returned only a partial page or the retention window has expired.
+
+### 60.4 Chain-of-custody event model
+
+A custody history records handling from acquisition through access, copying, transfer, analysis, reporting, retention and disposal. Proposed append-only custody events include:
+- custody event ID and evidence/package ID;
+- event type (acquired, sealed, verified, accessed, copied, transferred, received, analyzed, annotated, exported, held, released, disposed);
+- actor principal namespace/ID and established organization/role context;
+- event time and recorded time, timezone/source confidence;
+- source/destination storage references or custodians, without public URLs or secrets;
+- purpose/authority and approval reference where required;
+- item count and digest before/after only when measured;
+- tool/version and operation summary;
+- outcome, exceptions, discrepancy and explanatory note;
+- previous custody-event reference or integrity checkpoint, if implemented.
+
+Custody entries should be append-only to ordinary users. Corrections are new events referencing the corrected entry, with reason and author; never silently rewrite original history. A transfer should have release and receipt records, timestamps, sender/recipient identities and digest verification where feasible. An unacknowledged transfer remains pending/uncertain.
+
+A hash match shows that two byte sequences match the measured digest; it does not prove who created the original, whether the source was truthful, whether acquisition was complete, or whether custody was uninterrupted before the first hash.
+
+### 60.5 Integrity verification and evidence formats
+
+Recommended handling:
+1. Acquire the source using an authorized, documented read-only path where possible.
+2. Preserve the original returned bytes/format before transformation.
+3. Compute a modern cryptographic digest (for example SHA-256) over the exact acquired bytes; record algorithm, tool/version and time.
+4. Store the original in a restricted preservation location and create separate working copies.
+5. Verify the digest after controlled transfer/copy where feasible.
+6. Record transformations and derived artifacts as new items with parent/source references and their own digests.
+7. Re-verify preservation copies periodically or on access according to policy.
+8. Preserve verification failures and mismatches; never silently re-baseline a changed artifact.
+
+For CSV/JSON exports, define encoding, delimiter, escaping, timezone, null semantics, field ordering/schema version and stable row ordering. CSV must safely encode values beginning with spreadsheet formula characters so untrusted event content cannot execute as formulas. JSON should distinguish null, unknown, not collected and redacted. PDF reports should identify generation time, report version, source scope and page numbering; they are presentation copies, not substitutes for source artifacts.
+
+Screenshots are contextual observations, not replacements for source records. Capture page/application, environment, time, operator and visible limitations; avoid unrelated personal information and secrets. Redacted copies must be labeled and linked to a restricted original where policy permits.
+
+### 60.6 Timeline construction and correlation confidence
+
+A consolidated timeline must preserve each source's original event timestamp and show normalized time separately. Include source event time/semantics, collector-observed and ingestion times, clock confidence/known skew, actual correlation identifiers, source-qualified event ID, actor namespace, and relationship confidence (directly linked, strongly associated, possibly related, not correlated, indeterminate).
+
+Do not sort solely by displayed local time and imply precise causal order when clocks are skewed or timestamp resolution is coarse. Distinguish “occurred at”, “first observed at” and “ingested at”. Do not infer a single person across Supabase Auth and Laravel Sanctum records by matching email, display name, phone, IP or device label. Shared IPs, NAT, shared devices and user-agent strings are not sufficient identity proof.
+
+### 60.7 Analyst notes, findings and report structure
+
+Keep raw evidence separate from interpretation. An annotation should include author, time, evidence references, statement type and confidence. Statement types distinguish observed fact, reproducible derived fact, inference/hypothesis, alternative explanation, unresolved question/missing evidence and decision by an authorized person.
+
+A final report should contain:
+1. Report ID, version, status and generation time.
+2. Purpose, authority, scope, systems/environments and time range.
+3. Questions examined and explicit exclusions.
+4. Collection methodology, tools/versions, queries and acquisition manifests.
+5. Evidence inventory with source IDs, item counts, digests and custody status.
+6. Timeline with original/normalized timestamps and correlation confidence.
+7. Findings mapped to evidence references and confidence.
+8. Contradictory evidence, alternatives and missing/unavailable sources.
+9. Impact assessment with assumptions and limitations.
+10. Actions taken, by whom, when, authority and observed outcome.
+11. Recommendations separated from confirmed findings.
+12. Reviewer/approver and version/change history, where governance exists.
+
+A reviewer should be able to reproduce selection and calculations from the preserved package without depending on mutable UI state. State limitations caused by provider retention, inaccessible sources, changing data, missing identifiers or unpreserved query parameters.
+
+### 60.8 Redaction, disclosure and export safeguards
+
+Review packages for secrets, private user content, personal data, precise location, unrelated identifiers, infrastructure details and third-party information. Redact only under an approved rule and preserve a restricted original when authorized. Record redaction policy/version, fields/regions, operator, time and reason. Never silently alter the preservation copy.
+
+Use purpose-scoped authorization for package creation, viewing, download, sharing/transfer, classification changes, hold/release, final approval and disposal. Use bounded date ranges, record counts and file sizes. Avoid public object URLs. Use authenticated short-lived access where supported and re-check authorization at download time, not only when rendering a button. Record export/download outcomes and known recipients/destinations. Expiring a link does not delete copies already downloaded.
+
+External disclosure requires an authorized institutional/legal decision, recipient verification, minimum-necessary scope and a record of what was disclosed, when, by whom, to whom, under what authority and through which channel. The application must not independently decide that a regulator, law-enforcement body, school or third party is entitled to evidence.
+
+### 60.9 Admin IPS interface requirements
+
+A future read-only report workspace should be separate from Overview and routine Activity Log:
+- **Evidence inventory:** source, item type, sensitivity, collection window, completeness, acquisition ID and custody state.
+- **Acquisition details:** exact scope, query/version, pagination completion, failures, transformations, source limitations and digests.
+- **Timeline:** source-qualified events with original/normalized time, correlation confidence and explicit gaps.
+- **Finding detail:** observed facts separated from analyst interpretation and alternatives.
+- **Custody history:** acquisition/access/copy/transfer/verification/hold/disposal events, actor and outcome.
+- **Export review:** included fields, redaction warnings, item/size bounds, purpose, recipient and expiry.
+- **Report versions:** immutable prior versions with author/reviewer and change summary.
+
+Do not turn this into a live emergency operations console or generic file browser. No export/download/hold/approve control should be shown as functional until server-side authorization, persistence, audit-of-audit and storage workflow are implemented and tested. Preserve the existing TACResQ site theme.
+
+### 60.10 Verification and acceptance matrix
+
+| Test | Required result |
+|---|---|
+| Complete source pagination | Manifest records query scope, source, counts, cursor completion, times and errors; digest is reproducible |
+| Truncated/expired provider window | Report labels period incomplete and identifies unavailable data |
+| Mutable source queried over time | Snapshot/consistency semantics stated; changes during collection disclosed |
+| Copy/transfer to approved destination | Sender and receiver events recorded; digest checked; failed/unacknowledged transfer remains uncertain |
+| Digest mismatch | Verification fails visibly; original and mismatch evidence preserved; no silent re-baselining |
+| Redaction | Preservation original unchanged; derivative labeled, versioned and linked to source |
+| Malicious CSV values | Formula-like cells cannot execute as spreadsheet formulas |
+| Unauthorized package access/download | Backend denies even if URL/route is known; denial recorded where observable |
+| Expired download link | New download denied; prior recipient copies are not claimed deleted |
+| Cross-namespace identity collision | Supabase and Sanctum principals remain distinct absent approved mapping |
+| Clock skew/out-of-order events | Original times retained; uncertainty shown; no false causal order |
+| Report reproduction | Reviewer can reproduce query scope, transformations and calculations |
+| Report correction | New version references prior version and documents correction; prior approved version preserved |
+| External disclosure | Authority, recipient, scope, channel, approval and package version recorded |
+| Retention/hold/disposal | Package and derivatives follow approved policy; receipt records actual scope and exceptions |
+
+### 60.11 Current gaps and implementation boundary
+
+The reviewed project does not establish a dedicated evidence-package/case data model, acquisition manifests, custody ledger, restricted preservation vault, immutable archive, digest/signature verification, independent integrity checkpoints, reproducible report generator, redaction approval workflow, external disclosure register, complete audit of evidence access/download/transfer, or restore-tested evidence archive.
+
+The correct next dependency is governance and backend design, not a cosmetic Export button. Approve evidence classes, authority, retention, access matrix, source contracts and threat model first. Then design a minimal read-only acquisition/export path with synthetic fixtures, immutable provenance and audit-of-audit before broader investigation tooling.
+
+**Research references**
+- NIST SP 800-86, *Guide to Integrating Forensic Techniques into Incident Response*: https://csrc.nist.gov/pubs/sp/800/86/final
+- NIST SP 800-101 Rev. 1, *Guidelines on Mobile Device Forensics* (relevant mobile acquisition principles only; does not certify TACResQ evidence): https://csrc.nist.gov/pubs/sp/800/101/r1/final
+- SWGDE Best Practices for Computer Forensic Acquisitions: https://www.swgde.org/documents/
+- OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+- NIST SP 800-53 Rev. 5 controls AU-9, AU-10, AU-11 and AU-12: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+
+This section is a research and verification specification only. No evidence vault, export endpoint, report generator, custody table, digest pipeline, retention policy, role, grant, provider setting, account, deployment or production data was changed.
