@@ -5,7 +5,7 @@ BEGIN;
 -- the underlying audit-table reads/writes. No inspected server consumer needs
 -- direct service_role access to the append-only audit table or Admin RPC family.
 REVOKE ALL PRIVILEGES ON TABLE public.admin_audit_logs FROM service_role;
-REVOKE ALL PRIVILEGES ON SEQUENCE public.admin_audit_logs_id_seq FROM service_role;
+REVOKE ALL PRIVILEGES ON SEQUENCE public.admin_audit_logs_id_seq FROM PUBLIC, anon, authenticated, service_role;
 
 -- Keep the Admin RPC surface tied to authenticated user sessions. Internal
 -- helpers remain callable by their postgres owner from SECURITY DEFINER wrappers.
