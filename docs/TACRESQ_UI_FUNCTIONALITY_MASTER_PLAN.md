@@ -6159,3 +6159,71 @@ Do not create a second dashboard or a global “SOS delivery success” score. E
 - OpenTelemetry Log Correlation: https://opentelemetry.io/docs/specs/otel/logs/
 - OpenTelemetry HTTP Semantic Conventions: https://opentelemetry.io/docs/specs/semconv/http/
 - OWASP Logging Cheat Sheet — interaction identifiers, event attributes, privacy and integrity: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+
+
+---
+
+## 50. Synthetic SOS lifecycle verification, assignment-path separation, and end-to-end release evidence
+
+**Research date:** 2026-11-26.  
+**Detailed test specification:** `docs/QA_SYNTHETIC_SOS_LIFECYCLE_VERIFICATION.md`.
+
+### 50.1 Core finding: there is no universal responder-acceptance event
+
+The source audit confirms two separate assignment workflows:
+- Dispatcher-managed team assignment through the atomic team assignment RPC and `incident_assignments`; dispatcher owns shared incident progress.
+- Dispatcher-enabled claimable incidents through `api_set_incident_claimable` and `api_claim_incident`; one available responder/driver claims through a separate guarded path.
+
+Do not combine both on one fixture. Do not invent a separate responder acceptance/acknowledgement step for the dispatcher-assigned team path. Current shared status is dispatcher-managed and mirrored to assignment rows. A responder's explicit GPS-sharing action is separate from acceptance, arrival, and incident progress.
+
+### 50.2 Primary synthetic workflow
+
+The new test plan defines:
+1. Synthetic requester submits one SOS through `api_create_incident_v4`.
+2. Verify requester-scoped `incident_submission_keys`, original payload/response, incident row and status history.
+3. Dispatcher refreshes the Android queue; this proves the test client received a read result, not a durable human-view event.
+4. Dispatcher atomically assigns a bounded team; verify assignment membership, append-only assignment history and eligible in-app notification rows.
+5. Dispatcher advances shared incident progress; verify status history, mirrored team state and no unauthorized mutation.
+6. Assigned field unit explicitly starts GPS sharing only under the supported `en_route` state; verify incident-bound location write, freshness and revocation/closure denial.
+7. Exercise incident-scoped chat with client message UUID idempotency and role/participant authorization.
+8. Verify persistent inbox, private Realtime hint and caller-scoped mark-read behavior.
+9. Test FCM separately: provider acceptance, Android SDK receipt, display, open/read and operational action are distinct states.
+10. Resolve and verify terminal history, tracking stop, no further writes, and retained authorized history.
+
+A separate claim-path scenario verifies dispatcher claimability, one-winner concurrency, one assignment row and denial of unavailable/wrong-role claimants.
+
+### 50.3 Existing test suite limitations
+
+The repository already has many component-level tests and source contracts: durable SOS idempotency, dispatcher team assignment, dispatcher-owned progress, claimability, assignment history, offline cache, Realtime, FCM queue and Laravel fake-provider behavior. These do not collectively prove one real end-to-end execution.
+
+In particular:
+- `tools/test_workflow.py` defaults to a deterministic local prototype model; its optional HTTP mode is not the Android-to-Supabase production path.
+- Source-contract Python scripts assert source/migration structure; they do not execute all RPCs or provider/device behavior.
+- SQL queue tests run against disposable Postgres and do not prove a scheduled FCM worker.
+- Laravel fake FCM tests prove dispatcher logic under test doubles, not real FCM delivery.
+- Android UI/instrumented tests do not establish server authorization or live provider behavior.
+
+### 50.4 Required test layers
+
+- CI/source contracts, Android unit/build, Laravel feature tests and static/security checks.
+- Disposable Supabase migration replay, pgTAP and application-level RPC tests using synthetic identities and concurrency/failure injection.
+- Android emulator/manual role walkthrough for process death, account switch, network, permission, GPS, notifications and chat.
+- Separate non-production FCM provider/device test only after approved worker configuration.
+- Production readiness remains separately authorized and out of scope.
+
+### 50.5 Current deployment blocker and truthful status
+
+The repository's FCM operations runbook and Render execution audit document that the current Free Render web-service startup does not execute the FCM dispatcher or scheduler. The reviewed Supabase project did not have the cron/net trigger configured. Therefore the push-delivery portion of the synthetic lifecycle is currently **Blocked / Not configured** in the existing deployment. Do not change Render plan, enable cron/pg_net, add a worker, or alter production credentials without approval.
+
+### 50.6 Safety and evidence
+
+Use synthetic Auth users and profiles with explicit namespace mapping; never conflate Supabase profiles with Laravel Sanctum users by email. Keep interaction ID, SOS idempotency key, trace ID, request ID and source event IDs distinct. Assert absence of unauthorized side effects. Keep FCM acceptance, device receipt/display, read, human action, and incident closure separate. A resolved incident proves recorded application closure, not real-world rescue or external emergency-service response.
+
+**External testing guidance:** Supabase recommends pgTAP plus application-level tests through the same client/policies and negative-case CI coverage; Compose provides semantics-driven UI test APIs; WorkManager TestDriver can simulate timing/constraints; Firebase distinguishes send, receive, impression and open reporting. These are test design references, not proof those validations were run:
+- https://supabase.com/docs/guides/local-development/testing/overview
+- https://developer.android.com/develop/ui/compose/testing
+- https://developer.android.com/develop/background-work/background-tasks/testing/persistent/integration-testing
+- https://firebase.google.com/docs/cloud-messaging/understand-delivery
+- https://firebase.google.com/docs/cloud-messaging/android/receive-messages
+
+**Evidence boundary:** this section and the linked test specification are research/documentation only. No synthetic workflow, database replay, test device push, production write, migration, scheduler, worker, provider configuration, or application code was changed.
