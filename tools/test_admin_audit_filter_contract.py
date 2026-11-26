@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILTERS = (ROOT / "backend/web/src/lib/adminAuditFilters.ts").read_text(encoding="utf-8")
 AUDIT_PAGE = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text(encoding="utf-8")
+APP_ACTION_MIGRATION = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text(encoding="utf-8")
 ADMIN_CSS = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text(encoding="utf-8")
 
 # The validator must reject malformed calendar dates and impossible dates,
@@ -99,10 +100,14 @@ assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 assert 'app_action_audit_logs: "App actions"' in AUDIT_PAGE
 assert "<strong>App actions</strong>" in AUDIT_PAGE
 assert "chat-message sends, notification-read changes, and field-unit duty-status changes" in AUDIT_PAGE
-assert "Notification-read changes are not included in this feed." in AUDIT_PAGE
-assert "Notification reads on this page:" not in AUDIT_PAGE
-assert "const notificationReadCount = events.filter" not in AUDIT_PAGE
+assert "Notification reads on this page:" in AUDIT_PAGE
+assert 'event.source === "app_action_audit_logs" && event.event_type === "notification_marked_read"' in AUDIT_PAGE
 assert "do not expose message content" in AUDIT_PAGE
+# The App actions source selector and notification-read count must be backed by
+# the migration that extends the protected investigation RPC, not just a label.
+assert "'app_action_audit_logs'" in APP_ACTION_MIGRATION
+assert "FROM public.app_action_audit_logs AS a" in APP_ACTION_MIGRATION
+assert "'notification_marked_read' THEN 'Notification marked as read'" in APP_ACTION_MIGRATION
 assert 'Object.entries(value as Record<string, unknown>)' in AUDIT_PAGE
 assert 'boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item, depth + 1)' in AUDIT_PAGE
 
