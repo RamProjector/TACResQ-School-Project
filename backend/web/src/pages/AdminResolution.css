@@ -1298,6 +1298,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .admin-shell .admin-overview-shortcuts button {
-    transition: none;
+    transition: none !important;
   }
 }
