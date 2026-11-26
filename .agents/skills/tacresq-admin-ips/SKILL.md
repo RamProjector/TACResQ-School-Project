@@ -221,5 +221,6 @@ Consult the canonical master plan for detailed evidence and acceptance requireme
 - Section 42: cross-source correlation, source-qualified identity resolution, timestamp uncertainty, detection prerequisites, and telemetry coverage.
 - Section 43: rule lifecycle, deterministic test strategy, false-positive control, severity/confidence/notification separation, alert fatigue, and degraded-source handling.
 - Section 44: human-led security investigation lifecycle, triage dispositions, evidence provenance, append-only decisions, containment authority boundaries, and closure/lessons learned.
+- Section 45: monitoring assurance, telemetry freshness, explicit source inventory and coverage, independent monitor-of-monitor paths, liveness/readiness separation, alert health, and truthful status presentation.
 
 If the master plan has additional sections beyond this map, read and apply them as well. The canonical document always wins over this summary when it contains more precise or newer evidence.
