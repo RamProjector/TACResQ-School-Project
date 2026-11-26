@@ -2188,3 +2188,90 @@ Recommended next increment, subject to verified backend contracts:
 7. Verify the actual deployed migration head, Auth Audit Logs storage setting, source writer activity, and effective grants before calling the deployed Admin IPS compliant.
 
 **Conclusion:** The Admin Activity Log is now a meaningful, bounded seven-source investigation interface with a separately displayed account-lifecycle history and explicit known gaps. It is not a universal IDS/IPS event ledger and does not yet meet the handout's exact seven-field log schema or full read/search/denial coverage. Its most important strength is that it states those limits rather than presenting empty or partial data as complete monitoring.
+
+
+## 30. Live database callable reconciliation and trigger-only grant correction
+
+**Evidence source:** read-only catalog queries against the connected Supabase project named TACResQ-School-Project on 2026-11-26, compared with the current branch migrations and inventory contracts. No live data was modified and no production migration was applied.
+
+### 30.1 Correct application callable baseline
+
+The connected database currently reports:
+
+| Callable surface | Count | Notes |
+|---|---:|---|
+| Authenticated-callable public application API functions | 38 | 24 SECURITY DEFINER and 14 SECURITY INVOKER |
+| Authenticated-callable private SECURITY DEFINER helpers | 13 | anon EXECUTE false for all observed entries |
+| Additional public trigger-only function | 1 | Not an application RPC; direct grants are unnecessarily broad |
+| Total authenticated-callable public functions including trigger | 39 | 24 definers + 15 invokers |
+
+This supersedes Section 29's raw 75/24/51 public-schema aggregate as the application API count. The 51 invoker figure is not a stable application count: extension routines can inflate a schema-wide count when a clean replay installs extensions into public. The connected Supabase project has pgcrypto, uuid-ossp, and pg_stat_statements installed in the extensions schema. Count application functions by exact api_ signatures, and inventory extension routines separately by extension/schema. The current source contract now asserts the exact 38 API signatures (24 definers and 14 invokers), rather than all functions visible in public.
+
+### 30.2 Exact public application invoker register
+
+The live catalog returned these 14 authenticated-callable public SECURITY INVOKER API functions:
+
+1. public.api_active_responder_locations()
+2. public.api_all_incidents()
+3. public.api_assign_incident(bigint,bigint)
+4. public.api_assign_incident_team(bigint,bigint[])
+5. public.api_create_incident(text,text,double precision,double precision,real)
+6. public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamp with time zone)
+7. public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamp with time zone,text)
+8. public.api_dependency_health()
+9. public.api_me()
+10. public.api_my_incidents()
+11. public.api_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)
+12. public.api_release_incident_assignment(bigint,bigint)
+13. public.api_set_duty_status(text)
+14. public.api_update_incident_status(bigint,text)
+
+The API register excludes public.tacresq_require_incident_location(), which is a trigger-returning function rather than an API RPC. api_dependency_health() is the one intentional anon-callable application API in this invoker set; its immutable SQL body returns a fixed data-free constant and reads no application table. All other listed application invokers returned anon EXECUTE false.
+
+### 30.3 Per-invoker dependency and authorization map
+
+| Invoker | Live body dependency | Effective security boundary to preserve |
+|---|---|---|
+| api_active_responder_locations | private.tacresq_active_responder_locations() | Active dispatcher check and profile share lock inside private definer wrapper |
+| api_all_incidents | incidents, profiles, incident_assignments; tacresq_actor_role() | Active dispatcher helper plus SECURITY INVOKER base-table RLS |
+| api_assign_incident | api_assign_incident_team(...) | Legacy alias must remain a thin route to guarded team assignment |
+| api_assign_incident_team | tacresq_assign_incident_team_guarded(...) | Active dispatcher check and profile lock in private definer guard; underlying implementation remains inaccessible |
+| api_create_incident, v2, v3 | profiles, incidents, incident triggers | Requester role check, incident INSERT RLS, restrictive active-account policy and suspended-account write trigger |
+| api_dependency_health | No application tables or helpers | Immutable fixed-result health exception; anon execution is intentional and data-free |
+| api_me | profiles, incidents, incident_assignments | Self-profile RLS and active-account restrictive policy |
+| api_my_incidents | incidents, profiles, incident_assignments; tacresq_is_incident_assignee(...) | Direct-table RLS and active-aware assignment helper |
+| api_record_location_v2 | tacresq_record_location_v2(...) | Active responder/driver wrapper; assignment, coordinate, timestamp and rate-limit validation |
+| api_release_incident_assignment | tacresq_release_incident_assignment(...) | Active dispatcher wrapper and profile share lock |
+| api_set_duty_status | profiles, incidents | Active responder/driver check under FOR UPDATE profile lock; active-incident restriction |
+| api_update_incident_status | tacresq_dispatch_update_incident_status(...) | Active dispatcher wrapper and profile lock |
+
+The source and catalog map does not replace same-valid-JWT positive/negative runtime tests or transaction-race tests.
+
+### 30.4 Direct table privileges and RLS
+
+The read-only query found RLS enabled on the reviewed operational relations profiles, incidents, incident_assignments, location_logs, incident_status_logs, and fcm_tokens. The selected incident, assignment, location and status-log tables grant authenticated SELECT but no table-level INSERT, UPDATE or DELETE. Profiles has table-level SELECT/INSERT/UPDATE, with self/dispatcher read policy, restricted self-update policy and a restrictive active-account policy. fcm_tokens has SELECT but no direct table DML; its restrictive operation-specific policies preserve a narrow suspended self-cleanup DELETE path, subject to the required table privilege.
+
+RLS policy composition remains significant: permissive policies combine with OR and restrictive policies combine with AND. A policy name alone is not proof of effective authorization. The same-valid-JWT test matrix must exercise direct table paths in addition to RPC calls.
+
+### 30.5 Views and materialized views
+
+The connected database returned no public views or materialized views at this snapshot. Therefore, no public view-owner or security_invoker exposure path was observed. Re-run the inventory after migrations because future views can create a new boundary. Do not infer that the whole database has no views; this statement is scoped to public views/materialized views in the observed catalog.
+
+### 30.6 Trigger-only function direct EXECUTE finding
+
+The live catalog found public.tacresq_require_incident_location() attached to incidents_require_location_before_write as a BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description trigger. Its explicit ACL currently includes EXECUTE for PUBLIC, anon, authenticated and service_role.
+
+This function returns trigger and enforces a row invariant. PostgreSQL's trigger machinery invokes it; clients do not need EXECUTE on it. The grants are unnecessary exposure and must be removed without dropping or changing the trigger. Branch migration 20261126100000_revoke_incident_trigger_function_client_execute.sql now revokes EXECUTE from PUBLIC, anon, authenticated and service_role. The foundation replay contract verifies the trigger remains enabled and attached while all those direct EXECUTE checks are false. This is a branch fix only until replay, merge and approved migration deployment occur.
+
+### 30.7 Branch/deployment drift and release requirements
+
+The connected migration ledger's latest observed version is 20261125030354, which is absent from the current documentation branch. The branch contains 20261125120000_read_only_account_profile_rls.sql and 20261125130000_remove_legacy_fcm_active_account_policy.sql, which were not present in the live ledger snapshot. The current branch also adds 20261126100000_revoke_incident_trigger_function_client_execute.sql. Treat these as migration drift/pending work; do not claim the branch is fully deployed.
+
+- [ ] Run exact-head clean PostgreSQL replay with the new extension-independent 24/14 API inventory contract.
+- [ ] Verify the trigger-only EXECUTE revocation and trigger attachment in replay.
+- [ ] Reconcile the connected migration ledger against the branch and approved deployment history.
+- [ ] Run same-valid-JWT active/suspended tests for all 14 invokers, 24 definers, 13 private callable helpers, and direct table paths.
+- [ ] Test the legacy incident-create invokers and duty/assignment/location wrappers against account suspension races.
+- [ ] Keep Storage HTTP tests, Edge Function provider-spy tests, and Laravel/Sanctum cross-domain tests as separate release gates.
+
+**Evidence boundary:** This is a live catalog snapshot, not an application penetration test. No user data was selected, no function was invoked, no migration was applied, and no production account or operational record was changed.
