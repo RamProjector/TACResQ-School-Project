@@ -9404,3 +9404,73 @@ No hosted migration push, repair, key rotation, production SQL mutation, Edge de
 **Not claimed:** no CI run has yet been treated as passed for the new exact head; no local PostgreSQL replay has been executed by this authoring step; no hosted grant has been changed; no Admin browser or Android runtime test has been performed.
 
 **References:** Sections 21–23, 25, 27–29, 33–36, 53–63; `20261112215653_admin_role_audit_foundation.sql`; `20261122050811_api_operation_audit_and_fk_indexes.sql`; `backend/src/app/ApiOperationAuditLogger.php`; `backend/src/app/FcmNotificationDispatcher.php`; `tools/test_rpc_grants.py`; `tools/test_supabase_migration_replay.sh`; `tools/test_service_role_admin_audit_privileges.sql`.
+
+
+## Section 65 — Live default-ACL ownership, future-object exposure, and migration-owner boundaries
+
+**Objective:** identify which owners and schemas can silently grant privileges to future objects, distinguish application-owned defaults from Supabase-managed defaults, and define a safe sequence for any future default-privilege change. This section records a read-only live catalog snapshot; it does not alter any default ACL.
+
+### 65.1 Current owner and schema inventory
+
+A fresh PostgreSQL 17 catalog query found no global (`defaclnamespace = 0`) default-ACL rows. All returned default ACL entries are schema-scoped and belong to three owners:
+
+| Default-ACL owner | Schemas with entries | Object families |
+|---|---|---|
+| `postgres` | `public`, `storage` | tables, sequences, functions |
+| `supabase_admin` | `public`, `graphql`, `graphql_public`, `extensions`, `realtime` | tables, sequences, functions |
+| `supabase_auth_admin` | `auth` | tables, sequences, functions |
+
+For `postgres`-owned objects in `public`, the live defaults grant:
+- All current PostgreSQL table privileges to `anon`, `authenticated` and `service_role` (PG17 includes `MAINTAIN`).
+- `USAGE`, `SELECT` and `UPDATE` on sequences to the same three roles.
+- Function `EXECUTE` to the same three roles.
+
+The same broad role grants exist for `postgres`-owned objects in `storage`. These are defaults for objects created by that owner in those schemas; they do not prove every such object is exposed through PostgREST or that a role has schema USAGE.
+
+The `supabase_admin` entries in `public`, `graphql` and `graphql_public` also grant broad table/sequence/function privileges to `anon`, `authenticated` and `service_role`. Its `extensions` and `realtime` defaults include platform-oriented grants to `postgres` and/or `dashboard_user`, including grant options on selected objects. `supabase_auth_admin` defaults in `auth` grant platform privileges to `postgres` and `dashboard_user`; no `anon`, `authenticated` or `service_role` grant was present in that owner/schema family.
+
+**Boundary:** do not change `supabase_admin`, `supabase_auth_admin`, `extensions`, `graphql`, `graphql_public`, `realtime` or `auth` defaults as part of an application migration. They are platform-managed owner/schema surfaces. Even `public` defaults under `supabase_admin` are not interchangeable with the application migration owner's `postgres/public` defaults.
+
+### 65.2 Why the defaults matter
+
+Default privileges apply to future objects created by the named owner, not to existing relations or functions. The live defaults explain why current object ACLs can vary depending on which migration owner created them and whether the migration explicitly revoked or replaced the defaults.
+
+The source tree does not contain a checked-in `ALTER DEFAULT PRIVILEGES` migration establishing the live owner/schema grants. The live catalog is therefore authoritative for this snapshot; do not infer the hosted defaults from repository migration text alone.
+
+For functions, PostgreSQL's built-in default is also relevant: new functions normally grant EXECUTE to PUBLIC. A schema-scoped default ACL adds privileges; it cannot use a per-schema REVOKE to remove a privilege inherited from the global default. If the project later decides to remove the PUBLIC function default for functions created by `postgres`, that requires an owner-level global default-privilege change and therefore affects future postgres-created functions across schemas, not just `public`. That scope must be explicitly reviewed before such a change.
+
+### 65.3 Replay parity added in Section 64
+
+The disposable migration replay now seeds the live `postgres/public` defaults for tables, sequences and functions before applying migrations, granting the same object-family privileges to `anon`, `authenticated` and `service_role`. The runtime catalog contract asserts the fixture is present and then checks that the Admin audit table/sequence and Admin RPC family are narrowed after migrations.
+
+This improves the replay's ability to detect migrations that forget to revoke hosted default grants. It is still a partial platform model:
+- It reproduces the application `postgres/public` defaults, not all `storage` or Supabase-managed owner/schema defaults.
+- The workflow currently uses PostgreSQL 16.15, while the hosted project is PostgreSQL 17.0. The PG16 lane cannot represent PG17's `MAINTAIN` table privilege.
+- A successful clean replay does not prove hosted default ACL parity, migration-ledger alignment, PostgREST exposed-schema configuration, or behavior of platform-created objects.
+
+A dedicated PostgreSQL 17 replay lane or equivalent versioned catalog test should be added before any broad default-ACL migration is considered complete.
+
+### 65.4 Recommended safe order for future default-privilege work
+
+1. **Freeze owner provenance:** confirm which role actually creates application migrations in each environment; verify object owner after creation. Do not assume every hosted object is created by `postgres`.
+2. **Keep platform owners untouched:** exclude `supabase_admin`, `supabase_auth_admin`, platform schemas and managed extensions from application cleanup.
+3. **Inventory each application object family:** enumerate every table, sequence and function created by `postgres` in `public`; map explicit grants/revokes, RLS, callers, RPC wrappers, triggers, sequence use and server-only consumers.
+4. **Design explicit allowlists first:** identify which functions need authenticated EXECUTE, which narrow server RPCs need service_role EXECUTE, and which tables/sequences need specific server privileges. Existing FCM and metadata-log flows require explicit exceptions; do not assume blanket revocation is harmless.
+5. **Handle PUBLIC function EXECUTE separately:** if removing the built-in PUBLIC function default, treat it as an owner-wide future-function change and inventory every postgres-created function in every schema affected. Preserve required Auth, Storage, application and platform function grants explicitly.
+6. **Use staged replay:** model the current defaults, apply the proposed owner/schema change in a disposable database, create probe objects after the change, and assert their effective grants. Verify both allowed and denied paths.
+7. **Compare hosted state read-only:** capture exact owner, schema, object type, grantee, privilege, grant option and migration version before preparing a deployment.
+8. **Deploy only with explicit approval:** apply a forward migration, re-read the live default ACLs and effective object privileges, then run same-valid-JWT, anonymous, authenticated, service-role and worker workflow tests.
+
+### 65.5 Role-membership note
+
+The live role-membership catalog reports `authenticator` as a member of `service_role` with `INHERIT = false` and `SET = true`; `supabase_realtime_admin` has the same non-inheriting/settable relationship. `postgres` is a member of `service_role` with `INHERIT = true` and `ADMIN OPTION = true`. These are platform/database role relationships, not evidence that a particular operator or application has a service-role key. Do not modify platform membership as part of application ACL cleanup.
+
+### 65.6 Change boundary and conclusion
+
+**Confirmed:** broad schema-scoped defaults exist for three owner families; `postgres/public` defaults grant table, sequence and function privileges to anon/authenticated/service_role; `postgres/storage` has a similar default family; platform owners have separate defaults in public and platform schemas; there are no global default-ACL rows in the live `pg_default_acl` catalog snapshot. Section 64's replay fixture now models the `postgres/public` default grants relevant to application migrations.
+
+**Not changed:** no `ALTER DEFAULT PRIVILEGES`, role membership, schema USAGE/CREATE, hosted grant, PostgREST configuration, migration ledger, platform object or production data was changed. The Section 64 migration changes only existing Admin audit object/function privileges.
+
+**Next implementation gate:** complete a PG17 replay and owner-by-owner explicit-grant inventory before proposing any broad default-ACL migration. Do not revoke the `postgres/public` defaults globally or alter platform-owned defaults as a shortcut.
+
+**References:** existing `docs/security/admin-account-suspension-rpc-review-batch-17-default-privileges.md`; Section 56; Sections 58–65; live `pg_default_acl`, `pg_auth_members` and effective privilege catalog queries; PostgreSQL documentation on [ALTER DEFAULT PRIVILEGES](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html) and [Privileges](https://www.postgresql.org/docs/current/ddl-priv.html).
