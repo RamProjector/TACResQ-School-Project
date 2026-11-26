@@ -187,7 +187,9 @@ assert '<section className="admin-panel admin-analytics-panel"' in admin_console
 assert 'aria-labelledby="admin-analytics-title"' in admin_console
 assert 'aria-busy={analyticsLoading}' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
-assert 'role="group" aria-label="Current status of requests created during the selected reporting period"' in admin_console
+assert '<section className="admin-analytics-card admin-analytics-status-chart" aria-labelledby="admin-status-distribution-title">' in admin_console
+assert '<h3 id="admin-status-distribution-title">Request status distribution</h3>' in admin_console
+assert "Current status of requests created in the selected reporting period; this is not a historical status-transition chart." in admin_console
 assert '<span>Period (Manila time)</span>' in admin_console
 assert 'No daily buckets were returned for this reporting period.' in admin_console
 assert 'No daily data for this period.' not in admin_console
