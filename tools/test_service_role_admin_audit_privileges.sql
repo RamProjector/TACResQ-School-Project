@@ -64,6 +64,17 @@ BEGIN
     END IF;
   END LOOP;
 
+  IF has_table_privilege('anon', 'public.admin_audit_logs', 'SELECT')
+     OR has_table_privilege('anon', 'public.admin_audit_logs', 'INSERT')
+     OR has_table_privilege('anon', 'public.admin_audit_logs', 'UPDATE')
+     OR has_table_privilege('anon', 'public.admin_audit_logs', 'DELETE')
+     OR has_table_privilege('anon', 'public.admin_audit_logs', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'anon must not receive direct admin_audit_logs privileges';
+  END IF;
+  IF NOT has_table_privilege('authenticated', 'public.admin_audit_logs', 'SELECT') THEN
+    RAISE EXCEPTION 'Authenticated Admin audit reader lost its SELECT grant';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM pg_catalog.pg_attribute AS attribute_row
@@ -81,10 +92,21 @@ BEGIN
     RAISE EXCEPTION 'admin_audit_logs identity sequence is missing';
   END IF;
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
-    IF has_sequence_privilege('service_role', sequence_name, privilege_name) THEN
-      RAISE EXCEPTION 'service_role unexpectedly retains % on %', privilege_name, sequence_name;
+    IF has_sequence_privilege('anon', sequence_name, privilege_name)
+       OR has_sequence_privilege('authenticated', sequence_name, privilege_name)
+       OR has_sequence_privilege('service_role', sequence_name, privilege_name) THEN
+      RAISE EXCEPTION 'Client/service roles unexpectedly retain % on %', privilege_name, sequence_name;
     END IF;
   END LOOP;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS sequence_row
+    CROSS JOIN LATERAL pg_catalog.aclexplode(sequence_row.relacl) AS sequence_privilege
+    WHERE sequence_row.oid = sequence_name::regclass
+      AND sequence_privilege.grantee = 0
+  ) THEN
+    RAISE EXCEPTION 'PUBLIC must not retain privileges on the audit identity sequence';
+  END IF;
 
   -- Service-role must not invoke Admin-only or internal Admin functions directly.
   FOREACH function_signature IN ARRAY protected_functions LOOP
@@ -123,9 +145,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF NOT has_table_privilege('authenticated', 'public.admin_audit_logs', 'SELECT') THEN
-    RAISE EXCEPTION 'Authenticated Admin audit reader lost its SELECT grant';
-  END IF;
   IF has_table_privilege('authenticated', 'public.admin_audit_logs', 'INSERT')
      OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'UPDATE')
      OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'DELETE')
