@@ -392,3 +392,17 @@ assert ".admin-shell--high-contrast .admin-attachment-card p" in admin_css
 assert ".admin-shell--high-contrast .admin-analytics-card p" in admin_css
 assert ".admin-shell--high-contrast .audit-event-card__details dd" in admin_css
 assert ".admin-shell--reduced-motion *::after" in admin_css
+
+
+# Notification settings disclose the actual delivery boundary and do not expose unsafe client-only controls.
+for required_text in (
+    "Persistent in-app notification inbox",
+    "Automatic queue execution",
+    "Not enabled in the current deployment",
+    "Physical-device delivery verification",
+    "not proof that a person received, opened, or acted on an alert",
+    "Do not enable quiet hours, suppression, or per-role delivery switches",
+    "Open notification guidance",
+):
+    assert required_text in admin_console, f"Notification guidance is missing: {required_text}"
+assert "admin-notifications-workspace" in admin_console
