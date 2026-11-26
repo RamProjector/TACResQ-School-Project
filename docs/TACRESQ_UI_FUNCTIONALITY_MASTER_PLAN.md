@@ -1683,3 +1683,130 @@ The Admin portal has no live connection to backup schedules, off-site destinatio
 
 **Evidence boundary:** Reviewed branch files include `SupabaseTacApi.kt`, the reservation and reconciliation migrations, the later chat idempotency guards, Storage-policy SQL tests, the report-only attachment inventory, and the documented backup/restore procedures. The source confirms the intended contracts and explicit outstanding gates; it does not establish current deployed switch state, production bucket policy, successful HTTP upload/download, active backup automation, or a completed restore.
 
+
+## 27. Additional source audit — Admin authentication, account lifecycle, sessions, and authorization boundaries
+
+**Scope:** Source audit of the Admin web MFA gate and Security workspace, Admin RPC migrations, account lifecycle directory/transition/audit reader, and related source-contract tests. This is not a live Supabase catalog query, deployed migration verification, connected-project session inspection, or executed PostgreSQL/HTTP regression run.
+
+### 27.1 Admin MFA gate and current-session assurance
+
+The Admin portal has a dedicated 'AdminMfaGate' before rendering the protected console:
+
+- It reads the current Supabase Auth assurance level and authenticator factors.
+- Access is allowed through the gate only when the session is AAL2 and its current authentication methods include TOTP.
+- If a verified TOTP factor exists but the session is AAL1, the user must challenge and verify a registered factor.
+- If no verified TOTP factor exists, the gate starts TOTP enrollment and requires a six-digit verification before entering the portal.
+- Pending factors from another browser/device are not silently removed. Enrollment cleanup is limited to the factor created by the current gate instance.
+- Sign-out remains available during MFA setup and MFA preparation errors do not silently bypass the gate.
+- The manual setup secret is hidden by default and the UI warns that it must remain private. The component states that the secret is not written to TACResQ application tables.
+
+The database authorization boundary independently checks 'auth.uid()', JWT AAL2, a TOTP entry in JWT AMR, and the current Admin profile role. The browser gate is a usability layer, not the authorization boundary. The Admin MFA helper is private and its direct client EXECUTE grant is revoked.
+
+**Important refinement:** The earlier MFA migration '20261122050858_require_totp_for_admin_rpcs.sql' checks the Admin role but not lifecycle state. The later migration '20261125020924_admin_website_account_lifecycle_controls.sql' replaces the helper and additionally requires 'profiles.account_status = active'. Treat the later definition as the effective source definition when the complete migration sequence is applied.
+
+### 27.2 Security workspace: factor management and self-session revocation
+
+'AdminSecurityStatus.tsx' implements a current-account security workspace:
+
+- Refresh reads the current session assurance level and TOTP factor inventory. It clears the previous snapshot and checked timestamp while loading; a failed read clears stale values rather than presenting them as current.
+- Adding a backup authenticator requires a fresh AAL2/TOTP check immediately before enrollment, then a separate challenge-and-verify step. The code re-reads the factor inventory before enforcing the ten-factor ceiling.
+- Factor removal also rechecks assurance before mutation and is scoped to the selected factor belonging to the signed-in administrator.
+- Global sign-out requires a fresh AAL2/TOTP check and explicit confirmation. It calls Supabase Auth 'signOut({ scope: global })' for the current signed-in account; it does not accept a target profile ID or revoke another user's sessions.
+- Ordinary sign-out remains a local-session operation elsewhere in the portal.
+
+**Session semantics:** Supabase global sign-out revokes refreshable sessions for that same account, but access-token JWTs already issued can remain valid until expiry. Do not label the action 'immediately terminate every device' or imply that it is a session inventory. The residual access-token lifetime remains relevant to risk assessment; changing JWT expiry is outside this UI scope and requires separate operational research and approval.
+
+### 27.3 Admin RPC authorization and grant boundary
+
+The reviewed migration chain establishes these controls:
+
+1. '20261122050858_require_totp_for_admin_rpcs.sql' moves privileged implementations behind wrappers, revokes direct client access to internal routines, and grants authenticated execution only to the MFA-enforcing public wrappers for bounded directory, role change, audit, and analytics operations. The legacy unbounded directory RPC remains revoked.
+2. 'private.tacresq_require_admin_mfa()' is 'SECURITY DEFINER' with pinned 'search_path = pg_catalog', is not directly executable by client roles, and checks AAL2 plus TOTP AMR and Admin role.
+3. '20261125020924_admin_website_account_lifecycle_controls.sql' strengthens that helper to require an active Admin, adds 'account_status' to the bounded directory response, and grants the website's three-argument lifecycle transition routine to 'authenticated'.
+4. '20261125020926_admin_account_lifecycle_compare_and_set.sql' removes that three-argument transition overload and replaces it with the four-argument compare-and-set RPC:
+   'api_admin_set_account_status(target_profile_id, expected_account_status, new_account_status, reason)'.
+   The final four-argument routine is revoked from 'PUBLIC' and 'anon', and granted to 'authenticated'.
+
+The final four-argument transition function independently requires an active Admin with AAL2/TOTP, takes a transaction-scoped advisory lock shared with Admin role changes, locks and re-reads the target profile, rejects self-change and Admin targets, checks the expected prior state, and writes the state transition plus immutable lifecycle audit record in the same transaction. A stale expected status returns a conflict rather than silently applying a decision based on an old directory row.
+
+The routine also refuses to suspend a field unit while active incident assignments remain in either reviewed assignment model. It does not silently cancel incidents, remove assignments, or alter duty status. The Admin UI must preserve the explicit reassignment/resolution workflow and present conflict/active-assignment errors as actionable failures, not success.
+
+**Do not confuse overloads:** The three-argument function in migration '20261125020838_account_lifecycle_admin_transition_rpc.sql' is an intermediate staged implementation whose client grant is revoked. It is subsequently dropped and replaced by the four-argument compare-and-set function in '20261125020926_admin_account_lifecycle_compare_and_set.sql'. The four-argument function is the website's client-callable contract in the reviewed migration sequence.
+
+### 27.4 Account lifecycle UI and audit reader
+
+The Admin web source imports 'setAdminAccountStatus' and 'getAdminAccountLifecycleEvents'; the typed client invokes the four-argument lifecycle RPC and validates its response. It distinguishes:
+- Stale state ('40001'): refresh the directory and review the current state before trying again.
+- Authorization, invalid input, missing target, or active assignment conflict: surface a failure rather than reporting a transition as successful.
+- Ambiguous transport/invalid confirmation: instruct the operator to refresh directory and lifecycle history before retrying, avoiding blind duplicate mutations.
+
+The bounded 'api_admin_list_account_lifecycle_events(limit, offset)' reader:
+- Requires the shared active Admin + AAL2/TOTP helper.
+- Bounds page size to 1–100 and offset to 0–1,000,000.
+- Returns a separate lifecycle stream with actor, target, action, previous/new state, reason, timestamp, and total count.
+- Keeps direct client access to the underlying lifecycle ledger revoked.
+- Uses one SQL statement snapshot for the page and total.
+
+Keep lifecycle history distinct from the general investigation feed unless a future migration deliberately unifies their pagination and source contracts. The source comment explicitly says the lifecycle reader remains separate until safe full cross-source pagination is available.
+
+### 27.5 Critical documentation conflict resolved for this plan
+
+Several account-suspension documents contain earlier status statements that are superseded by later migrations:
+
+- 'admin-account-suspension-state-contract.md' still says the transition has no client EXECUTE grant and no Admin control is exposed.
+- 'admin-account-suspension-surface-inventory.md' still describes the transition as staged and the browser UI as not guarded/not exposed.
+- The later migration '20261125020924_admin_website_account_lifecycle_controls.sql', final compare-and-set migration '20261125020926_admin_account_lifecycle_compare_and_set.sql', current 'AdminConsole.tsx', and 'backend/web/src/lib/supabase.ts' show a website transition RPC with authenticated EXECUTE, active-Admin/AAL2/TOTP checks, and client integration.
+
+For current UI planning, follow the later migration and current source implementation. Do not quote the older status paragraphs as current facts. The older docs remain useful for their enumerated outstanding coverage and release-gate warnings, but their top-level status needs reconciliation in a dedicated documentation cleanup before anyone uses them as operational instructions.
+
+### 27.6 What this does not prove
+
+Even though the latest checked-in migration sequence and client code expose the website lifecycle action, source inspection does not prove that those migrations have been applied to the connected Supabase project, that the deployed website bundle uses this exact source, or that the end-to-end action has passed runtime tests.
+
+The source-contract tests and SQL replay definitions are not equivalent to:
+- A fresh clean PostgreSQL migration replay at the exact candidate head.
+- Effective grant/catalog inspection after replay.
+- Same-still-valid-JWT active/suspended tests across every public and private callable, direct RLS read/write, and every Storage bucket.
+- Isolated Edge Function tests proving denied calls make no external OAuth/FCM request and suspended recipients are excluded.
+- Laravel/Sanctum identity and bridge route tests.
+- Concurrency tests for suspension racing role changes, incident assignment/release, duty changes, location writes, and incident mutations.
+- A live, read-only check of deployed migration version and effective authorization state.
+
+The account lifecycle transition must remain clearly labelled as source-implemented but deployment/runtime-unverified until these checks are recorded against one exact commit and isolated environment.
+
+### 27.7 Security detections, denied attempts, and provider authentication events
+
+Do not present the current Activity Log or Security page as a complete IDS/IPS detection console:
+
+- 'admin_audit_logs' primarily records reviewed application role-change events; it is not a universal record of Admin reads, denied RPC attempts, session events, or all security anomalies.
+- 'account_lifecycle_audit_logs' records successful suspend/reactivate transitions; it does not by itself record rejected attempts or policy-detection alerts.
+- Supabase Auth provider audit events are a separate stream. The reviewed session/audit boundary document says persistence to 'auth.audit_log_entries', retention, schema, and project configuration have not been verified.
+- Direct Android/Admin Supabase Auth, PostgREST, and Storage calls do not traverse the Laravel operation logger. The logger only covers selected Laravel-mediated requests.
+- A successful role/AAL2 denial check is not automatically an application audit event. Do not claim rejected Admin RPC calls are durably logged unless a verified provider/database writer proves it.
+
+**Admin UI requirements:**
+1. Keep current-session assurance/factor controls separate from cross-system security monitoring.
+2. Show the lifecycle transition stream as its own source with its own pagination and clear successful-transition semantics.
+3. Label authentication events as unavailable/unverified until provider persistence, schema, grants, retention, and safe projection are verified.
+4. Do not show a 'threat detected', 'all sessions', 'all activity', or 'system protected' state without a source-backed detection rule, writer, coverage inventory, and tested delivery path.
+5. For any future detection feed, define the rule/version, actor and principal namespace, evidence source, event time, decision, response state, notification recipient, retry/dead-letter behavior, and audit retention. Keep secrets, tokens, OTPs, raw Auth payloads, message contents, and unnecessary precise location out of event descriptions.
+6. Record monitoring-source health and last successful collection independently from 'no events found'. An empty feed is not proof of no attack.
+
+### 27.8 Acceptance matrix for the Admin security surface
+
+- [ ] MFA gate denies Admin portal entry until a TOTP-authenticated AAL2 session is confirmed.
+- [ ] Admin RPCs reject non-Admin, suspended Admin, AAL1, and AAL2-without-TOTP sessions at the database boundary.
+- [ ] Private internal Admin implementations and helper routines have no unintended 'PUBLIC'/'anon'/client grants.
+- [ ] Backup factor enrollment and factor removal perform fresh assurance checks and verify the resulting factor/session state.
+- [ ] Global sign-out affects only the signed-in Admin's refreshable sessions and explains the access-token expiry limitation.
+- [ ] Ordinary local sign-out remains distinct from global session revocation.
+- [ ] Lifecycle UI uses the final four-argument compare-and-set RPC and handles stale state, active assignments, authorization errors, and ambiguous outcomes.
+- [ ] Lifecycle audit reads remain bounded and inaccessible through direct client table grants.
+- [ ] No lifecycle action silently changes duty status, assignment ownership, or active incident state.
+- [ ] Every relevant public/private RPC, direct RLS surface, Storage bucket, Edge Function, and Laravel route passes same-valid-JWT active/suspended regression.
+- [ ] Concurrency tests cover lifecycle changes against role changes and operational assignment/write paths.
+- [ ] Provider Auth Audit Log persistence and retention are verified before authentication history is shown as live.
+- [ ] Denied privileged attempts and security detections have an explicit writer and notification workflow before the UI claims coverage.
+- [ ] Clean replay, effective grants, and runtime checks are attached to the exact release candidate; no live deployment is inferred from source.
+
+**Reviewed source anchors:** 'AdminMfaGate.tsx', 'AdminSecurityStatus.tsx', 'AdminConsole.tsx', 'backend/web/src/lib/supabase.ts', '20261122050858_require_totp_for_admin_rpcs.sql', '20261125020838_account_lifecycle_admin_transition_rpc.sql', '20261125020844_admin_account_lifecycle_audit_reader.sql', '20261125020924_admin_website_account_lifecycle_controls.sql', '20261125020926_admin_account_lifecycle_compare_and_set.sql', 'admin-session-revocation-and-auth-audit-boundaries.md', and the lifecycle callable crosswalk. The findings are repository-source claims only, not live-provider verification.
