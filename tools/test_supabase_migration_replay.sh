@@ -1966,6 +1966,8 @@ BEGIN
       AND sequence.relkind = 'S'
       AND sequence.relname NOT IN (
         'api_operation_logs_id_seq',
+        'incidents_id_seq',
+        'location_logs_id_seq',
         'device_security_events_id_seq',
         'device_integrity_checks_id_seq'
       )
@@ -1981,14 +1983,18 @@ BEGIN
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT'] LOOP
     IF NOT has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', privilege_name)
        OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', privilege_name)
-       OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name) THEN
-      RAISE EXCEPTION 'Trusted direct-insert sequence consumers lost required % privilege', privilege_name;
+       OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Trusted direct-insert/legacy RPC sequence consumers lost required % privilege', privilege_name;
     END IF;
   END LOOP;
 
   IF has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', 'UPDATE')
      OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
-     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.incidents_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'UPDATE') THEN
     RAISE EXCEPTION 'Trusted server sequence consumers must not retain UPDATE/setval';
   END IF;
 
