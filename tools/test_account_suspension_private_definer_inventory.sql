@@ -37,6 +37,7 @@ BEGIN
       WHERE p.oid = resolved_oid
         AND n.nspname = 'private'
         AND p.prosecdef
+        AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
         AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
     ) THEN
       RAISE EXCEPTION 'Expected authenticated-callable private SECURITY DEFINER contract changed: %',
@@ -105,6 +106,13 @@ BEGIN
   ] LOOP
     internal_oid := to_regprocedure(expected_internal_signature);
     IF internal_oid IS NULL
+       OR NOT EXISTS (
+         SELECT 1
+         FROM pg_catalog.pg_proc AS p
+         WHERE p.oid = internal_oid
+           AND p.prosecdef
+           AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+       )
        OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
        OR has_function_privilege('anon', internal_oid, 'EXECUTE')
        OR EXISTS (
