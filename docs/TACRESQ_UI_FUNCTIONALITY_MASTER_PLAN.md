@@ -9785,6 +9785,8 @@ The sequence audit exposed why blanket sequence revocation is unsafe:
 | `public.api_operation_logs_id_seq` | Laravel's server-side operation logger directly inserts telemetry rows. | Preserve service-role sequence access for the direct insert path; no client grant. |
 | Device-registry identity sequences | Trusted backend device-verification writers create rows; clients do not write these tables directly. | Preserve service-role `USAGE/SELECT`; revoke client and service-role `UPDATE`. |
 
+PostgreSQL's sequence privilege meanings matter here: `USAGE` permits `nextval` and `currval`; `SELECT` permits `currval`; `UPDATE` permits `nextval` and `setval`. Since the legacy insert path needs the identity default's `nextval`, `USAGE` is sufficient; `SELECT` is redundant and `UPDATE` would unnecessarily expose sequence mutation.
+
 The earlier draft incorrectly removed authenticated access to `incidents_id_seq` while leaving three authenticated-callable invoker RPCs in place. The corrected migration preserves only `USAGE` for those legacy create paths and explicitly removes `SELECT` and `UPDATE`. It does not silently revoke the old RPCs; compatibility retirement is a separate, evidence-gated change.
 
 ### 71.3 Runtime regression contract
