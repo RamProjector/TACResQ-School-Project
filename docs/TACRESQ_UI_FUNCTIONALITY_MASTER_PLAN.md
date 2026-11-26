@@ -7504,3 +7504,119 @@ These require separate environment-specific checks. Do not put production creden
 Security configuration is **CI-enforced** only when the test runs on pull requests, fails on a deliberately introduced unsafe grant/configuration in a disposable fixture, passes on the reviewed baseline and produces an inspectable inventory. Hosted configuration is **verified** only when the actual project setting and authenticated endpoint reachability are independently checked. A source assertion or clean local replay alone is not hosted verification.
 
 **Change boundary:** design and source-audit documentation only. No CI workflow, test, migration, ACL, role membership, Data API exposed-schema setting, Storage policy, Render configuration or production resource was changed.
+
+
+## 58. Audit-event completeness and IDS/IPS traceability
+
+**Audit objective:** establish which user/system actions create durable, attributable records; which records are domain history rather than security audit; which transport/provider logs exist outside the application database; and which handout fields remain unavailable. A UI action, successful API response, domain-state row, provider log and security audit event are different evidence objects. They must not be silently merged or presented as equivalent.
+
+### 58.1 Evidence scope and live catalog snapshot
+
+This review combines the current branch's documented source audit with a read-only catalog inspection of connected Supabase project `kttguamhznoflzagfutr` on 2026-11-26. It inspected columns, constraints, triggers, installed extensions and aggregate row counts only; it did not inspect individual user records or change data/configuration. Treat this as a connected-project snapshot, not proof that every deployment/environment is identical.
+
+The live public schema contains distinct records for:
+- `admin_audit_logs`: constrained to `user_role_changed`, actor/target identities, old/new role, reason and timestamp.
+- `account_lifecycle_audit_logs`: suspension/reactivation, actor/target, previous/new status, reason, correlation ID and timestamp; update/delete immutability triggers are present in the inspected catalog.
+- `api_operation_logs`: selected Render API/worker provider operations, source, outcome, HTTP status, duration, provider request ID, error code, actor Auth UUID and correlation ID. It is metadata telemetry, not a universal user-action journal.
+- `app_action_audit_logs`: constrained to exactly three successful action types in the inspected live schema: `incident_message_sent`, `notification_marked_read`, and `duty_status_changed`. The outcome constraint accepts only `success`; it cannot represent denied/failed attempts in this table.
+- `device_sessions` and `device_security_events`: device/auth-session linkage, session expiry/revocation metadata and defined device-security event types. Their existence does not prove every Auth sign-in, sign-out, token refresh, or browser session is captured.
+- Domain histories: `incident_status_logs`, `incident_assignment_events`, `incident_claimability_logs`, `incident_request_edit_logs`, and `location_logs`. These represent specific state transitions or location samples, not a complete read/search/auth audit.
+
+Aggregate counts at inspection time: `admin_audit_logs` 1; `incident_request_edit_logs` 1; `incident_status_logs` 2; each of `account_lifecycle_audit_logs`, `api_operation_logs`, `app_action_audit_logs`, `device_security_events`, `device_sessions`, `incident_assignment_events`, `incident_claimability_logs`, and `location_logs` 0. Counts are a point-in-time snapshot only. Zero rows do not prove that writers are absent, that logging is broken, or that no activity occurred; a row does not prove comprehensive coverage.
+
+The inspected live database did not report an installed `pgaudit` extension. This does not establish that platform-level API/Auth/Storage/Edge logs are absent: Supabase's observability product exposes separate API Gateway, Auth, Storage, PostgREST, Postgres, Edge Function, Realtime and connection log streams. Platform logs have their own retention, access, fields and ingestion boundaries; they are not automatically a permanent seven-field application audit table. Supabase's PGAudit guidance also warns that broad statement logging can create high volume and that statement/parameter logging can expose sensitive values. No logging configuration was changed.
+
+### 58.2 Coverage classification by action family
+
+| Action family | Existing evidence source | Coverage conclusion |
+| --- | --- | --- |
+| Supabase Auth sign-in, sign-out, refresh, recovery | Supabase Auth/provider audit and device-session structures | Partial/provider-dependent; universal persistence, browser coverage and full lifecycle correlation not established |
+| Laravel Sanctum login/register/logout/recovery | Laravel/Sanctum identity and token path; selected Render operation telemetry | Separate identity namespace; complete token issuance/revocation/read audit not established |
+| Admin role changes | `admin_audit_logs` | Successful role-change domain/security record exists; not all Admin reads, searches, denials or settings changes |
+| Admin account suspension/reactivation | `account_lifecycle_audit_logs` | Successful lifecycle transition ledger exists; does not by itself record every rejected attempt or every follow-on session/device action |
+| Incident create/cancel/assignment/status | Incident state, status and assignment histories | Domain transitions can be reconstructed selectively; no universal caller/device/IP/session event for each action established |
+| Requester edit | `incident_request_edit_logs` | Before/after domain edit history exists; not a general CRUD or read audit |
+| Responder/driver duty | `app_action_audit_logs` for successful duty changes plus domain state | Narrow successful-action capture; rejected/failed attempts and all client paths not established |
+| Chat send and notification read | `app_action_audit_logs` for the two constrained successful event types | Narrow success-only capture; viewing/searching, denied access, attachment lifecycle and delivery/read semantics are not complete |
+| Location/GPS | `location_logs` and selected API telemetry | Coordinate/time evidence is not the same as audit attribution; live `location_logs` columns have no provider-name/source column, no IP, and no device-used field |
+| Private Storage media | Storage policies/service logs and message/reservation domain data | Access-control and provider telemetry are separate; complete per-object read/download/denial audit is not established |
+| FCM and notification provider | Provider operation metadata where instrumented; FCM token tables | Attempt/outcome telemetry is not proof of device receipt or user display; no universal event chain established |
+| Direct Android/Admin Supabase requests | Supabase API/Postgres/Auth/Storage logs plus database-specific records | Bypass Laravel request middleware; Laravel telemetry cannot be treated as their audit source |
+| Edge service-role work | Edge invocation/console logs plus explicit database writes | Service-role work needs explicit actor/recipient/resource/outcome capture; platform invocation logs alone do not prove business authorization evidence |
+
+### 58.3 Seven-field handout mapping
+
+The required fields are `session_id`, `log_id`, `actions`, `description`, `ip_address`, `timestamp`, and `device_used`.
+
+| Required field | Existing source support | Safe interpretation / gap |
+| --- | --- | --- |
+| `session_id` | `device_sessions.auth_session_id`; provider/session context may exist separately | Partial. Not a universal foreign key on all event tables; do not invent a session for events that lack one. |
+| `log_id` | Per-table primary keys and provider request IDs | Partial. IDs collide across tables/namespaces; use a source-qualified event identifier in a normalized projection. |
+| `actions` | Table-specific action/event/source/outcome fields | Partial. Normalize action taxonomy without erasing original source event names or confusing CRUD class with domain action. |
+| `description` | Reason, constrained event type, metadata and domain columns | Partial. Derive concise descriptions from allowlisted fields; never dump raw metadata, payloads, coordinates or exception text. |
+| `ip_address` | May exist in provider/API edge telemetry | No universal durable application field verified. Do not trust a client-supplied IP; use provider-observed metadata only where lawfully available and retained. |
+| `timestamp` | `created_at`, `occurred_at`, `recorded_at`, provider timestamps | Partial but usable per source. Preserve original event time and distinguish observed/ingested time; normalize display to UTC-aware instants without rewriting source history. |
+| `device_used` | `device_sessions`, `user_devices`, provider user-agent metadata may provide separate clues | Partial. A device ID, app/platform version and user-agent are not interchangeable; do not label user-agent as verified hardware identity. |
+
+The current database therefore does **not** demonstrate universal seven-field compliance. Do not add fake defaults such as `Unknown device` or synthetic session IDs to make a report appear complete. Use explicit null/unknown/not-collected states and expose coverage.
+
+### 58.4 Location provider attribution finding
+
+The inspected `location_logs` structure records user, latitude/longitude, optional accuracy, recorded/received times and optional incident ID. It does not contain a provider attribution field identifying which coordinate/content provider supplied or resolved the location. Selected Render operation telemetry may identify a provider for calls that pass through the instrumented Render path, but Android direct-Supabase writes and other direct paths cannot be assumed to have that linkage.
+
+If provider attribution is a requirement, define it as server-validated provenance with separate fields for:
+- coordinate origin (device GPS, user-selected map pin, geocoder result, routing provider, or another explicit category);
+- provider/service identifier and provider request/correlation ID where applicable;
+- capture time versus server-received time;
+- reported accuracy and whether the coordinate was user-confirmed;
+- client/app version only as untrusted context unless independently attested.
+
+Do not store a raw provider API key, full request/response, or unnecessary location history in the audit stream. Do not treat a map tile provider as the source of a GPS coordinate. This is a schema/contract gap to design and test, not a live migration request; no provider field was added.
+
+### 58.5 Normalized audit projection contract
+
+A future Admin IPS audit view may normalize records for search and display, but it must retain source provenance and must not pretend to be a single authoritative source table. Recommended projection fields:
+
+- `event_uid`: source-qualified stable identifier, e.g. `<namespace>:<instance>:<source-id>`;
+- `source_namespace`, `source_instance`, `source_table_or_service`, `source_event_id`;
+- `actor_namespace`, `actor_id`, optional resolved profile reference and explicit resolution confidence;
+- `target_type`, `target_id`, optional incident/resource reference;
+- `action_key`, optional CRUD/domain classification, `outcome` (success, denied, failure, timeout, unknown);
+- `event_time`, `observed_at`, `ingested_at`, time-source/confidence metadata;
+- nullable `auth_session_id`, device reference, provider/request/correlation IDs, and provider-observed IP only where available and justified;
+- concise sanitized description, evidence link/reference, sensitivity classification and source-coverage status.
+
+The projection must preserve source-native IDs, event names and timestamps. Deduplicate by stable source ID; do not collapse retries or separate attempts merely because they share actor/action/target. A fingerprint may assist review when a source ID is missing, but must not replace the original event. Cross-system identity resolution between Supabase Auth/profiles and Laravel Sanctum/Eloquent remains unresolved without an explicit trusted mapping; never join by email or display name.
+
+### 58.6 Read, search, denied-attempt and export audit policy
+
+The IDS/IPS handout explicitly includes user operations/actions. Read and search events need a defined scope: log access to sensitive records, audit histories, user directories, exports and privileged evidence; do not indiscriminately log every low-value UI render or every routine static asset request. Capture event class, actor, resource scope, outcome, time and real session/correlation context where available.
+
+For denied attempts, record only at the enforcement point that can reliably observe them. A rejected RPC, RLS denial, Storage denial, Laravel middleware denial, Edge authorization rejection and UI-side disabled button are different events. The UI cannot manufacture a backend denial record. Ensure logging failures are visible to monitoring without turning audit failure into an authorization bypass. Decide explicitly which security-critical mutations require atomic audit writes and which telemetry is best-effort.
+
+Audit-history reads, searches and exports should themselves be auditable when the source path supports it. Record query scope and result count rather than copying sensitive result content. Bound pagination and export size; require backend authorization for each request; protect logs from ordinary update/delete; separate access to investigation evidence from access to operational summaries.
+
+### 58.7 Required verification cases
+
+1. For every supported mutation, verify one authoritative state transition and exactly the intended source event(s), including duplicate/retry behavior.
+2. For each action, test success, role denial, ownership denial, suspended-account denial with the same still-valid JWT, stale state, timeout-after-commit and concurrency.
+3. Exercise direct Android Supabase, Admin browser Supabase, optional Render bridge, Laravel Sanctum, Storage HTTP and Edge Function paths separately; compare actor, source and outcome evidence.
+4. Verify reads/searches of sensitive Admin data, audit-history pagination, export and denied attempts are captured where policy requires them; confirm ordinary navigation is not misrepresented as a sensitive-data read.
+5. Verify Auth sign-in/out/recovery/session revocation against provider logs and device-session records; do not infer complete Auth coverage from one table.
+6. Verify Storage upload, download, delete denial, expired reservation and non-member access using real authenticated HTTP requests and correlate only actual provider/request IDs.
+7. Verify FCM attempted, accepted, rejected, retried and delivered/receipt states separately; never equate provider acceptance with device delivery.
+8. Verify location provider/origin attribution across device GPS, user-selected coordinate, geocoding and routing; ensure direct and proxied paths preserve provenance without trusting arbitrary client strings.
+9. Verify source-qualified IDs, UTC/time-source semantics, nullable fields, retention/availability states and cross-system identity ambiguity.
+10. Verify audit immutability, least-privilege read access, export controls, log redaction, bounded volume and the behavior when an audit sink is unavailable.
+
+### 58.8 Admin IPS presentation and release gate
+
+The Activity Log should identify each source and coverage class, distinguish business/domain history from security audit and provider telemetry, and expose filters only when their data exists. A detail view should show original source, source event ID, actor namespace, event/observed/ingested times, outcome and field-availability indicators. Missing IP/session/device/provider data must be labeled not collected or unavailable, not silently fabricated.
+
+The Security page should show source health and ingestion freshness separately from threat detections. A quiet log stream is not an all-clear. The Admin dashboard must not claim full audit coverage until a versioned coverage matrix, source health evidence, verified writer paths, retention/access policy and cross-transport tests support that claim.
+
+**Current finding:** the project has several useful, narrowly scoped audit/domain/session/telemetry structures, but they do not yet provide one complete IDS/IPS event record for every user action or all seven required fields. In particular, read/search and denied-attempt coverage is incomplete or unverified, application event capture is narrowly constrained, IP/device/session fields are not universal, and location-provider attribution is absent from the inspected `location_logs` schema.
+
+**Change boundary:** this section documents the read-only connected-project snapshot, current evidence boundaries, field mapping and proposed verification. No migration, table, trigger, extension, logging configuration, account, Storage object, Render setting, production data or application behavior was changed.
+
+**References:** Supabase [Logs in Studio](https://supabase.com/docs/guides/observability/logs), [Query and filter logs](https://supabase.com/docs/guides/observability/advanced-log-filtering), and [PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit); OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html); NIST SP 800-92, *Guide to Computer Security Log Management*.
