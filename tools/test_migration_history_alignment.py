@@ -279,7 +279,7 @@ for required in (
 assert "GRANT ALL" not in api_audit.upper()
 assert "GRANT INSERT ON TABLE public.api_operation_logs TO authenticated" not in api_audit
 
-print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} additional migration file(s) are allowlisted and not assumed applied to live Supabase.")
+print(f"PASS: {len(EXPECTED)} repository migrations match the reviewed source baseline; {len(actual - EXPECTED)} additional file(s) are explicitly allowlisted. Live-ledger identity gaps are documented separately.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
