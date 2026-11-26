@@ -9687,3 +9687,78 @@ Changed the dedicated `RPC grant contract` workflow to use pinned `postgres:17.1
 **Verification boundary:** the sequence map is source/catalog analysis; it is not a runtime proof that every worker is deployed or currently active. The forward migration and replay assertions are committed but not yet validated by an exact-head clean replay. No hosted sequence ACL or MAINTAIN privilege was changed. The exact-head replay correction from Section 68 is still awaiting CI completion.
 
 **Next task:** validate the expanded sequence migration and PG17 MAINTAIN reduction on the new exact-head PG17 replay, retain the independent PG16 CI result, then investigate any remaining sequence/default-ACL or privilege-provenance gaps.
+
+## Section 70 — WCAG 2.2 focus, contrast, and pointer-target requirements
+
+**Objective:** turn current accessibility research into testable Admin IPS interaction requirements while preserving the existing TACResQ theme. This section is a design and QA specification; it does not claim the current website conforms to WCAG 2.2.
+
+### 70.1 Keyboard focus must remain perceivable
+
+WCAG 2.2 Success Criterion (SC) 2.4.7 requires a mode of operation in which keyboard focus is visible (Level AA). SC 2.4.11 requires that a focused component is not entirely hidden by author-created content (Level AA). SC 2.4.12 strengthens this to require that no part of the focused component is obscured (Level AAA).
+
+Admin implementation requirements:
+
+- Every interactive link, button, input, select, tab, menu item, table action, dialog control, and custom widget must be keyboard reachable when it is intended to be operable.
+- Preserve a visible focus indicator; do not globally remove outlines without an equally perceivable replacement.
+- Focus must remain visible when the page scrolls, a table container scrolls, the sidebar collapses, a drawer opens, or a sticky topbar/footer is present.
+- When opening a dialog or drawer, move focus into the new surface, contain focus where appropriate, and return focus to the invoking control on close. Escape should close dismissible surfaces without losing the user's place.
+- After pagination, filtering, or route changes, keep focus and screen-reader context predictable. Do not strand focus in removed rows or hidden navigation.
+- Test at browser zoom and narrow widths; sticky controls must not cover the focused item.
+
+### 70.2 Focus appearance: distinguish mandatory AA from AAA guidance
+
+WCAG 2.2 SC 2.4.13 Focus Appearance is **Level AAA**, not AA. It defines a minimum focus-indicator area equivalent to a 2 CSS-pixel perimeter and at least 3:1 contrast between the same pixels in focused and unfocused states, subject to its stated exceptions. TACResQ should use this as a strong design target, but must not describe it as an AA requirement.
+
+Prefer a consistent, clearly visible outline that works against both the existing light workspace surfaces and deep navy navigation. Avoid relying only on a subtle background tint, a tiny icon shift, or a shadow that disappears on adjacent surfaces. Validate focus against the actual adjacent colors; passing the focused/unfocused change alone does not establish adjacent non-text contrast.
+
+### 70.3 Non-text contrast and status semantics
+
+WCAG 2.2 SC 1.4.11 Non-text Contrast (Level AA) requires visual information needed to identify controls, states, and meaningful graphics to reach 3:1 contrast against adjacent colors, subject to the criterion's exceptions.
+
+For Admin IPS:
+
+- Check input borders, selected tabs, checkbox/radio states, focus indicators, chart marks, table sort indicators, icon-only actions, and meaningful SVG strokes against their adjacent backgrounds.
+- Keep existing semantic status colors, but never communicate success, warning, failure, selected state, or account status through color alone. Pair color with text, icon shape, or another programmatic/visual cue.
+- Disabled controls must remain distinguishable from enabled controls without making essential explanatory text unreadable.
+- Charts and data visualizations need labels, legends, and/or a tabular equivalent; color should not be the sole way to distinguish series.
+- Do not change the frozen palette merely to satisfy a single component. First evaluate a suitable existing semantic token, stroke weight, border treatment, or non-color cue; document a genuine token gap for separate review.
+
+### 70.4 Pointer target size and dense data tables
+
+WCAG 2.2 SC 2.5.8 Target Size (Minimum) is **Level AA** and sets a 24 by 24 CSS-pixel minimum target size, with defined spacing and other exceptions. This is not a blanket requirement that every visual icon or table cell be 24px; the interactive target is what must be evaluated.
+
+- Ensure compact icon-only actions in directory and audit tables have an adequate hit area and spacing from adjacent actions.
+- Do not make an entire dense table row the only way to reach a consequential action; provide a clearly named, keyboard-operable control.
+- On compact layouts, prioritize essential columns and move secondary details into a row-detail view rather than shrinking text or compressing controls below usable target sizes.
+- Provide non-drag alternatives for any drag-based operation unless dragging is essential (SC 2.5.7, Level AA).
+- For hover/focus-triggered help or menus, ensure content is dismissible, hoverable, and persistent as required by SC 1.4.13 (Level AA); do not make tooltips disappear while a pointer moves onto them.
+
+### 70.5 Admin-specific acceptance matrix
+
+| Surface | Required checks |
+|---|---|
+| Desktop sidebar and compact icon rail | Keyboard order, visible focus, accessible names/tooltips, focus visibility after collapse/expand |
+| Mobile/tablet navigation drawer | Opener remains reachable, focus enters drawer, Escape/close behavior, focus restoration, no background focus leakage |
+| User directory and Activity Log tables | 24×24 CSS px target checks for controls, keyboard sorting/pagination/filtering, row actions, focus visibility during overflow scrolling |
+| Role/lifecycle dialogs | Initial focus, labelled fields, error association, focus containment, Escape policy, return focus, no sticky overlay obscuring focused controls |
+| Settings and form controls | Persistent labels, visible selected/focus states, non-text contrast, keyboard operation, clear validation feedback |
+| Analytics charts | Non-color-only series identification, readable labels/legend, data table or equivalent textual values |
+| Status chips and badges | Textual status remains present; color is supplemental and contrast is checked |
+
+### 70.6 Verification method and claim boundary
+
+1. Run automated accessibility checks against each Admin route and responsive state, but treat automation as a detector rather than proof of conformance.
+2. Perform keyboard-only walkthroughs for all eight primary destinations and their dialogs, menus, filters, pagination, and table actions.
+3. Inspect computed colors and target bounding boxes for representative states, including hover, focus, selected, disabled, error, and high-contrast settings.
+4. Test compact, medium, and wide viewports; browser zoom; reduced motion; and sticky/overflow containers.
+5. Record route, viewport, control, expected behavior, observed result, and evidence for every defect and retest.
+
+Do not claim WCAG 2.2 AA/AAA conformance from a source-contract test, automated scan, or a small sample of controls. A conformance claim requires a complete evaluation of applicable success criteria and page states.
+
+**References (normative and explanatory):**
+- W3C, [Web Content Accessibility Guidelines (WCAG) 2.2](https://www.w3.org/TR/WCAG22/): SC 1.4.11, 1.4.13, 2.4.7, 2.4.11, 2.4.12, 2.4.13, 2.5.7 and 2.5.8.
+- W3C WAI, [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/): explanation of focus visibility, focus not obscured, and target-size additions.
+- W3C WAI, [Understanding SC 2.4.13: Focus Appearance](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html): indicator area, focused/unfocused contrast, and relationship to non-text contrast.
+
+**Evidence boundary:** This is standards-based research and proposed acceptance criteria. No Admin page has been certified or newly tested for WCAG conformance by this documentation change. No application code, palette token, backend permission, schema, hosted service, or production configuration was changed.
+
