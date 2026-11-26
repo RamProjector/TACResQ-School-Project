@@ -38,3 +38,8 @@ The older rows above are historical review notes where they conflict with the cu
 - private.tacresq_record_location_v2(...) and private.tacresq_release_incident_assignment(...) are guarded authenticated-callable private wrappers. Their preserved internal implementations must remain inaccessible to client roles.
 
 These are source/migration classifications, not runtime test results. The current exact callable totals are 75 public (24 definer, 51 invoker) and 13 authenticated-callable private definers. Reconcile the full signatures against the exact-head replay before release.
+
+
+## Live catalog baseline correction
+
+The connected Supabase catalog contains 14 authenticated-callable public application API invokers, 24 public API definers, and 13 callable private definer helpers. The old 51-invoker aggregate is schema/extension dependent and must not be used as the application function count. The exact invoker register and trigger-only exception are in the callable crosswalk's live-catalog reconciliation.
