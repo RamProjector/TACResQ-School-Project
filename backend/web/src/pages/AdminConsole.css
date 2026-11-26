@@ -1369,6 +1369,20 @@
 .admin-help-card > div { display:flex; flex-wrap:wrap; gap:8px; }
 .admin-shell--compact .admin-table th,.admin-shell--compact .admin-table td { padding-top:8px; padding-bottom:8px; }
 .admin-shell--compact .admin-panel { margin-bottom:13px; }
+/* Compact density applies to the content cards across every Admin workspace,
+   not only the account and audit tables. Keep controls and text readable. */
+.admin-shell--compact .admin-settings-card,
+.admin-shell--compact .admin-help-card,
+.admin-shell--compact .admin-recovery-card,
+.admin-shell--compact .admin-attachment-card,
+.admin-shell--compact .admin-analytics-card,
+.admin-shell--compact .audit-event-card,
+.admin-shell--compact .admin-security-status__item { padding:13px; }
+.admin-shell--compact .admin-recovery-next,
+.admin-shell--compact .admin-attachment-operations { padding:14px; }
+.admin-shell--compact .admin-settings-card { gap:13px; }
+.admin-shell--compact .admin-help-card p { margin-bottom:11px; }
+
 .admin-shell--high-contrast { color:#172d2b; }
 .admin-shell--high-contrast .admin-panel,.admin-shell--high-contrast .admin-settings-card,.admin-shell--high-contrast .admin-help-card { border-color:#64756d; }
 .admin-shell--high-contrast .admin-panel__footnote,.admin-shell--high-contrast .admin-settings-card p,.admin-shell--high-contrast .admin-help-card p { color:#435650; }
