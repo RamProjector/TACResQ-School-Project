@@ -369,3 +369,21 @@ assert 'if (currentTarget.status === "verified" && currentVerifiedCount <= 1)' i
 assert 'const currentTotpFactors = latestFactors.all.filter((factor) => factor.factor_type === "totp");' in admin_security
 assert 'if (currentTotpFactors.length >= 10)' in admin_security
 assert 'const existingNames = new Set(currentTotpFactors.map((factor) => factor.friendly_name || "Authenticator app"));' in admin_security
+
+
+# The explicit High contrast preference covers the shared workspace and dense Admin pages.
+for selector in (
+    ".admin-shell--high-contrast .admin-recovery-card",
+    ".admin-shell--high-contrast .admin-attachment-card",
+    ".admin-shell--high-contrast .admin-analytics-card",
+    ".admin-shell--high-contrast .admin-health-item",
+    ".admin-shell--high-contrast .audit-event-card",
+    ".admin-shell--high-contrast .admin-modal",
+    ".admin-shell--high-contrast .admin-settings-nav__item",
+    ".admin-shell--high-contrast :where(button, a, input, select, textarea, summary):focus-visible",
+):
+    assert selector in admin_css, f"High contrast is missing {selector}"
+assert "color-scheme: light;" in admin_css
+assert "outline: 3px solid #8b3d20;" in admin_css
+assert ".admin-shell--high-contrast .admin-table th" in admin_css
+assert ".admin-shell--reduced-motion *::after" in admin_css
