@@ -25,3 +25,16 @@
 - Internal implementations are not directly executable by anon/authenticated.
 
 **Status:** Guard evidence is based on branch documentation/source contracts. Runtime replay and concurrency results remain outstanding. The duty-status row deliberately requires a fresh exact-signature lookup rather than guessing its SQL signature.
+
+
+## Current-branch reconciliation
+
+The older rows above are historical review notes where they conflict with the current migrations. Apply these corrections when using this matrix:
+
+- public.api_assign_incident_team(bigint,bigint[]) is SECURITY INVOKER. It delegates to private.tacresq_assign_incident_team_guarded(bigint,bigint[]), an authenticated-callable SECURITY DEFINER helper. The preserved private.tacresq_assign_incident_team(bigint,bigint[]) implementation has client EXECUTE revoked.
+- public.api_assign_incident(bigint,bigint) is a SECURITY INVOKER legacy alias that delegates through the guarded public team-assignment endpoint.
+- The duty-status signature is resolved: public.api_set_duty_status(text), SECURITY INVOKER, authenticated EXECUTE. The current migration validates responder/driver role and account_status = active after locking the caller profile FOR UPDATE. It preserves the active-incident restriction and does not change duty status on suspension.
+- public.api_active_responder_locations() remains a public invoker entry point; the private callable wrapper private.tacresq_active_responder_locations() is a separate authenticated-callable definer entry point. Its preserved internal query function is not the same callable surface.
+- private.tacresq_record_location_v2(...) and private.tacresq_release_incident_assignment(...) are guarded authenticated-callable private wrappers. Their preserved internal implementations must remain inaccessible to client roles.
+
+These are source/migration classifications, not runtime test results. The current exact callable totals are 75 public (24 definer, 51 invoker) and 13 authenticated-callable private definers. Reconcile the full signatures against the exact-head replay before release.
