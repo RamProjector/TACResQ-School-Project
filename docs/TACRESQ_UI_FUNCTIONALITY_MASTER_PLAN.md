@@ -4040,3 +4040,245 @@ OWASP recommends consistent application event logging, safe handling of untruste
 - [NIST SP 800-92 — Guide to Computer Security Log Management](https://csrc.nist.gov/pubs/sp/800/92/final)
 
 **Evidence boundary:** Section 42 is a researched architecture and rule-design specification. It does not claim TACResQ has centralized log ingestion, cross-domain identity mapping, universal trace propagation, reliable telemetry from every provider, or production-ready correlation rules. It does not change schema, app transport, backend behavior, retention, permissions, theme, or production configuration.
+
+
+## 43. Detection-rule validation, false-positive control, and alert fatigue
+
+**Research date:** 2026-11-26.  
+**Scope:** Define how TACResQ Admin IPS detection rules should be specified, tested, promoted, monitored, tuned, and retired so that administrators receive explainable, actionable findings rather than noisy or misleading alerts. Preserve the existing architecture, source-coverage boundaries, role model, permissions, and theme. This section is a research and release-gate specification; it does not claim that a production detection engine, rule registry, alert-delivery service, or case workflow currently exists.
+
+### 43.1 A detection rule is software and needs a release lifecycle
+
+A rule can be logically plausible and still be unsafe to operate. It may depend on a field that is not collected, confuse retries with repeated attacks, fire on ordinary administrative activity, or become inaccurate after an application change.
+
+Treat every rule as a versioned software artifact with:
+- a stable rule identifier and immutable version;
+- a concise purpose and threat/policy behavior it detects;
+- an owner responsible for maintenance and review;
+- source prerequisites and expected collection coverage;
+- exact event types, fields, joins, thresholds and time windows;
+- expected benign behavior and known false-positive scenarios;
+- impact/severity and confidence semantics;
+- test fixtures and expected outcomes;
+- rollout status, effective date and retirement/supersession relationship.
+
+A rule version that has generated detections must remain retrievable. Editing a rule in place must not rewrite the explanation for historical detections. Store the exact rule version and, where applicable, policy-matrix version on each detection.
+
+Sigma's current specification provides useful rule-governance concepts: stable identifiers, status, log-source definitions, detection logic, false-positive notes, level, and explicit informational versus alert-worthy classifications. TACResQ should adopt the governance principles, not install a Sigma engine or assume its generic Windows/EDR log sources fit this application. See [Sigma Rules Specification 2.1.0](https://sigmahq.io/sigma-specification/specification/sigma-rules-specification.html) and [Sigma rule guidance](https://sigmahq.io/docs/basics/rules.html).
+
+### 43.2 Rule lifecycle and promotion gates
+
+Use an explicit lifecycle, separate from the investigation status of any individual detection:
+
+1. **Draft:** rule intent and required evidence are being defined.
+2. **Test:** deterministic fixtures and source-contract tests are being developed.
+3. **Shadow:** rule evaluates available events in an isolated or non-alerting mode; outputs are measured but do not notify operators or trigger prevention.
+4. **Pilot:** approved limited use with named reviewers, bounded scope and documented rollback.
+5. **Active:** rule meets the acceptance criteria and has an accountable owner.
+6. **Paused:** rule is temporarily disabled because its source, schema, behavior, or false-positive rate is no longer trustworthy.
+7. **Deprecated:** replaced by a newer rule or no longer relevant; historical results remain interpretable.
+
+Promotion requirements:
+- Draft to Test: purpose, threat/policy hypothesis, evidence prerequisites and owner recorded.
+- Test to Shadow: positive, negative, boundary, missing-source and malformed-event fixtures pass.
+- Shadow to Pilot: source freshness and coverage verified; duplicate/retry behavior measured; false-positive scenarios reviewed; privacy and query-cost checks pass.
+- Pilot to Active: operator feedback, precision/actionability, stable source schema, runbook and rollback path accepted.
+- Any material change to joins, thresholds, time windows, source prerequisites, severity, or suppression behavior creates a new rule version and repeats the relevant tests.
+
+Do not label a rule "stable" merely because its SQL or code compiles. Rule stability depends on the quality and continuity of its input data and the observed behavior of its results.
+
+### 43.3 Test strategy: prove both matches and non-matches
+
+A useful rule test suite must prove that expected events match and legitimate or incomplete events do not produce unjustified conclusions.
+
+Required fixture classes:
+- **True positive:** the exact policy violation or suspicious behavior the rule is intended to identify.
+- **True negative:** ordinary, authorized behavior that resembles the detection superficially.
+- **Boundary:** event counts immediately below, at and above the threshold; events immediately inside and outside the time window.
+- **Missing evidence:** absent source, missing actor, unknown identity mapping, null timestamp, incomplete pagination, stale data or untrusted client time.
+- **Duplicate/retry:** duplicate delivery, same idempotency key, retry after timeout, repeated independent attempts, and successful action after a denied attempt.
+- **Ordering:** late arrival, out-of-order ingestion, overlapping timestamp uncertainty and clock skew.
+- **Concurrency:** simultaneous role change/suspension/action, multiple workers evaluating the same event, and duplicate detector execution.
+- **Malformed/untrusted:** invalid identifiers, oversized descriptions, unexpected enum values, injection strings and inconsistent source metadata.
+- **Regression:** prior false-positive examples and previously confirmed matches must retain their expected classification after rule changes.
+
+For each fixture, assert:
+- whether a detection is emitted;
+- the exact rule and policy versions;
+- the source-qualified evidence references;
+- relationship type and correlation method;
+- severity/impact and confidence;
+- suppression/deduplication result;
+- human-readable explanation;
+- whether the output is indeterminate because a prerequisite is missing.
+
+Use synthetic records in isolated test environments. Do not create artificial security detections in production or modify real user accounts to demonstrate a rule.
+
+### 43.4 Measure detection quality instead of relying on intuition
+
+For each rule, maintain a review record with at least:
+- total evaluations over a defined period;
+- matches emitted;
+- confirmed relevant findings;
+- false positives;
+- duplicates/suppressed repeats;
+- indeterminate evaluations due to missing or stale evidence;
+- time from source event to detection availability;
+- time to human review, if an approved investigation workflow exists;
+- proportion of detections with a documented safe next action.
+
+Useful derived measures, only when denominators and labels are trustworthy:
+
+- **Precision:** confirmed relevant detections divided by all reviewed detections. Do not count unreviewed detections as false positives or confirmed positives.
+- **False-positive rate:** false positives divided by all verified benign test/operational cases evaluated under the same scope. Do not calculate this from only the alert feed; true negatives require a defined denominator.
+- **Coverage:** proportion of required source/event families that are actually available and current. This is not the same as detection accuracy.
+- **Detection latency:** detection availability time minus source event time, interpreted with timestamp uncertainty.
+- **Actionability:** proportion of reviewed detections for which the administrator had a clear, authorized next step.
+
+Do not display a single "accuracy" percentage without a defined ground-truth dataset and denominator. Do not claim a rule is effective because it emits many detections. A low count may mean little suspicious activity, missing telemetry, broken ingestion, an overly narrow rule, or insufficient test coverage.
+
+### 43.5 Severity, confidence, and notification are separate decisions
+
+Keep three independent questions separate:
+
+1. **Impact/severity:** how consequential would the behavior be if the finding were true?
+2. **Confidence:** how strongly does the available evidence support the rule's conclusion?
+3. **Notification urgency:** does a human need to interrupt other work now, review it soon, or see it in a routine queue?
+
+A high-impact hypothesis with weak evidence must not be displayed as a confirmed critical incident. A high-confidence low-impact policy violation may be appropriate for routine review rather than an urgent notification.
+
+Recommended presentation classes:
+- **Informational:** enrichment or context; no alert delivery or case creation by default.
+- **Low:** noteworthy event for routine review or trend analysis.
+- **Medium:** suspicious or policy-relevant result requiring scheduled review.
+- **High:** well-supported result with material impact and a clear prompt human action.
+- **Critical:** exceptional result with very high confidence and material impact; reserve for cases where the evidence and response procedure justify immediate attention.
+
+These are proposed semantics, not configured TACResQ thresholds. Rule owners must document the actual mapping and validate it against source quality and operational capacity.
+
+Sigma's current specification distinguishes informational/low/medium results from high/critical alert-worthy results and describes critical as requiring exceptionally strong evidence. Use this as a calibration reference, not as a blanket mapping of every TACResQ security event. See [Sigma Rules Specification — Level](https://sigmahq.io/sigma-specification/specification/sigma-rules-specification.html).
+
+### 43.6 Alert fatigue: notify only when a human action is justified
+
+An alert is not useful merely because a rule matched. Before sending an interruptive notification, require:
+- a verified or sufficiently strong finding;
+- material impact or a meaningful risk of imminent impact;
+- a named authorized recipient or response owner;
+- a specific action the recipient can take;
+- enough evidence to explain why the alert was generated;
+- a delivery path that is actually configured and tested.
+
+Do not notify for every informational event, every failed request, every retry, every repeated row, or every stale source check. Source-health warnings and security detections have different meanings and should not be mixed into one threat-alert count.
+
+Use aggregation and suppression carefully:
+- Group repeated occurrences only when they share a verified rule, principal/resource scope and relationship.
+- Preserve the underlying event count and time range in the grouped item.
+- Apply a documented suppression key and expiry; do not suppress distinct targets or principals simply because they share an IP address.
+- Escalate only when a defined threshold, impact change or new evidence justifies it.
+- Provide a route to inspect suppressed/aggregated counts for authorized reviewers.
+- Never suppress the only indication that a critical source has stopped collecting.
+- Do not create paging, push notification or email delivery until the delivery provider, recipient authorization, retry behavior, rate limits and audit contract are verified.
+
+Google SRE's incident-management guidance emphasizes timely, actionable alerts and warns that non-actionable alerts create noise. Its on-call guidance connects low signal-to-noise ratios with alert fatigue. Apply these principles to the Admin IPS, but do not copy Google's on-call thresholds or staffing assumptions into a school project without operational evidence. See [Google SRE — Incident Management Guide](https://sre.google/resources/practices-and-processes/incident-management-guide/) and [Google SRE Workbook — On-call](https://sre.google/workbook/on-call/).
+
+### 43.7 Baseline and threshold calibration
+
+Avoid arbitrary thresholds such as "five failures in one minute" unless the source behavior, user population, retry semantics and expected legitimate traffic support that choice.
+
+For every threshold:
+- state whether it is per principal, target, operation, source, device installation or global;
+- define which events count and which outcomes are excluded;
+- distinguish independent attempts from transport retries and duplicate delivery;
+- define the time window and event-time/ingestion-time semantics;
+- document the rationale and observed baseline;
+- test low-volume and high-volume conditions;
+- define what happens when the source is delayed or incomplete;
+- version the threshold and preserve the version used by historical detections.
+
+Use a baseline only when the source provides enough representative history and stable collection. Do not train an anomaly model on a short, incomplete, or heavily changing dataset and then present its output as objective truth. For low-volume school-project environments, transparent deterministic rules may be safer and easier to validate than complex behavioral scoring.
+
+### 43.8 Rule tuning and false-positive handling
+
+When a false positive is reported:
+1. Preserve the original detection and its rule version.
+2. Identify the exact source events and fields that matched.
+3. Determine whether the issue is a legitimate exception, a missing filter, a source-quality problem, a clock/deduplication issue, or a flawed hypothesis.
+4. Add a regression fixture reproducing the benign scenario.
+5. Change the rule only through a reviewed new version.
+6. Re-run positive, negative, boundary, missing-source and historical regression tests.
+7. Compare shadow-mode output before promotion.
+8. Record who approved the change and why, where a governed review record exists.
+
+Do not silently add broad exclusions such as "ignore this user", "ignore this IP", or "ignore this role". Exceptions must be scoped, justified, time-bounded where appropriate, and versioned. An exclusion must not conceal an unauthorized action merely because it came from an administrator account.
+
+Keep these outcomes distinct:
+- false positive: rule matched, but review established benign behavior;
+- expected/authorized behavior: rule should have filtered the event under its intended policy;
+- insufficient evidence: not enough information to classify;
+- duplicate: same source occurrence delivered more than once;
+- related but separate: a distinct event belongs to the same investigation;
+- confirmed policy violation: evidence supports the rule's conclusion.
+
+### 43.9 Admin UI implications
+
+The existing eight-destination navigation remains unchanged. If and when a real rule registry and detection source are implemented:
+
+- Overview shows only verified, actionable high-priority findings and source-coverage caveats.
+- Security shows current assurance and security-source status; it must not become an undifferentiated alert feed.
+- Activity Log remains a source-qualified event/investigation record workspace.
+- A future detection detail view shows rule ID/version, lifecycle status, source prerequisites, why it matched, false-positive notes, severity, confidence, and evidence links.
+- Rule status (draft/test/shadow/pilot/active/paused/deprecated) must be distinguishable from detection/investigation status.
+- Rule evaluation counts and false-positive metrics must show time window, denominator, source scope and freshness.
+- Suppressed/grouped results must retain visible occurrence counts and access to underlying evidence for authorized reviewers.
+- Do not add a "tune rule", "disable detection", "resolve", "block", or "auto-remediate" control until the backend contract, permissions, audit record, concurrency and rollback behavior exist.
+- Do not display a green "all clear" state when rule evaluation is disabled, sources are missing, or no rules are active.
+
+### 43.10 Operational safeguards and failure handling
+
+- A rule whose required source is stale or unavailable should move to an indeterminate/degraded evaluation state, not continue to emit clean results.
+- If evaluation fails, expose the failure and last successful evaluation time.
+- If the detector is behind, show processing lag; do not call delayed detections real-time.
+- Prevent concurrent workers from creating duplicate detections through an idempotent, source-qualified evaluation key.
+- Keep rule evaluation bounded by time range, result count, query cost and execution time.
+- Protect the rule registry from unauthorized changes and preserve review history.
+- Test malformed input, log injection, stored XSS, oversized events, query abuse and authorization bypass.
+- Ensure the detection system cannot become a new route to enumerate user accounts, incidents, private messages, attachment paths or tokens.
+- Keep alert-delivery failure distinct from detection-evaluation failure: a detection may exist even when notification delivery fails.
+- Do not make detection or alert delivery a synchronous dependency for core incident creation, messaging, assignment or GPS workflows unless a separately approved prevention requirement justifies that risk.
+
+### 43.11 Implementation and release sequence
+
+1. **Rule inventory:** identify existing rule-like checks, source dependencies, and any current hard-coded warnings; do not call them a detection engine without verifying execution and persistence.
+2. **Rule contract:** define version, source prerequisites, matching logic, false-positive notes, severity, confidence, owner and status.
+3. **Fixture suite:** implement positive, negative, boundary, duplicate, retry, missing-source, late-event and malformed-input tests.
+4. **Offline evaluation:** evaluate synthetic historical fixtures without notifications or prevention.
+5. **Shadow evaluation:** compare results against reviewed source evidence and measure duplicates, false positives and missing-data outcomes.
+6. **Pilot:** enable a small approved rule set with named reviewers and a rollback procedure.
+7. **Operational review:** confirm source freshness, query performance, alert actionability, privacy and support ownership.
+8. **Controlled activation:** only then consider active alerts; no automatic account or resource remediation is included.
+
+### 43.12 Acceptance criteria
+
+- Every rule has a stable ID, immutable version, owner, purpose and source contract.
+- Positive, negative, boundary, duplicate, retry, missing-source, late-arrival, malformed and regression tests pass.
+- Rule status is distinct from detection/investigation status.
+- Severity, confidence and notification urgency are separate and documented.
+- No alert is sent without a named recipient, actionable response and verified delivery path.
+- False-positive reports result in preserved evidence and regression fixtures.
+- Thresholds have a documented baseline/rationale and are tested against retry and low-volume behavior.
+- Missing or stale telemetry produces indeterminate/degraded results, not a clean bill of health.
+- Deduplication and suppression preserve source occurrences and do not hide distinct principals or targets.
+- Historical detections retain the exact rule and policy versions that generated them.
+- Rule evaluation and notification failures are independently visible.
+- No detection automatically blocks, suspends, revokes, deletes, or changes TACResQ operational records.
+- No new paid service, provider, schema, permission, notification channel, theme, or production configuration is introduced without separate approval.
+
+### 43.13 Research references
+
+- [Sigma Rules Specification 2.1.0](https://sigmahq.io/sigma-specification/specification/sigma-rules-specification.html)
+- [Sigma — Rules and false-positive guidance](https://sigmahq.io/docs/basics/rules.html)
+- [Google SRE — Incident Management Guide](https://sre.google/resources/practices-and-processes/incident-management-guide/)
+- [Google SRE Workbook — On-call](https://sre.google/workbook/on-call/)
+- [OWASP — Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+
+**Evidence boundary:** Section 43 is a researched rule-engineering and operational-governance specification. It does not claim that TACResQ currently has a rule registry, test harness, shadow evaluator, alert delivery, production thresholds, or an operational security response team. It does not change application code, database schema, provider configuration, notification delivery, permissions, theme, or production behavior.
