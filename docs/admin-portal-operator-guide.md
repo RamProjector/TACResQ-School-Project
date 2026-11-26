@@ -148,7 +148,7 @@ When an Overview dependency check starts, the previous three-probe snapshot and 
 
 ## Mobile Admin navigation
 
-The section navigation remains available on narrow screens as a horizontally scrollable row beneath the Admin brand. Swipe or horizontally scroll the navigation row to reach sections that do not fit on screen, then select the section. The active section is identified visually and with `aria-current="page"`. The mobile layout hides the desktop-only sidebar footer, not the section controls.
+On tablet and mobile widths, use the menu button in the top bar to open the navigation drawer. The drawer presents the full section labels in a vertically scrollable list; select a section to navigate and close the drawer. The active section is identified visually and with `aria-current="page"`.
 
 
 ## User directory retrieval freshness
@@ -368,11 +368,11 @@ These helpers are local navigation only. They do not change account data, permis
 
 ## Collapsible desktop navigation and mobile drawer
 
-The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. Collapsing fully retracts the sidebar and removes its grid track so the workspace takes the available width; it does not leave a narrow icon rail. A persistent expand control appears in the workspace header while the sidebar is retracted. Focus moves to that control on collapse and returns to the sidebar control on expansion. The collapsed navigation is removed from keyboard and assistive-technology navigation while hidden. The selected section and its URL are unchanged. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
+The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. The sidebar becomes a compact icon-only rail while the workspace expands to use the available width. Section icons, active-page state, accessible navigation names, and per-item tooltips remain available in the rail. The same control remains visible and changes to an expand action; keyboard focus stays on the control after the layout changes. The selected section and its URL are unchanged. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
 
 At tablet and mobile widths, the desktop collapse control is replaced by a menu button in the top bar. It opens the same navigation as a left-side drawer over the full-width workspace. The drawer has its own vertical scroll region, a visible close control, a dimmed backdrop, and Escape-key dismissal. Choosing a section closes the drawer and preserves the existing route/navigation behavior. Background page scrolling is locked while the drawer is open. If the desktop rail was saved as collapsed, the mobile drawer still displays the full navigation labels.
 
-The desktop workspace expansion and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
+The desktop rail transition and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
 
 
 ## Account directory action clarity and row scanning
