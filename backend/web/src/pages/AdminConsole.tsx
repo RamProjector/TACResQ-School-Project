@@ -537,6 +537,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     if (url.searchParams.get("adminPage") !== "settings" || url.searchParams.get("adminSettings") !== page) {
       url.searchParams.set("adminPage", "settings");
       url.searchParams.set("adminSettings", page);
+      url.searchParams.delete("auditFrom");
+      url.searchParams.delete("auditTo");
       window.history.pushState({}, "", url.toString());
     }
   }
@@ -549,6 +551,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     const url = new URL(window.location.href);
     url.searchParams.set("adminPage", page);
     url.searchParams.delete("adminSettings");
+    url.searchParams.delete("auditFrom");
+    url.searchParams.delete("auditTo");
     window.history.pushState({}, "", url.toString());
   }
 
@@ -564,6 +568,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       url.searchParams.delete("adminSettings");
     } else if (currentSettingsPage === "security") {
       url.searchParams.set("adminSettings", "general");
+    }
+    if (section !== "audit") {
+      url.searchParams.delete("auditFrom");
+      url.searchParams.delete("auditTo");
     }
     if (url.toString() !== window.location.href) {
       window.history.pushState({}, "", url.toString());
