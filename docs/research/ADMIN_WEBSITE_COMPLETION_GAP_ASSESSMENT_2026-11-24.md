@@ -391,3 +391,37 @@ The visual polish pass deliberately avoids persistent decorative movement. The p
 Motion is reserved for actionable controls and dialog entry: short color/border/shadow transitions, a small hover displacement for navigation and buttons, and a brief dialog fade/settle. Informational metrics and non-interactive content do not animate on hover. The effects are opt-in under `prefers-reduced-motion: no-preference`; reduced-motion users retain color and focus feedback but do not receive spatial movement or dialog entrance animation.
 
 This follows Material motion guidance to keep frequently used transitions brief and responsive, and MDN/W3C guidance to respect the user's reduced-motion preference. Sources: [Material motion duration and easing](https://m1.material.io/motion/duration-easing.html), [MDN — using media queries for accessibility](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Media_queries/Using_for_accessibility), and [W3C — Animation from Interactions](https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions). These are restrained interaction cues, not a substitute for usability testing.
+
+
+## 18. Material 3 design research — apply principles, not a mobile template (2026-11-27)
+
+The Admin website has eight top-level destinations. Material 3 adaptive navigation guidance supports keeping a persistent navigation drawer on expanded layouts and using a modal/temporary drawer when the available window is compact; the three-to-five-item bottom navigation pattern is not a fit for this eight-destination Admin hierarchy. Do not replace the current desktop sidebar with a bottom tab bar. Keep the current destination model and URL-backed navigation state stable while the window resizes.
+
+### Evidence and design implications
+
+| Material 3 principle | Admin portal application | Acceptance check |
+|---|---|---|
+| Window-size adaptation | Base layout changes on the available browser/app window, not device labels. Keep the persistent sidebar at wide sizes; collapse it into an accessible temporary drawer when the content area becomes constrained. | Resize continuously across breakpoints; no clipped navigation, lost route, or unexpected content reset. |
+| Canonical list-detail / supporting-pane layouts | Use a two-pane directory/detail or filter/results arrangement only when the detail is directly related and enough width exists. At narrow widths, show one primary pane and navigate to detail; preserve the back path and selection. | Open a user detail, resize to compact and back, and confirm the selected user/context is retained. |
+| Content grouping and containment | Use whitespace, headings, and dividers for related information. Reserve explicit card borders/surfaces for independent actionable objects. Avoid nested cards and repeated panels. | A visual audit shows one dominant surface per task; card borders communicate actual grouping, not decoration. |
+| Color roles | Define semantic tokens for primary action, secondary action, neutral surfaces, outline, error, warning, success, and their foreground/on-colors. Use primary sparingly for the most important action and active navigation; use neutral surfaces for most content. | Check text/icon contrast in normal, hover, focus, disabled, error, and high-contrast states. Status is also expressed in text/icon, never color alone. |
+| Typography roles | Use a small semantic scale for page title, section title, body, supporting text, and compact labels. Avoid shrinking dense data until it is unreadable; allow long names and descriptions to wrap. | Check 200% zoom, long translated/user-generated content, and narrow widths. |
+| Shape and elevation | Use a restrained shape scale and tonal surface hierarchy. Prefer subtle surface/outline differences over shadow on every card; avoid adding decorative layers to nested panels. | The primary task surface remains visually dominant and controls remain distinguishable without excessive borders/shadows. |
+| Motion and state | Keep transitions brief and purposeful; preserve the reduced-motion preference. Loading, empty, success, stale, permission-denied, and failure states must be explicit. | Test reduced-motion and keyboard operation; no status is inferred from color or animation. |
+
+### Navigation decision for TACResQ Admin
+
+- **Expanded desktop:** persistent left navigation, readable content max-width, and optional supporting pane for related context.
+- **Medium / constrained desktop or tablet:** compact/collapsible navigation; retain labels when possible and expose the full accessible name when icon-only.
+- **Compact mobile:** menu button opens a modal/temporary navigation drawer with focus management, Escape dismissal, and return focus; keep page content single-column.
+- **All sizes:** keep the same eight destinations and URL semantics. Do not add new roles, a dispatcher workspace, or extra destinations merely to fill navigation.
+
+### Research sources
+
+- [Android Developers — adaptive Material guidance](https://developer.android.com/codelabs/adaptive-material-guidance): compact/medium/expanded window classes, flexible sizing, content grouping, spacing, and canonical layouts.
+- [Android Developers — layouts and navigation patterns](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns): navigation bars/rails/drawers and the three-to-five-destination convention.
+- [Android Developers — get started with adaptive apps](https://developer.android.com/develop/adaptive-apps/guides/get-started-with-adaptive-apps): list-detail and supporting-pane behavior across compact, medium, and expanded windows.
+- [Android Developers — Material 3 theming](https://developer.android.com/codelabs/jetpack-compose-theming): semantic color roles, accessible foreground/background pairings, tonal elevation, and component hierarchy.
+- [Android Developers — Material 3 design and accessibility](https://developer.android.com/codelabs/m3-design-theming): color, type, shape, and role-based design tokens.
+
+These Android/Material sources provide design-system principles, not a claim that the web portal uses Compose or that it is WCAG-conformant. The web implementation must validate the equivalent behaviors in its own React/CSS stack. This section is research guidance; no UI behavior or CSS was changed by this addition.
