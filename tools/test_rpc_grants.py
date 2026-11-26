@@ -239,6 +239,7 @@ assert re.search(
 ), "profiles/incidents must revoke direct client DELETE and TRUNCATE"
 
 
+
 # The Admin website uses authenticated Admin JWTs, not the server service_role
 # identity. Keep service_role away from the append-only audit relation, its
 # identity sequence, and Admin-only RPCs. The disposable replay adds catalog
@@ -247,34 +248,34 @@ SERVICE_ROLE_ADMIN_MIGRATION = Path(
     "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
 ).read_text()
 assert re.search(
-    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+TABLE\\s+"
-    r"public\\.admin_audit_logs\\s+FROM\\s+service_role\\s*;",
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+"
+    r"public\.admin_audit_logs\s+FROM\s+service_role\s*;",
     SERVICE_ROLE_ADMIN_MIGRATION, re.IGNORECASE | re.DOTALL
 ), "service_role must have no direct admin_audit_logs table privileges"
 assert re.search(
-    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+SEQUENCE\\s+"
-    r"public\\.admin_audit_logs_id_seq\\s+FROM\\s+service_role\\s*;",
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.admin_audit_logs_id_seq\s+FROM\s+service_role\s*;",
     SERVICE_ROLE_ADMIN_MIGRATION, re.IGNORECASE | re.DOTALL
 ), "service_role must have no direct admin_audit_logs identity-sequence privileges"
 
 ADMIN_SERVICE_ROLE_FUNCTIONS = {
-    "api_admin_analytics_summary": r"\\(timestamptz,\\s*timestamptz\\)",
-    "api_admin_analytics_summary_internal": r"\\(timestamptz,\\s*timestamptz\\)",
-    "api_admin_list_account_lifecycle_events": r"\\(integer,\\s*integer\\)",
-    "api_admin_list_audit_logs": r"\\(integer\\)",
-    "api_admin_list_audit_logs_internal": r"\\(integer\\)",
-    "api_admin_list_audit_logs_page": r"\\(integer,\\s*integer,\\s*text,\\s*text,\\s*timestamptz,\\s*timestamptz,\\s*bigint,\\s*bigint\\)",
-    "api_admin_list_investigation_events": r"\\(integer,\\s*integer,\\s*text,\\s*text,\\s*text,\\s*timestamptz,\\s*timestamptz,\\s*bigint,\\s*bigint,\\s*bigint\\)",
-    "api_admin_list_users": r"\\(\\)",
-    "api_admin_list_users_page": r"\\(integer,\\s*integer,\\s*text,\\s*text\\)",
-    "api_admin_list_users_page_internal": r"\\(integer,\\s*integer,\\s*text,\\s*text\\)",
-    "api_admin_set_account_status": r"\\(bigint,\\s*text,\\s*text,\\s*text\\)",
-    "api_admin_set_user_role": r"\\(bigint,\\s*text,\\s*text\\)",
-    "api_admin_set_user_role_internal": r"\\(bigint,\\s*text,\\s*text\\)",
+    "api_admin_analytics_summary": r"\(timestamptz,\s*timestamptz\)",
+    "api_admin_analytics_summary_internal": r"\(timestamptz,\s*timestamptz\)",
+    "api_admin_list_account_lifecycle_events": r"\(integer,\s*integer\)",
+    "api_admin_list_audit_logs": r"\(integer\)",
+    "api_admin_list_audit_logs_internal": r"\(integer\)",
+    "api_admin_list_audit_logs_page": r"\(integer,\s*integer,\s*text,\s*text,\s*timestamptz,\s*timestamptz,\s*bigint,\s*bigint\)",
+    "api_admin_list_investigation_events": r"\(integer,\s*integer,\s*text,\s*text,\s*text,\s*timestamptz,\s*timestamptz,\s*bigint,\s*bigint,\s*bigint\)",
+    "api_admin_list_users": r"\(\)",
+    "api_admin_list_users_page": r"\(integer,\s*integer,\s*text,\s*text\)",
+    "api_admin_list_users_page_internal": r"\(integer,\s*integer,\s*text,\s*text\)",
+    "api_admin_set_account_status": r"\(bigint,\s*text,\s*text,\s*text\)",
+    "api_admin_set_user_role": r"\(bigint,\s*text,\s*text\)",
+    "api_admin_set_user_role_internal": r"\(bigint,\s*text,\s*text\)",
 }
 for function_name, signature in ADMIN_SERVICE_ROLE_FUNCTIONS.items():
     revoke = re.compile(
-        rf"REVOKE\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.{function_name}{signature}\\s+FROM\\s+service_role\\s*;",
+        rf"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{function_name}{signature}\s+FROM\s+service_role\s*;",
         re.IGNORECASE | re.DOTALL,
     )
     assert revoke.search(SERVICE_ROLE_ADMIN_MIGRATION), (
