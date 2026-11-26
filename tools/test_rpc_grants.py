@@ -286,6 +286,17 @@ assert re.search(
     re.IGNORECASE | re.DOTALL,
 ), "Trusted device registry writers must retain their minimum sequence grants"
 
+PG17_MAINTAIN_MIGRATION = Path(
+    "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
+).read_text()
+assert "server_version_num" in PG17_MAINTAIN_MIGRATION
+assert re.search(
+    r"EXECUTE\s+'REVOKE MAINTAIN ON TABLE public\.profiles, public\.incidents "
+    r"FROM PUBLIC, anon, authenticated'",
+    PG17_MAINTAIN_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "PG17 MAINTAIN revoke must remain version-gated dynamic SQL"
+
 SERVICE_ROLE_ADMIN_MIGRATION = Path(
     "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
 ).read_text()
