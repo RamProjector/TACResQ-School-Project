@@ -102,6 +102,9 @@ for migration in supabase/migrations/*.sql; do
   psql -v ON_ERROR_STOP=1 -f "${migration}"
 done
 
+# Verify retired requester-create RPC grants and the retained v4 -> v3 owner call.
+psql -v ON_ERROR_STOP=1 -f tools/test_legacy_incident_create_rpc_privileges.sql
+
 # Keep the account-suspension callable definer inventory in sync with reviewed signatures.
 psql -v ON_ERROR_STOP=1 -f tools/test_account_suspension_definer_inventory.sql
 # Keep directly authenticated-callable private SECURITY DEFINER helpers inventoried too.
