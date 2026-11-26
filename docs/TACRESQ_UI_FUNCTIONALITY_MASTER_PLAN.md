@@ -9814,3 +9814,14 @@ A read-only query of `supabase_migrations.schema_migrations` found no entries fo
 
 **Evidence boundary:** Live catalog observations are read-only snapshots; they do not prove the forward migrations have been applied. The source trace establishes that legacy requester RPCs remain callable in the reviewed branch, but does not identify every historical Android build still in use. Do not remove their sequence capability until compatibility and same-valid-JWT regression tests prove that doing so is safe.
 
+
+
+## Legacy requester-create RPC grant reduction — 2026-11-27
+
+The connected catalog snapshot and current source call-site review exposed three stale authenticated-callable SECURITY INVOKER functions: \`api_create_incident\`, \`api_create_incident_v2\`, and \`api_create_incident_v3\`. The live catalog showed their EXECUTE grants, but authenticated lacked direct INSERT on \`public.incidents\`, so those grants did not represent usable requester creation endpoints. Current Android and Laravel source call \`api_create_incident_v4\` only.
+
+Branch migration \`20261127010000_revoke_legacy_incident_create_rpc_execute.sql\` revokes EXECUTE from PUBLIC, anon, authenticated, and service_role on all three old signatures without dropping or changing them. The current v4 SECURITY DEFINER entry point remains authenticated-callable and invokes v3 under its owner context; the owner retains implicit EXECUTE. v1/v2 have no current in-repository caller.
+
+A new disposable PostgreSQL contract verifies all three old signatures remain present but are not executable by API roles or PUBLIC; verifies owner EXECUTE on v3; and verifies v4 remains SECURITY DEFINER, authenticated-callable, and delegates to v3. Static source contracts ensure Android and Laravel keep using v4. The current live inventory is still 38 functions until this forward migration is applied; expected post-migration count is 35 (24 definers, 11 invokers), with the 13 private callable helpers unchanged.
+
+No hosted ACL, migration ledger, production data, or Render deployment was changed. Historical APK distribution and exact minimum supported APK version are not available from repository evidence; however, the old invoker functions already lacked the authenticated table INSERT privilege required to work. Preserve signatures and do not drop them.
