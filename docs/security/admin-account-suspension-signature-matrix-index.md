@@ -22,7 +22,7 @@
 
 ## Baseline
 
-The clean-replay snapshot in `admin-account-suspension-clean-replay-snapshot.md` records 23 public authenticated-callable SECURITY DEFINER signatures, plus 52 public invoker routines and eleven authenticated-callable private SECURITY DEFINER functions. The current reviewed baseline is 74 public callable functions (23 SECURITY DEFINER and 51 SECURITY INVOKER). Re-run the catalog after migration changes; do not treat the historical snapshot as the current catalog.
+The historical clean-replay snapshot records an older 74-public-callable catalog (23 public SECURITY DEFINER and 51 SECURITY INVOKER) and stale private-helper counts. It is not the current contract. The current branch source contracts require 75 authenticated-callable public functions (24 SECURITY DEFINER and 51 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. See Section 29 of the canonical TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md for the exact private signature list and stale-record reconciliation. These are expected contract counts; inspect exact-head clean-replay output before calling them a fresh catalog result.
 
 The read-only catalog now includes separate effective `anon` callable sections for public and private routines. The anon results must be captured and reviewed from a fresh replay; this index does not assert that the anon result is empty.
 
