@@ -49,11 +49,10 @@ REVOKE UPDATE ON SEQUENCE
   public.incidents_id_seq,
   public.location_logs_id_seq
 FROM authenticated, service_role;
+REVOKE SELECT ON SEQUENCE public.incidents_id_seq FROM authenticated;
 
 -- Preserve only the sequence capabilities required by the remaining writers.
-GRANT USAGE, SELECT ON SEQUENCE
-  public.incidents_id_seq
-TO authenticated;
+GRANT USAGE ON SEQUENCE public.incidents_id_seq TO authenticated;
 
 GRANT USAGE, SELECT ON SEQUENCE
   public.api_operation_logs_id_seq,
