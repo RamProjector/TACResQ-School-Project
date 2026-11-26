@@ -305,7 +305,7 @@ PG17_MAINTAIN_MIGRATION = Path(
 assert "server_version_num" in PG17_MAINTAIN_MIGRATION
 assert re.search(
     r"EXECUTE\s+'REVOKE MAINTAIN ON TABLE public\.profiles, public\.incidents "
-    r"FROM PUBLIC, anon, authenticated'",
+    r"FROM PUBLIC, anon, authenticated, service_role'",
     PG17_MAINTAIN_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "PG17 MAINTAIN revoke must remain version-gated dynamic SQL"
