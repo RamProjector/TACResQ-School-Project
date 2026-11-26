@@ -6,6 +6,8 @@ DECLARE
   sequence_name text;
   function_signature text;
   function_oid oid;
+  grantee_name text;
+  default_privilege_count integer;
   protected_functions text[] := ARRAY[
     'public.api_admin_analytics_summary(timestamptz,timestamptz)',
     'public.api_admin_analytics_summary_internal(timestamptz,timestamptz)',
@@ -46,6 +48,45 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Replay fixture must model postgres/public default EXECUTE for service_role';
   END IF;
+
+  FOREACH grantee_name IN ARRAY ARRAY['anon', 'authenticated', 'service_role'] LOOP
+    SELECT count(DISTINCT privilege_row.privilege_type)
+      INTO default_privilege_count
+      FROM pg_catalog.pg_default_acl AS default_acl
+      CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS privilege_row
+     WHERE default_acl.defaclrole = 'postgres'::regrole
+       AND default_acl.defaclnamespace = 'public'::regnamespace
+       AND default_acl.defaclobjtype = 'r'
+       AND privilege_row.grantee = grantee_name::regrole;
+    IF default_privilege_count < 7 THEN
+      RAISE EXCEPTION 'Replay fixture must model all hosted public-table defaults for %', grantee_name;
+    END IF;
+
+    SELECT count(DISTINCT privilege_row.privilege_type)
+      INTO default_privilege_count
+      FROM pg_catalog.pg_default_acl AS default_acl
+      CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS privilege_row
+     WHERE default_acl.defaclrole = 'postgres'::regrole
+       AND default_acl.defaclnamespace = 'public'::regnamespace
+       AND default_acl.defaclobjtype = 'S'
+       AND privilege_row.grantee = grantee_name::regrole;
+    IF default_privilege_count < 3 THEN
+      RAISE EXCEPTION 'Replay fixture must model all hosted public-sequence defaults for %', grantee_name;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_default_acl AS default_acl
+      CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS privilege_row
+      WHERE default_acl.defaclrole = 'postgres'::regrole
+        AND default_acl.defaclnamespace = 'public'::regnamespace
+        AND default_acl.defaclobjtype = 'f'
+        AND privilege_row.grantee = grantee_name::regrole
+        AND privilege_row.privilege_type = 'EXECUTE'
+    ) THEN
+      RAISE EXCEPTION 'Replay fixture must model hosted public-function EXECUTE defaults for %', grantee_name;
+    END IF;
+  END LOOP;
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_class
