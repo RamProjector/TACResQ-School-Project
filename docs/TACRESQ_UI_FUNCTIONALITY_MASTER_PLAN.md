@@ -7620,3 +7620,181 @@ The Security page should show source health and ingestion freshness separately f
 **Change boundary:** this section documents the read-only connected-project snapshot, current evidence boundaries, field mapping and proposed verification. No migration, table, trigger, extension, logging configuration, account, Storage object, Render setting, production data or application behavior was changed.
 
 **References:** Supabase [Logs in Studio](https://supabase.com/docs/guides/observability/logs), [Query and filter logs](https://supabase.com/docs/guides/observability/advanced-log-filtering), and [PGAudit](https://supabase.com/docs/guides/database/extensions/pgaudit); OWASP [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html); NIST SP 800-92, *Guide to Computer Security Log Management*.
+
+
+## Section 59 — Audit retention, privacy, integrity and evidence access controls
+
+### 59.1 Purpose and governing principles
+
+Audit evidence is itself sensitive system data. It can reveal user identities, incident participation, location patterns, account status, operational weaknesses, authentication metadata and investigation activity. A useful IDS/IPS therefore needs controls over collection, access, integrity, availability, retention, legal hold and disposal—not simply a log table and an Admin screen.
+
+Apply these principles:
+- **Purpose limitation:** collect only events and attributes needed for defined security, accountability, operational or institutional purposes.
+- **Least privilege:** a user who can administer accounts is not automatically entitled to inspect private chat content, attachments, secrets or every raw provider log.
+- **Source preservation:** preserve source-native records and provenance; normalized views are derived projections.
+- **Separation of duties:** application administration, evidence review, retention approval and infrastructure ownership are distinct responsibilities even if the current application exposes only one Admin role.
+- **No invented policy:** do not select a legal retention period or claim regulatory compliance without an authorized institutional owner and applicable legal/contractual assessment.
+- **Lifecycle completeness:** retention rules apply to primary records, replicas, exports, archives, backups, temporary files and derived indexes—not just the visible table.
+
+### 59.2 Data classification and retention schedule design
+
+Use data classes to decide access and lifecycle controls. These are proposed classifications, not existing database labels.
+
+| Class | TACResQ examples | Default access posture | Retention decision owner |
+|---|---|---|---|
+| Operational summary | Service health result, aggregate counts, non-sensitive job outcome | Admin summary view; avoid raw credentials/provider payloads | System owner/maintainer |
+| Security metadata | Actor namespace/ID, action, outcome, source event ID, timestamp, authorization denial code | Restricted Admin security/audit view; bounded filters and pagination | Authorized security/system owner |
+| Sensitive investigation evidence | Detailed auth/provider events, security detection evidence, IP metadata, account lifecycle rationale, access/export trail | Need-to-know access; purpose and case/scope recorded; export controlled | Authorized institutional/security authority |
+| User content and private records | Incident narrative, chat messages, private media, precise location, personal contact details | Domain-specific authorization; not automatically exposed by Admin audit access | Data/system owner under approved policy |
+| Secrets and authentication material | Passwords, access/refresh tokens, MFA codes, service-role keys, database credentials | Never stored in audit records; secret manager only | Credential owner |
+| Derived/portable evidence | CSV/PDF exports, screenshots, analyst notes, archives and backups | Inherit source sensitivity or stricter classification; track copies and recipients | Exporting authority and records owner |
+
+For each source and class, the approved retention register must define:
+- purpose and system/source owner;
+- record category, authoritative source and data classification;
+- start event for the retention clock (event creation, closure, account termination or other defined trigger);
+- ordinary retention period and justification;
+- archive format, retrieval requirements and integrity controls;
+- legal/institutional hold trigger, approver, scope, review date and release process;
+- backup/replica/export handling and deletion propagation;
+- disposal method, verification evidence and exception process;
+- review date, policy version and accountable approver.
+
+Do not apply one arbitrary retention period to all records. Authentication/security metadata, incident domain history, chat/media, precise location, operational diagnostics, and exported investigation material have different purposes and privacy impacts. The current repository does not establish an approved retention schedule; all periods remain **to be determined by the authorized institution/system owner**.
+
+### 59.3 Source-specific retention and availability boundaries
+
+| Source | Retention/availability issue to resolve | Required control |
+|---|---|---|
+| Supabase Auth, Postgres, API, Storage, Realtime and Edge logs | Provider-managed log availability and retention depend on current plan/product configuration and usage policies; provider logs are not automatically a durable project-owned archive | Record actual project plan/configuration and observed query window; export/archive only after an approved destination, cost, privacy and access review |
+| Project-owned audit/domain tables | Existing tables may have no common retention metadata or approved purge schedule | Define table/source owner, retention class, bounded access, backup inclusion and approved disposal path |
+| Laravel operation logs | Service/runtime log retention and application DB metadata may differ; optional telemetry may be absent when configuration is missing | Document each sink, environment, retention and logger health; do not assume Render runtime logs are a permanent archive |
+| Sanctum token/session records | Token lifecycle data belongs to the Laravel identity domain and may have a different retention purpose from Supabase Auth | Separate identity namespace and retention rule; never copy token secrets into audit history |
+| Storage objects and attachment metadata | Database backup does not by itself preserve object bytes; orphan metadata and private object retention can diverge | Define object and metadata lifecycle together; preserve required evidence under hold; verify deletion and backup restoration separately |
+| FCM/provider delivery records | Provider response/receipt availability may be limited and is not equivalent to device-delivery proof | Retain only necessary status/reference metadata under approved policy; document provider visibility window and limitations |
+| Exports, downloads and analyst working copies | Copies may outlive source records and escape source-table RLS | Record export actor/scope/time, secure destination, expiry, recipients and disposal; apply holds and deletion policy to copies |
+
+Current Supabase documentation describes Log Drains as a way to route Postgres, Auth, Storage, Edge Function and other project logs to external destinations, including archives, but availability is plan-dependent (Pro, Team and Enterprise in the current documentation). It must not be treated as a free or already-enabled TACResQ capability. Supabase also documents log-ingest and log-query usage/allowance behavior; retention and query availability can be affected by current platform rules. Verify the actual project plan, dashboard configuration and queryable window before designing around provider logs. Do not enable a paid feature or external destination without approval.
+
+### 59.4 Access model for the current single-Admin application
+
+The project currently keeps one application Admin role. This section does not add a security analyst, auditor, records officer or super-admin role. Separation of duties is expressed as governance/approval responsibilities and backend capabilities, not invented application roles.
+
+Proposed access boundaries:
+- **Ordinary Admin operational view:** aggregate service health and bounded operational summaries; no secrets, unrestricted raw logs or private attachment browser.
+- **Admin user-management access:** only the existing protected directory and account/role operations, subject to current MFA and active-account checks.
+- **Security/audit metadata access:** dedicated protected read endpoints, explicit query scope, bounded time ranges and page size, field-level minimization, and server-side authorization.
+- **Sensitive investigation evidence:** separate backend authorization and recorded purpose/scope; only expose when the institution has defined who is authorized and why. Admin status alone is not a blanket grant.
+- **Private incident content and media:** continue to use incident/chat membership and Storage policy checks. Do not weaken membership rules to make Admin investigation screens convenient.
+- **Secrets/configuration:** never expose service-role credentials, provider secrets, raw tokens or database connection strings in the Admin portal, browser runtime config or logs.
+- **Retention and legal hold:** no direct Admin purge/hold control until an approved policy, authorization contract, immutable history and tested workflow exist.
+
+Hiding a tab or disabling a button is not authorization. Each endpoint/RPC/Storage operation must enforce access server-side. If the current single Admin needs access to a particular evidence class, implement only a narrow, explicitly approved capability; do not broaden the Admin role globally.
+
+### 59.5 Audit-of-audit and export accountability
+
+Access to audit evidence can itself be sensitive and must be reviewable. Proposed event coverage includes:
+- opening a sensitive audit/investigation record or evidence detail;
+- searches over security/audit events, including time window and scope;
+- export creation, download, re-download, share/transfer and expiry;
+- changes to retention policy, logging configuration, archive destination or access grants;
+- legal hold creation, review, extension and release;
+- attempted unauthorized access, modification, deletion or bulk extraction;
+- evidence correction/annotation, if later permitted, with immutable before/after attribution.
+
+Record actor namespace, action, scope/resource, outcome, source path, timestamp and real correlation/session metadata where available. Do not record full result sets, message bodies, credentials or raw attachment bytes in the audit-of-audit record. The audit-of-audit stream must have a separately protected write path and must not be editable by the ordinary reader.
+
+Exports should be minimized and bounded. Require a defined purpose and time/resource scope for sensitive evidence; use short-lived access where the storage provider supports it; avoid public object URLs; record recipient/destination where known; watermark or label reports when appropriate; and track expiry/disposal. Do not claim an export was securely deleted unless all known copies, backups and destination lifecycle have been addressed.
+
+### 59.6 Integrity, tamper evidence and deletion protection
+
+Apply defense in depth:
+1. Restrict insert/update/delete privileges on audit sources to trusted writer/maintenance paths. Ordinary Admin clients receive read-only access only where explicitly authorized.
+2. Separate log-writer credentials from reader credentials; use narrowly scoped database grants and service identities. Do not expose writer credentials to Android or browser clients.
+3. Record audit configuration and access changes. Alert on unexpected logging disablement, retention changes, mass deletion, grant changes or unusual export activity.
+4. Preserve source IDs, original timestamps and provenance. Corrections should be additive annotations or superseding records, not silent overwrites.
+5. Use append-only or immutable archive controls where available and approved. A database trigger, hash column or checksum alone is not proof of immutability against a privileged database owner.
+6. If cryptographic chaining/signing is adopted, define canonical serialization, key custody/rotation, chain checkpoints, verification, gap handling and independent storage of checkpoints. A hash chain stored only beside mutable rows can be rewritten by an attacker who controls both.
+7. Protect transit with authenticated encrypted transport; verify source identity and validate untrusted event fields before persistence.
+8. Test restore and evidence retrieval from backups/archives. A successful checksum or database dump does not prove that private Storage bytes, Auth configuration, policies and keys can be restored.
+
+No append-only archive, signed chain, independent checkpoint service or immutable retention lock is currently established by the reviewed evidence. Treat these as design options, not existing capabilities.
+
+### 59.7 Privacy, minimization and log-injection safeguards
+
+- Never log passwords, MFA codes, bearer/refresh tokens, service-role keys, database credentials or private signing material.
+- Avoid copying full incident narratives, chat text, private media, exact coordinates, phone numbers or unnecessary personal identifiers into generic audit descriptions.
+- Prefer stable internal resource references and source-qualified actor IDs; reveal personally identifying details only in a separate authorized view.
+- Minimize IP and device metadata, document collection purpose and confidence, restrict access, and include them in retention review. Do not assume that a user-agent is a hardware identity.
+- Sanitize/encode untrusted fields for structured logs; escape CR/LF and delimiters, cap field lengths and event size, and reject malformed event envelopes without losing safe evidence of the validation failure.
+- Use parameterized database writes and avoid dynamic SQL built from event fields.
+- Protect query/export endpoints from enumeration, injection, resource exhaustion and overly broad time ranges.
+- Make access failures and logger failures observable without leaking private data in error messages.
+- Review privacy impact and applicable institutional/legal obligations before collecting or exporting location, device, IP or user-content evidence.
+
+OWASP's Logging Cheat Sheet specifically calls for protecting logs against unauthorized access, modification and deletion, recording and monitoring log access, restricting read privileges, sanitizing untrusted values, avoiding secrets/sensitive data, and disposing of logs according to required retention rather than keeping them indefinitely.
+
+### 59.8 Retention and evidence lifecycle workflow
+
+Proposed lifecycle (not implemented):
+1. **Classify at source:** assign event/data class and source owner at creation; preserve original source and provenance.
+2. **Ingest and protect:** validate, minimize, store under restricted writer privileges, and record ingestion/availability state.
+3. **Review and investigate:** grant scoped, time-bounded access; record sensitive reads, searches and exports; preserve original evidence.
+4. **Place hold:** authorized approver records legal/institutional basis, scope, affected sources/copies, owner and review/expiry date. A hold suspends only the specified disposal operations.
+5. **Review hold:** periodically confirm the basis and scope; release only with authorized approval and record the decision.
+6. **Expire:** identify eligible records and dependent copies using a versioned policy; exclude held records and preserve required lineage.
+7. **Dispose:** execute a least-privilege, bounded deletion or cryptographic-erasure procedure appropriate to the medium; account for replicas, backups, caches and exports.
+8. **Verify:** retain a disposal receipt with policy version, scope, time, actor/job identity, counts and errors—without preserving the deleted sensitive content itself.
+9. **Improve:** review exceptions, failed deletions, retrieval failures, policy changes and access anomalies.
+
+The application must not silently auto-delete evidence based on an unapproved duration. Nor should it retain every record forever as a substitute for a policy. If the system cannot selectively delete an individual record from a backup, document the backup expiry/rotation behavior and access isolation rather than claiming immediate erasure.
+
+### 59.9 Admin IPS interface implications
+
+- Activity Log: distinguish operational/domain history from security metadata and sensitive evidence; display source, sensitivity, field coverage and retention status.
+- Security: show audit pipeline health, unauthorized access/tampering indicators, retention exceptions and export activity without implying the dashboard itself enforces provider retention.
+- Data & continuity: remain guidance-only until real backup, archive, restore and disposal contracts exist. Do not add speculative purge/restore buttons.
+- Settings: expose policy summaries/version and effective dates only when an approved policy source exists. Do not create editable retention settings without a protected backend workflow.
+- Evidence detail: use a separate permission check and minimal projection; no raw secrets, private chat/media or unrestricted provider payloads.
+- Exports: require explicit scope, bounded size, purpose, expiry and auditable access. Present incomplete fields and source gaps rather than filling them with guessed values.
+
+### 59.10 Verification and acceptance matrix
+
+| Test | Expected result |
+|---|---|
+| Ordinary Admin attempts audit UPDATE/DELETE | Backend denies; source history unchanged |
+| User without approved evidence capability opens sensitive evidence | Denied server-side; denial captured where observable |
+| Admin opens permitted operational summary | Only approved fields returned; no private content or secrets |
+| Admin tries to access another incident's chat/media through audit UI | Existing membership/Storage protections remain effective |
+| Export exceeds allowed range/size or omits required scope | Rejected with clear, non-sensitive feedback; no partial untracked export |
+| Export succeeds | Actor, purpose/scope, source/time range, destination/recipient if known, expiry and outcome recorded |
+| Log contains CR/LF, oversized strings or forged actor/device/IP fields | Safe encoding/bounds; server-derived identity preserved; untrusted metadata labeled |
+| Unauthorized deletion, grant or retention-setting change attempted | Denied and security signal generated where the boundary can observe it |
+| Retention expiry with no hold | Only records eligible under an approved versioned policy are disposed; receipt created |
+| Active legal/institutional hold | Scoped records and dependent copies are excluded from disposal; hold access/review recorded |
+| Hold released | Release authorization and time recorded; normal policy resumes without immediate unreviewed purge |
+| Backup restore | Required audit records, source provenance, policies and any required Storage evidence are retrievable and integrity-checked |
+| Audit sink unavailable or archive quota exhausted | Alert/health state changes; documented bounded retry/failure policy; no false complete-coverage indicator |
+| Provider retention window changes | Dashboard reports actual available range and gap; no unsupported archive/retention claim |
+
+### 59.11 Current status and implementation boundary
+
+Current repository evidence supports protected Admin MFA/RPC boundaries, selected audit/domain histories, private Storage membership policies, and a guidance-only Data & continuity page. It does **not** establish:
+- an approved institution-wide retention schedule;
+- a source-by-source retention register;
+- an operational legal-hold workflow;
+- a project-owned immutable archive or tamper-evident independent checkpoint system;
+- complete audit-of-audit coverage for reads/searches/exports;
+- a dedicated evidence-access capability beyond the existing Admin authorization model;
+- end-to-end deletion verification across databases, provider logs, Storage, exports and backups;
+- a complete restore-tested evidence archive.
+
+Therefore do not add retention/purge, legal-hold, unrestricted evidence, attachment-browser, or compliance-status controls to the Admin UI until the responsible authority, policy, data model, authorization contract, test plan and operational ownership are established.
+
+**Research references**
+- NIST SP 800-53 Rev. 5, Release 5.2.0: AU-9 (Protection of Audit Information), AU-11 (Audit Record Retention), AU-6 (Audit Record Review, Analysis, and Reporting), AC-6 (Least Privilege), MP-6 (Media Sanitization), SI-12 (Information Management and Retention). NIST publication and current update notice: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+- OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+- Supabase Log Drains: https://supabase.com/docs/guides/observability/log-drains
+- Supabase Manage Logs Usage: https://supabase.com/docs/guides/platform/manage-your-usage/logs
+
+This is research and a proposed control/verification specification only. No retention policy, legal hold, archive, logging pipeline, table, grant, Storage object, provider setting, account, deployment or production data was changed.
