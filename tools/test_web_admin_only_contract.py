@@ -31,6 +31,11 @@ for forbidden in ("DispatcherBoard", "assignIncident(", "getAllIncidents(", "get
 # Keep administrator governance and a clear dispatcher-to-Android handoff.
 assert 'profile.role === "admin"' in home
 assert "<AdminConsole" in home
+assert 'const AdminConsole = lazy(() => import("@/pages/AdminConsole"));' in home
+assert 'import { lazy, Suspense, useCallback, useEffect, useState } from "react";' in home
+assert "function AdminWorkspaceLoading()" in home
+assert "<Suspense fallback={<AdminWorkspaceLoading />}>" in home
+assert '<AdminMfaGate key={session.access_token} onSignOut={handleSignOut}>' in home
 assert 'profile.role === "dispatcher"' in home
 assert "TACResQ Android app" in home
 
