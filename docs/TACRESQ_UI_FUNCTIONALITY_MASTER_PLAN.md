@@ -9780,14 +9780,14 @@ The sequence audit exposed why blanket sequence revocation is unsafe:
 
 | Sequence | Remaining caller path | Branch policy |
 |---|---|---|
-| `public.incidents_id_seq` | Legacy `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` remain authenticated-callable SECURITY INVOKER functions, but the live catalog reports that authenticated has no direct INSERT privilege on `public.incidents`; those legacy signatures are therefore not effective direct client writers. The supported `api_create_incident_v4` path is SECURITY DEFINER and calls v3 under the function owner's privileges. The live catalog separately reports service_role has direct INSERT on incidents and location_logs and EXECUTE on the legacy invoker paths. | No authenticated sequence privileges. Direct table INSERT is already denied to authenticated, and the supported v4 SECURITY DEFINER path runs with owner privileges. Treat the remaining authenticated EXECUTE grants on v1/v2/v3 as a separate stale-compatibility surface; do not infer sequence need from EXECUTE alone. |
+| `public.incidents_id_seq` | The read-only snapshot showed service_role had direct INSERT on `public.incidents` and EXECUTE on the legacy invoker functions. Section 72 revokes service_role EXECUTE on v1/v2/v3; v4 remains SECURITY DEFINER and calls v3 as its owner. The separate service_role table INSERT grant remains until all trusted server-side insert callers are traced. | No authenticated sequence privileges. Preserve service_role USAGE/SELECT only while its direct table INSERT grant remains; revoke UPDATE. Do not infer sequence need from legacy function EXECUTE after Section 72. |
 | `public.location_logs_id_seq` | Direct authenticated INSERT on `location_logs` is revoked; the current client writer is a guarded SECURITY DEFINER path. The remaining legacy server-side invoker path is service-role scoped. | No authenticated sequence privileges. Preserve only the reviewed service-role `USAGE/SELECT` needed by the legacy server writer; revoke `UPDATE`. |
 | `public.api_operation_logs_id_seq` | Laravel's server-side operation logger directly inserts telemetry rows. | Preserve service-role sequence access for the direct insert path; no client grant. |
 | Device-registry identity sequences | Trusted backend device-verification writers create rows; clients do not write these tables directly. | Preserve service-role `USAGE/SELECT`; revoke client and service-role `UPDATE`. |
 
 PostgreSQL's sequence privilege meanings matter here: `USAGE` permits `nextval` and `currval`; `SELECT` permits `currval`; `UPDATE` permits `nextval` and `setval`. Since the legacy insert path needs the identity default's `nextval`, `USAGE` is sufficient; `SELECT` is redundant and `UPDATE` would unnecessarily expose sequence mutation.
 
-The earlier review initially inferred sequence need from the legacy RPC EXECUTE grants alone. A follow-up live catalog query showed authenticated has no direct INSERT on incidents, while service_role does. The corrected migration therefore removes all client sequence privileges and preserves service-role USAGE/SELECT for its actual invoker insert paths. The stale authenticated EXECUTE grants remain a separate compatibility/security cleanup item; no RPC grant was silently revoked here.
+The earlier review initially inferred sequence need from the legacy RPC EXECUTE grants alone. A follow-up live catalog query showed authenticated has no direct INSERT on incidents, while service_role does. The sequence migration therefore removes all client sequence privileges and preserves service-role USAGE/SELECT while the separate service_role direct table INSERT grant remains under review. Section 72 now revokes the stale v1/v2/v3 EXECUTE grants from API roles; v4 retains its SECURITY DEFINER call to v3 under owner privileges.
 
 ### 71.3 Runtime regression contract
 
@@ -9805,7 +9805,7 @@ The PostgreSQL 17 assertion is conditional and the PG17-only SQL remains dynamic
 
 ### 71.4 Migration and deployment boundary
 
-A read-only query of `supabase_migrations.schema_migrations` found no entries for `20261126170000`, `20261126180000`, or `20261126190000` at the time of review. The new/updated migration source therefore remains branch-only. No `REVOKE`, `GRANT`, migration push/repair, data write, or hosted setting change was issued to Supabase.
+A read-only query of `supabase_migrations.schema_migrations` found no entries for `20261126170000`, `20261126180000`, or `20261126190000` at the time of review. The new/updated migration source therefore remains branch-only. The additional `20261127010000_revoke_legacy_incident_create_rpc_execute.sql` is also unapplied. No `REVOKE`, `GRANT`, migration push/repair, data write, or hosted setting change was issued to Supabase.
 
 **References:**
 - PostgreSQL 17, [Privileges](https://www.postgresql.org/docs/17/ddl-priv.html): table `MAINTAIN` semantics and sequence `USAGE`, `SELECT`, and `UPDATE` meanings.
