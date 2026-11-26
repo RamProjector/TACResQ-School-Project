@@ -122,3 +122,10 @@ This file is a historical replay snapshot. Its 74-public-callable / 23-public-de
 The exact current private list is enforced by tools/test_account_suspension_private_definer_inventory.sql; the public 24-signature list and 75/24/51 aggregate are enforced by tools/test_account_suspension_definer_inventory.sql. This notice does not rewrite the original replay's observed figures or pretend that a new replay has occurred. Preserve the original snapshot as historical evidence, and use the exact-head replay output to confirm the current catalog before release sign-off.
 
 Also superseded: the older matrix's unresolved duty-status and image-reservation signatures. The exact signatures are public.api_set_duty_status(text) and public.api_reserve_incident_image_upload(bigint,text,bigint,uuid). The public team-assignment function is SECURITY INVOKER and delegates to the authenticated-callable private definer guard; do not count it as a public definer.
+
+
+## Live catalog correction — 2026-11-26
+
+The historical replay values in this file must not be used as the current application API count. A read-only catalog query against the connected TACResQ-School-Project Supabase database found 38 authenticated-callable public api_ functions (24 SECURITY DEFINER and 14 SECURITY INVOKER), 13 authenticated-callable private SECURITY DEFINER helpers, and one separate public trigger-only function. The raw 75/24/51 count depended on which schema held extension routines during replay; the connected Supabase project installs pgcrypto, uuid-ossp, and pg_stat_statements in extensions rather than public.
+
+The current branch replaces the raw schema-wide aggregate assertion with an exact 24-definer / 14-invoker application API signature register. It also adds a migration to revoke unnecessary direct EXECUTE grants on the trigger-only incident-location function. These are pending branch changes until clean replay and merge; this file remains a historical snapshot and its original recorded counts are preserved.
