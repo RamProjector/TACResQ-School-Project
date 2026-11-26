@@ -40,15 +40,15 @@ assert "pg_default_acl" in inventory
 
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
-assert "24 public" in crosswalk
+assert "24 authenticated-callable public security definer functions" in crosswalk
 assert "api_assign_incident_team(bigint,bigint[])" in crosswalk
 assert "api_unregister_fcm_token(text)" in crosswalk
 assert "api_admin_set_account_status" in crosswalk
 assert "not client-callable" in crosswalk
 assert "api_admin_list_account_lifecycle_events(integer,integer)" in crosswalk
-assert "75 public callable functions" in crosswalk
-assert "twelve authenticated-callable private security definer helpers" in crosswalk
-assert "51 authenticated-callable public security invoker functions" in crosswalk
+assert "13 authenticated-callable private security definer helpers" in crosswalk
+assert "14 authenticated-callable application api invoker functions" in crosswalk
+assert "38 authenticated-callable public api functions" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
 assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md").is_file()
@@ -439,3 +439,41 @@ for required in (
     "has_function_privilege('authenticated', routine_oid, 'execute')",
 ):
     assert required in duty_replay, f"Duty-status replay assertion is missing: {required}"
+
+
+# The exact application RPC register is independent of where PostgreSQL
+# installs extensions (Supabase commonly uses the extensions schema; a plain
+# replay may install pgcrypto into public). Do not count extension functions as
+# TACResQ API entry points.
+definer_inventory = (ROOT / "tools/test_account_suspension_definer_inventory.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "expected_invoker_signatures text[]",
+    "public.api_active_responder_locations()",
+    "public.api_assign_incident_team(bigint,bigint[])",
+    "public.api_dependency_health()",
+    "public.api_set_duty_status(text)",
+    "left(p.proname, 4) = 'api_'",
+    "api_callable_count <> 38",
+    "api_invoker_count <> 14",
+):
+    assert required in definer_inventory, f"Application callable inventory is incomplete: {required}"
+
+trigger_grant_migration = (
+    ROOT / "supabase/migrations/20261126100000_revoke_incident_trigger_function_client_execute.sql"
+).read_text(encoding="utf-8").lower()
+for required in (
+    "revoke all on function public.tacresq_require_incident_location()",
+    "from public, anon, authenticated, service_role",
+    "trigger-only incident input invariant",
+):
+    assert required in trigger_grant_migration, f"Trigger-only function exposure guard is missing: {required}"
+
+foundation_sql = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "incidents_require_location_before_write",
+    "public.tacresq_require_incident_location()",
+    "has_function_privilege('anon', 'public.tacresq_require_incident_location()', 'execute')",
+    "has_function_privilege('authenticated', 'public.tacresq_require_incident_location()', 'execute')",
+    "has_function_privilege('service_role', 'public.tacresq_require_incident_location()', 'execute')",
+):
+    assert required in foundation_sql, f"Trigger-only function replay contract is missing: {required}"
