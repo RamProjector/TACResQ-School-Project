@@ -285,28 +285,28 @@ assert re.search(
     re.IGNORECASE | re.DOTALL,
 ), "Logger and legacy service-role incident/location RPCs must retain minimum sequence access"
 assert re.search(
-    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+SEQUENCE\\s+"
-    r"public\\.incidents_id_seq,\\s*public\\.location_logs_id_seq\\s+"
-    r"FROM\\s+PUBLIC,\\s*anon\\s*;",
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+PUBLIC,\s*anon\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Legacy incident/location sequences must revoke PUBLIC and anon access"
 assert re.search(
-    r"GRANT\\s+USAGE,\\s*SELECT\\s+ON\\s+SEQUENCE\\s+"
-    r"public\\.incidents_id_seq\\s+TO\\s+authenticated\\s*;",
+    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq\s+TO\s+authenticated\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Authenticated legacy incident-create RPCs must retain required sequence access"
 assert re.search(
-    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+SEQUENCE\\s+"
-    r"public\\.location_logs_id_seq\\s+FROM\\s+authenticated\\s*;",
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.location_logs_id_seq\s+FROM\s+authenticated\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Authenticated clients must not retain location-log sequence access"
 assert re.search(
-    r"REVOKE\\s+UPDATE\\s+ON\\s+SEQUENCE\\s+"
-    r"public\\.incidents_id_seq,\\s*public\\.location_logs_id_seq\\s+"
-    r"FROM\\s+authenticated,\\s*service_role\\s*;",
+    r"REVOKE\s+UPDATE\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+authenticated,\s*service_role\s*;",
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Legacy sequence paths must not retain setval capability"
