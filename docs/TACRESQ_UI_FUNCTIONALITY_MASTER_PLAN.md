@@ -7291,3 +7291,147 @@ A workflow is **verified** only when its caller identity, transport, deployed po
 No feature should be presented as fully protected merely because the Admin UI hides it, the RPC is SECURITY DEFINER/INVOKER, a SQL fixture exists, or the bridge returns success. A single tested path does not certify alternate direct paths.
 
 **Change boundary:** this section documents the verification matrix and existing test evidence. No migration, RPC, grant, policy, account, Storage object, Render setting, Android release configuration or production data was changed.
+
+
+## Section 58 — Audit-event completeness and IDS/IPS traceability
+
+### 58.1 Objective and evidence standard
+
+This section evaluates whether the system can reconstruct security-relevant activity across the Android application, Admin IPS website, Supabase, Render/Laravel, Sanctum, Storage, Edge Functions and external providers. The IDS/IPS handout requires seven fields: `session_id`, `log_id`, `actions`, `description`, `ip_address`, `timestamp` and `device_used`. The requirement is not satisfied merely because individual tables contain timestamps or because a provider maintains some authentication events.
+
+Use four evidence classes and never silently merge them:
+
+1. **Security audit event:** a durable record of an actor's security-relevant action or denied attempt, with source identity and outcome.
+2. **Domain history:** a record required to explain a business-state transition (incident status, assignment, requester edit, account lifecycle). It is authoritative for that domain transition but is not automatically a complete user-activity log.
+3. **Authentication/provider event:** a record emitted by Supabase Auth, Laravel/Sanctum or another provider. Its persistence, retention, actor resolution and coverage must be verified independently.
+4. **Operational/diagnostic log:** a service execution, error or performance record. It may help troubleshoot but is not automatically an attributable, tamper-resistant audit event.
+
+A missing record means **unknown or not captured**, not that the action did not occur. A successful UI message, RPC response or provider acknowledgement is not sufficient evidence of durable audit persistence.
+
+### 58.2 Seven-field compliance mapping
+
+| Required handout field | Existing evidence and limits | Normalized projection requirement |
+|---|---|---|
+| `session_id` | Supabase Auth and Laravel Sanctum have separate session/token lifecycles. A universal, safely persisted session identifier is not established. Refresh-token/session identifiers must not be exposed as credentials. | Nullable source-qualified session reference; identify namespace and lifecycle. Do not invent a session ID or equate an access JWT, refresh token, Sanctum token and browser session. |
+| `log_id` | Existing source rows have their own primary keys; IDs are not globally unique across sources. | Stable source-qualified event ID, e.g. `<source_namespace>:<source_instance>:<source_event_id>`. Preserve original ID and source table. |
+| `actions` | Selected app action keys and domain transition types exist, but coverage/taxonomy is incomplete. | Versioned action taxonomy separating READ, SEARCH, ADD, EDIT, DELETE, AUTHENTICATE, SESSION, ASSIGN, DISPATCH, EXPORT, DENY and SECURITY_SETTING from domain-specific action keys. Do not call a cancellation a DELETE if it is a status transition. |
+| `description` | Some history rows contain structured before/after or domain details; app action records are limited. | Human-readable, redacted summary plus structured event type/outcome. Never copy message bodies, passwords, tokens, full incident narratives or precise coordinates into generic descriptions. |
+| `ip_address` | Supabase Auth provider events may expose IP metadata, but universal persistence and coverage are unverified. Direct Android-to-Supabase calls bypass Laravel's operation logger. | Nullable server/provider-observed address with source and collection method. Never trust an arbitrary client-supplied IP header or infer a missing address. Apply retention and access controls. |
+| `timestamp` | Existing domain and audit tables have timestamps, but semantics differ by source. Provider clocks and ingestion delays are separate. | Preserve original source timestamp and add normalized UTC event time, observed/ingested time, timezone/clock confidence and source metadata. Never overwrite original time. |
+| `device_used` | No universal trusted device identity is established. User-agent strings, Android metadata and browser details have different fidelity; user-agent is not a hardware identity. | Nullable, minimized device/client description with provenance (e.g. browser family, app build/platform when reliably observed). Do not treat client-provided device labels as verified hardware identity. |
+
+**Compliance conclusion:** the reviewed repository and connected catalog evidence do not demonstrate complete seven-field coverage. A normalized view or projection can provide a consistent read model, but it cannot manufacture missing source evidence. Nullability and source provenance must remain visible.
+
+### 58.3 Source-by-source event coverage
+
+| Source / record family | What it can currently explain | What it does not establish |
+|---|---|---|
+| Supabase Auth audit events | Some authentication/provider activity, subject to provider event availability | Durable application-wide session history, all Android/Admin sign-ins and sign-outs in a retained project-owned audit store, or complete IP/device coverage |
+| `admin_audit_logs` | Successful ordinary-role changes performed through the protected Admin role-change path | All Admin reads/searches, denied RPC calls, account lifecycle, all app activity or complete IDS/IPS coverage |
+| Account lifecycle history | Successful account status transitions and their recorded reasons/actors | Every attempted suspension, denied attempt, all downstream token revocation, or immediate invalidation of already-issued access JWTs |
+| `incident_status_logs` | Recorded incident status transitions | Reads/searches, all assignment changes, chat activity, authentication or every failed transition |
+| Assignment and assignment-history records | Assignment state and selected assignment transitions | Every UI interaction, failed claim attempt, all reads, or universal session/device/IP metadata |
+| `incident_request_edit_logs` | Requester edit history and selected before/after values | General CRUD audit, reads, searches, all denied edits or unrelated user actions |
+| `app_action_audit_logs` | Reviewed event families: `incident_message_sent`, `notification_marked_read`, `duty_status_changed` | Full CRUD/session/auth coverage, all denied actions, complete IP/device/session metadata or all direct API paths |
+| Laravel `api_operation_logs` | Selected Render/Laravel bridge operations with metadata such as actor (when resolved), provider, operation, source, outcome, status, duration and correlation/provider IDs | Browser-to-Supabase Admin calls, Android direct-Supabase operations, complete Auth/Storage/Edge activity or guaranteed logging when optional server telemetry is not configured |
+| Laravel Sanctum token store | Token records and token authentication state in the Laravel identity domain | Supabase Auth session state, a universal cross-system principal mapping, or complete token lifecycle audit without additional verified event capture |
+| Storage reservation/finalization and object metadata | Selected attachment reservation and upload workflow facts | All download/view attempts, every denied object request, a complete per-user read trail or generic audit of message content |
+| Edge Function/provider logs | Function invocation and provider execution evidence where retained | Complete user-visible delivery, Android direct calls, or durable project-wide security audit unless explicitly persisted and correlated |
+| Database/Render diagnostics | Errors, service execution and operational health | Actor-attributable audit trail for every user action |
+
+The source families are complementary, not interchangeable. Do not count multiple representations of the same domain transition as multiple user actions without deduplication rules, and do not discard retry attempts merely because they share a logical operation.
+
+### 58.4 Action capture policy
+
+Create a versioned event-capture matrix before adding instrumentation. At minimum, classify:
+
+- **Authentication/session:** sign-in success/failure, sign-out, session refresh/revocation, MFA enrollment/verification/reset and privileged session changes.
+- **Administrative access:** directory/profile read, security/audit search, report/export, role/status change, settings/policy change, evidence access and denied privileged attempt.
+- **Incident lifecycle:** list/detail read, search/filter, create, edit, cancel, claim, assignment/release, team assignment, status transition and location access/write.
+- **Communications:** chat room/history access, message send, attachment reservation/upload/download/finalization and notification read/registration.
+- **Security enforcement:** authorization denial, ownership mismatch, inactive-account rejection, role/permission mismatch, invalid state transition, rate limit, replay/idempotency rejection and suspicious repeated failure.
+- **System/operations:** policy/configuration changes, privileged maintenance, migration/deployment action and audit pipeline failure.
+
+A policy must state which events are required, which are sampled or intentionally excluded, which source can observe them, and whether success, failure and denial are independently captured. Read/search events should be captured for sensitive records and Admin investigation/evidence access where justified; avoid indiscriminately logging every low-value UI render or polling request. Search events should record scope and filters in a minimized, structured form, not the searched private content.
+
+### 58.5 Event envelope and identity model
+
+A proposed normalized event envelope should contain:
+
+- source-qualified immutable event ID and source namespace/instance;
+- event type and taxonomy version;
+- actor principal namespace and immutable principal ID, nullable when unauthenticated;
+- session reference and authentication assurance, nullable with explicit reason;
+- action, resource type and resource identifier, minimizing sensitive identifiers;
+- outcome (success, denied, failed, pending/unknown) and reason code;
+- source event time, normalized event time, observed/ingested time and clock confidence;
+- server-observed network metadata and minimized client/device metadata, each with provenance;
+- correlation/causation identifiers only when genuinely propagated by the request path;
+- schema version and integrity/provenance metadata.
+
+Keep Supabase Auth UUIDs and Laravel user IDs in separate namespaces. Do not resolve identity by matching email, display name, phone number or role. If a trusted mapping is later introduced, it must be explicit, immutable, access-controlled, auditable and tested for collisions and lifecycle divergence.
+
+Use stable source IDs for deduplication. If a source supplies no stable ID, a derived fingerprint may assist duplicate detection, but retain the original records and distinguish repeated attempts, retries and separate user actions. Do not use timestamps alone as identifiers. Correlation confidence must be represented as directly linked, strongly associated, possibly related, not correlated or indeterminate.
+
+### 58.6 Capture location, failure handling and tamper resistance
+
+Capture events at the authoritative enforcement boundary whenever possible:
+- Postgres RPC/domain transaction for database-authorized actions;
+- Storage policy/service boundary for object operations;
+- Laravel middleware/service for Sanctum and bridge requests;
+- Edge Function before privileged service-role work and after provider outcomes;
+- Auth provider event stream for authentication lifecycle;
+- Admin UI only for interaction context that the server cannot observe, clearly marked as client-reported.
+
+For a state-changing operation, the audit event should commit atomically with the domain mutation when both share the same database transaction. If a separate telemetry pipeline is required, use a transactional outbox or equivalent durable handoff rather than an unbounded best-effort network call. Record delivery/ingestion state separately. A telemetry outage must not silently turn a security-critical operation into an unaudited success; define per-operation fail-open/fail-closed behavior, bounded latency, retry and alerting policy.
+
+Protect audit data from ordinary Admin modification/deletion. Restrict write paths to trusted owners, make read access scoped and bounded, protect exports, record access to sensitive audit/investigation evidence, and monitor gaps or pipeline tampering. A hash or checksum alone does not make a log immutable. Preserve source records and provenance; a normalized projection is a derived read model, not the sole evidence store.
+
+Do not log secrets, bearer/refresh tokens, passwords, MFA codes, full message content, private attachment URLs, or unnecessary precise location. Define data-class-specific retention, legal/hold process and deletion controls with an authorized policy owner; no blanket retention period is assumed here.
+
+### 58.7 Audit pipeline health and coverage reporting
+
+The Admin IPS must distinguish:
+- **Captured:** source event was durably accepted and its source identity is known.
+- **Partially captured:** an event exists but one or more required attributes or outcomes are missing.
+- **Delayed:** event time is known but ingestion is behind.
+- **Unavailable:** the source or ingestion path cannot currently be queried.
+- **Not monitored:** no collection mechanism is established for that event family.
+- **Unknown:** coverage cannot be determined from available evidence.
+
+Coverage metrics require an explicit denominator. For example, “percentage of successful role changes with matching audit rows” must define the authoritative role-change source, time window, exclusions, join key and handling of delayed events. A count of audit rows is not a completeness measure. Zero observed events is not proof of zero activity. Report source availability and ingestion lag separately from detections and security severity.
+
+A pipeline-health view should show source, last successful observation, expected cadence (if defined), observed delay, failures, backlog and coverage limitations. Never show a global green “all secure” state while direct Android Supabase, Storage, Auth, Edge, FCM or Sanctum sources remain unmonitored or unverified.
+
+### 58.8 Verification matrix and acceptance gates
+
+| Test | Setup and action | Required evidence |
+|---|---|---|
+| Successful action | Perform each in-scope action using its supported client/path | One attributable event or documented source-history record with source ID, outcome and required fields |
+| Denied action | Repeat with wrong role, wrong owner, inactive account or insufficient MFA | Denial at authoritative boundary; durable security event where observable and policy requires; no state mutation |
+| Same-valid-JWT suspension | Suspend a test profile while retaining its still-valid access JWT; attempt each protected operation | Each action follows documented active-account policy; distinguish explicit FCM self-unregister cleanup exception |
+| Session lifecycle | Sign in, refresh, sign out, revoke and use expired/revoked credentials | Correct namespace/session references; no token values in logs; honest distinction between refresh revocation and still-valid access JWT expiry |
+| Cross-system identity | Use distinct Supabase and Sanctum test identities, including colliding email values | No accidental cross-domain identity join; actor namespace remains explicit |
+| Direct vs bridge path | Exercise operations through direct Supabase and optional Render bridge where supported | Each path independently captured/enforced; no assumption that Laravel sees direct calls |
+| Read/search/export | View sensitive incident, search Admin audit, export report and access investigation evidence | Policy-defined access event; minimized filters/scope; actor and outcome; no private content copied into generic logs |
+| Duplicate/retry | Repeat the same request ID, retry after timeout, and issue two independent actions | Stable source IDs; retries distinguishable from new actions; no duplicate domain mutation or false dedupe |
+| Clock/ingestion delay | Inject delayed/out-of-order events and source clock skew in isolated tests | Original time preserved; ingestion time separate; uncertainty and lag visible |
+| Telemetry outage | Disable or delay the audit sink in an isolated environment | Documented fail-open/fail-closed behavior, durable retry/outbox, alert and no false claim of complete coverage |
+| Integrity/access | Attempt ordinary Admin edit/delete and unauthorized audit read/export | Backend denial; audit source remains protected; sensitive audit access itself is captured where required |
+| Retention/disposal | Test approved synthetic retention rules and legal-hold exception | Authorized, scoped, reviewable disposition; no deletion outside approved policy |
+
+**Release gate:** do not claim IDS/IPS audit compliance until every required action family has an owner, authoritative capture point, event schema, positive/negative test, durable persistence evidence, retention/access policy and documented coverage. For each test record exact repository SHA, migration state, environment, client build, identity namespace, transport, source event IDs, expected/observed result and reviewer. Mark unexecuted tests as planned, not passed.
+
+### 58.9 Current conclusion and implementation boundary
+
+Current evidence supports several domain-specific histories and selected application/Render metadata logs, but not a complete unified audit trail across all clients and providers. In particular, Admin reads/searches and many Android direct-Supabase reads, Auth/session lifecycle, Storage downloads/denials, denied RPCs, and cross-source session/device/IP attribution remain incomplete or unverified.
+
+Recommended sequence:
+1. Inventory source events and decide the authoritative capture point for each action.
+2. Approve identity namespace, seven-field semantics, event taxonomy, privacy classification and retention.
+3. Add transactional capture for database mutations and explicit denial capture where safely observable.
+4. Add separate capture for Auth, Storage, Edge, Sanctum and provider boundaries.
+5. Build a normalized, provenance-preserving read projection and audit-of-audit controls.
+6. Validate completeness and ingestion health with synthetic fixtures before exposing compliance claims or broad Admin UI controls.
+
+This section is research and a verification specification only. It does not add an event table, trigger, outbox, logger, policy, retention schedule, dashboard control or production instrumentation. No database, provider, account, token, attachment, deployment or production setting was changed.
