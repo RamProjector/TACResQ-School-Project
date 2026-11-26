@@ -294,6 +294,18 @@ assert (
     "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public"
     in Path("tools/test_supabase_migration_replay.sh").read_text()
 ), "Migration replay must model the hosted postgres/public service_role function default ACL"
+PROFILE_UPDATE_MIGRATION = Path(
+    "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\\s+UPDATE\\s+ON\\s+TABLE\\s+public\\.profiles\\s+FROM\\s+authenticated\\s*;",
+    PROFILE_UPDATE_MIGRATION, re.IGNORECASE | re.DOTALL
+), "Profile update must revoke the broad authenticated table-level UPDATE grant"
+assert re.search(
+    r"GRANT\\s+UPDATE\\s*\\(\\s*duty_status\\s*,\\s*updated_at\\s*\\)\\s+"
+    r"ON\\s+TABLE\\s+public\\.profiles\\s+TO\\s+authenticated\\s*;",
+    PROFILE_UPDATE_MIGRATION, re.IGNORECASE | re.DOTALL
+), "Only duty_status and updated_at may retain authenticated profile UPDATE"
 REPLAY_FIXTURE = Path("tools/test_supabase_migration_replay.sh").read_text()
 for default_grant in (
     "GRANT ALL PRIVILEGES ON TABLES TO anon, authenticated, service_role",
