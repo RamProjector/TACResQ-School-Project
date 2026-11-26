@@ -9780,20 +9780,20 @@ The sequence audit exposed why blanket sequence revocation is unsafe:
 
 | Sequence | Remaining caller path | Branch policy |
 |---|---|---|
-| `public.incidents_id_seq` | Legacy `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` remain authenticated-callable SECURITY INVOKER functions that insert into `public.incidents`. The newer `api_create_incident_v4` is SECURITY DEFINER, but that does not retire the independently callable legacy signatures. | Retain authenticated `USAGE` only until the legacy RPC grants are retired after supported-client and lifecycle-guard review. Revoke authenticated `SELECT` and `UPDATE`; no client `setval` capability. |
+| `public.incidents_id_seq` | Legacy `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` remain authenticated-callable SECURITY INVOKER functions, but the live catalog reports that authenticated has no direct INSERT privilege on `public.incidents`; those legacy signatures are therefore not effective direct client writers. The supported `api_create_incident_v4` path is SECURITY DEFINER and calls v3 under the function owner's privileges. The live catalog separately reports service_role has direct INSERT on incidents and location_logs and EXECUTE on the legacy invoker paths. | No authenticated sequence privileges. Direct table INSERT is already denied to authenticated, and the supported v4 SECURITY DEFINER path runs with owner privileges. Treat the remaining authenticated EXECUTE grants on v1/v2/v3 as a separate stale-compatibility surface; do not infer sequence need from EXECUTE alone. |
 | `public.location_logs_id_seq` | Direct authenticated INSERT on `location_logs` is revoked; the current client writer is a guarded SECURITY DEFINER path. The remaining legacy server-side invoker path is service-role scoped. | No authenticated sequence privileges. Preserve only the reviewed service-role `USAGE/SELECT` needed by the legacy server writer; revoke `UPDATE`. |
 | `public.api_operation_logs_id_seq` | Laravel's server-side operation logger directly inserts telemetry rows. | Preserve service-role sequence access for the direct insert path; no client grant. |
 | Device-registry identity sequences | Trusted backend device-verification writers create rows; clients do not write these tables directly. | Preserve service-role `USAGE/SELECT`; revoke client and service-role `UPDATE`. |
 
 PostgreSQL's sequence privilege meanings matter here: `USAGE` permits `nextval` and `currval`; `SELECT` permits `currval`; `UPDATE` permits `nextval` and `setval`. Since the legacy insert path needs the identity default's `nextval`, `USAGE` is sufficient; `SELECT` is redundant and `UPDATE` would unnecessarily expose sequence mutation.
 
-The earlier draft incorrectly removed authenticated access to `incidents_id_seq` while leaving three authenticated-callable invoker RPCs in place. The corrected migration preserves only `USAGE` for those legacy create paths and explicitly removes `SELECT` and `UPDATE`. It does not silently revoke the old RPCs; compatibility retirement is a separate, evidence-gated change.
+The earlier review initially inferred sequence need from the legacy RPC EXECUTE grants alone. A follow-up live catalog query showed authenticated has no direct INSERT on incidents, while service_role does. The corrected migration therefore removes all client sequence privileges and preserves service-role USAGE/SELECT for its actual invoker insert paths. The stale authenticated EXECUTE grants remain a separate compatibility/security cleanup item; no RPC grant was silently revoked here.
 
 ### 71.3 Runtime regression contract
 
 The clean-replay harness now asserts:
 
-- Authenticated has `USAGE`, but not `SELECT` or `UPDATE`, on `incidents_id_seq`.
+- Authenticated has no `USAGE`, `SELECT`, or `UPDATE` on `incidents_id_seq`.
 - Authenticated has no `USAGE`, `SELECT`, or `UPDATE` on `location_logs_id_seq`.
 - Anon cannot use either sequence.
 - Service-role cannot use `UPDATE` on either legacy sequence.
