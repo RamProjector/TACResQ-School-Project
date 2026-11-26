@@ -172,9 +172,23 @@ BEGIN
       ON namespace_row.oid = function_row.pronamespace
     WHERE namespace_row.nspname = 'public'
       AND function_row.proname LIKE 'api_admin_%'
-      AND has_function_privilege('service_role', function_row.oid, 'EXECUTE')
+      AND (
+        has_function_privilege('service_role', function_row.oid, 'EXECUTE')
+        OR has_function_privilege('anon', function_row.oid, 'EXECUTE')
+        OR EXISTS (
+          SELECT 1
+          FROM pg_catalog.aclexplode(
+            coalesce(
+              function_row.proacl,
+              pg_catalog.acldefault('f', function_row.proowner)
+            )
+          ) AS function_privilege
+          WHERE function_privilege.grantee = 0
+            AND function_privilege.privilege_type = 'EXECUTE'
+        )
+      )
   ) THEN
-    RAISE EXCEPTION 'service_role must not have EXECUTE on any public api_admin_* function';
+    RAISE EXCEPTION 'PUBLIC, anon or service_role must not have EXECUTE on any public api_admin_* function';
   END IF;
 
   -- Preserve the actual authenticated Admin RPC surface; role/MFA checks in
