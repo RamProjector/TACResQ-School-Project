@@ -50,6 +50,12 @@ assert "13 authenticated-callable private security definer helpers" in crosswalk
 assert "14 authenticated-callable application api invoker functions" in crosswalk
 assert "11 authenticated-callable application api invoker functions after the legacy requester-create execute revocation" in crosswalk
 assert "38 authenticated-callable public api functions" in crosswalk
+callable_runtime_contract = (ROOT / "tools/test_account_suspension_definer_inventory.sql").read_text().lower()
+assert "cardinality(expected_invoker_signatures) <> 11" in callable_runtime_contract
+assert "api_callable_count <> 35" in callable_runtime_contract
+assert "api_invoker_count <> 11" in callable_runtime_contract
+assert "expected 35/24/11" in callable_runtime_contract
+
 assert "35 authenticated-callable public api functions after the legacy requester-create execute revocation" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
