@@ -292,6 +292,20 @@ assert re.search(
     SERVICE_ROLE_SEQUENCE_MIGRATION,
     re.IGNORECASE | re.DOTALL,
 ), "Logger and legacy service-role incident/location RPCs must retain minimum sequence access"
+assert re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Legacy incident/location sequences must remain unavailable to client roles"
+assert re.search(
+    r"REVOKE\s+UPDATE\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Legacy service-role sequence paths must not retain setval capability"
 
 PG17_MAINTAIN_MIGRATION = Path(
     "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
