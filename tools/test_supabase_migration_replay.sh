@@ -2173,7 +2173,15 @@ BEGIN
   END IF;
 
   IF has_sequence_privilege('anon', 'public.incidents_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.incidents_id_seq', 'SELECT')
+     OR has_sequence_privilege('anon', 'public.incidents_id_seq', 'UPDATE')
      OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'UPDATE')
+     OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', 'SELECT')
+     OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'SELECT')
      OR has_sequence_privilege('service_role', 'public.incidents_id_seq', 'UPDATE')
      OR has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'UPDATE') THEN
     RAISE EXCEPTION 'Unexpected anon or service-role sequence privilege';
