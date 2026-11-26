@@ -142,7 +142,8 @@ assert "not proof that every source writer or provider setting is active" in aud
 assert "A zero-row result means no matching records were returned" in audit_page
 assert "selected-action subset, not comprehensive activity monitoring" in audit_page
 assert "Six recorded event sources are queried." not in audit_page
-assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
+assert 'aria-controls={expanded === event.event_id ? "audit-event-details-" + event.event_id : undefined}' in audit_page
+assert '{expanded === event.event_id && (' in audit_page
 assert 'id={"audit-event-details-" + event.event_id}' in audit_page
 assert 'aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary}' in audit_page
 assert 'role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}' in audit_page
