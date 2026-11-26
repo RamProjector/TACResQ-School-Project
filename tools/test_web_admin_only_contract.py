@@ -387,4 +387,8 @@ assert ".admin-shell--high-contrast :where(button, a, input, select, textarea, s
 assert "color-scheme: light;" in admin_css
 assert "outline: 3px solid #8b3d20;" in admin_css
 assert ".admin-shell--high-contrast .admin-table th" in admin_css
+assert ".admin-shell--high-contrast .admin-recovery-card p" in admin_css
+assert ".admin-shell--high-contrast .admin-attachment-card p" in admin_css
+assert ".admin-shell--high-contrast .admin-analytics-card p" in admin_css
+assert ".admin-shell--high-contrast .audit-event-card__details dd" in admin_css
 assert ".admin-shell--reduced-motion *::after" in admin_css
