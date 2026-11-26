@@ -17,3 +17,21 @@ assert 'if (section !== "settings") {\n      url.searchParams.delete("adminSetti
 assert 'if (url.toString() !== window.location.href) {' in source, "Top-level navigation must avoid redundant history entries"
 
 print("Admin workspace navigation focus contract: passed")
+
+
+# The responsive drawer classes used by the Admin component must have matching
+# CSS, remain hidden when closed, and expose the backdrop/close controls on
+# tablet and phone widths.
+styles = Path("backend/web/src/pages/AdminConsole.css").read_text(encoding="utf-8")
+for marker in (
+    ".admin-sidebar.admin-sidebar--mobile-open",
+    "transform:translateX(-105%);",
+    "visibility:hidden;",
+    "visibility:visible;",
+    ".admin-mobile-sidebar-toggle",
+    ".admin-mobile-sidebar-close",
+    ".admin-sidebar-backdrop",
+    "@media (max-width:900px)",
+    "@media (prefers-reduced-motion:reduce)",
+):
+    assert marker in styles, f"Missing responsive Admin navigation styling: {marker}"
