@@ -4728,3 +4728,142 @@ References:
 - Any future workflow has explicit authorization, audit, privacy, recovery, and regression tests before release.
 
 **Evidence boundary:** Section 44 defines a future human-led investigation workflow. It does not assert that TACResQ currently has security-case persistence, evidence vaulting, case assignment, formal forensic chain of custody, escalation staffing, or automated containment. No application code, database schema, RPC, permission, provider, notification, theme, or production configuration is changed by this research.
+
+
+## 45. Security governance, evidence access, retention, and administrator accountability
+
+### 45.1 Purpose and governance boundary
+
+The Admin IPS must make security governance observable and accountable without turning the website into an unrestricted data-inspection console or inventing an organization structure that the project has not established.
+
+Use NIST Cybersecurity Framework (CSF) 2.0's Govern function as the organizing principle: cybersecurity strategy, expectations, roles, responsibilities, authorities, policy, and oversight should be established and monitored in the context of the system's mission. Governance is not synonymous with adding more application roles. The current Admin website decision remains one application role, Admin. Governance responsibilities that sit outside the application must be documented as organizational/project responsibilities, not fabricated login roles.
+
+Distinguish:
+- **Application authorization:** what the authenticated Admin identity can technically read or change through the existing Supabase/RPC/API contracts.
+- **Operational responsibility:** who performs routine administration, reviews evidence, and maintains the system.
+- **Policy authority:** who approves changes to security rules, evidence access, retention, and risk acceptance.
+- **Institutional/legal authority:** the project owner, institution, or other authorized party that determines applicable obligations and approves exceptional disclosure or retention decisions.
+
+The repository does not establish a staffed security team, a second approver, a formal records officer, or a legally appointed data-protection role. The design must not claim those roles exist. Record the responsible person or authority in an approved project governance document before enabling workflows that depend on them.
+
+### 45.2 Evidence classification and access model
+
+Classify information before designing an Admin screen or export. Minimum conceptual classes:
+
+1. **Operational metadata:** aggregate service health, counts, bounded status summaries, and non-sensitive diagnostics.
+2. **Security event metadata:** source-qualified event IDs, action/outcome, actor namespace, timestamps, correlation references, and detection rationale.
+3. **Account and access evidence:** profile identifiers, role and account lifecycle changes, assurance state, and session-related metadata.
+4. **Sensitive investigation evidence:** personal data, incident details, location history, attachment metadata, message-related evidence, and information that could expose a vulnerable user.
+5. **Secrets and authentication material:** passwords, access/refresh tokens, MFA secrets, service-role credentials, signing keys, and database connection strings. These must never be available through ordinary Admin evidence views or exports.
+
+Apply least privilege at the data/API boundary, not merely by hiding buttons. An Admin page must display only fields returned by a specifically authorized backend contract. Do not expand existing Admin directory, audit, analytics, or investigation RPCs to expose raw incident content, chat media, precise location history, secrets, or full authentication artifacts merely because they may be useful in an investigation.
+
+Use progressive disclosure for sensitive evidence: show the minimum safe summary first; require a documented purpose and appropriate authorization before exposing a more sensitive record; record the access decision and outcome where the backend can do so. If the current backend cannot enforce or record that boundary, label the feature unavailable/not implemented rather than simulating authorization in React.
+
+### 45.3 Evidence access accountability
+
+High-risk access includes viewing or searching security logs, opening an investigation record, accessing account/security evidence, exporting reports, changing role or account state, changing detection policy, and accessing any sensitive personal or incident evidence.
+
+For each high-risk access event, the target audit contract should identify:
+- authenticated actor and identity namespace;
+- action key and operation class (READ/SEARCH/EXPORT/EDIT/ADD/DELETE as applicable);
+- target resource or bounded resource reference;
+- decision/outcome (allowed, denied, failed, stale/conflict, or indeterminate);
+- event time and observed/ingested time where distinct;
+- source application/service and correlation ID only when actually propagated;
+- purpose/reason when required by the approved policy;
+- policy version and authorization context where relevant.
+
+Never log the evidence payload merely to prove that it was accessed. Avoid tokens, passwords, MFA secrets, message bodies, attachment contents, unnecessary coordinates, and unrestricted personal data. Sanitize untrusted values and encode structured log output to prevent log injection.
+
+**Current-state caveat:** earlier source audits found that Admin reads/searches are not durably logged per call across the reviewed call sites, and existing audit streams are partial. The above is a target contract, not a claim that every access is currently captured. Before adding an evidence viewer or export, identify the exact RPC/API read boundary, add server-side authorization and bounded access-event capture, and test allowed and denied access using real authorization contexts.
+
+### 45.4 Policy change governance and administrator decisions
+
+Treat security-policy changes as privileged, versioned decisions, not ordinary settings toggles.
+
+A policy change record should include:
+- stable policy/rule identifier and immutable version;
+- previous and proposed values or a safe structured diff;
+- rationale, scope, affected source namespaces, and expected impact;
+- proposer/actor, approval authority, decision, and timestamps;
+- effective-from time, expiry/review date if applicable, and rollback/supersession reference;
+- validation evidence, test results, and known limitations.
+
+Separate **routine execution under an approved policy** from **changing the policy itself**. The sole Admin may carry out existing, already-authorized user-management operations within current database guards. That does not automatically grant authority to redefine detection thresholds, retention periods, evidence disclosure rules, privileged access, or incident containment policy.
+
+For high-impact policy changes, require approval by the designated project/institutional authority outside the application unless a genuine second authorized approver and backend-enforced approval workflow are established. Do not create a fake second application role or display a fictitious approval state. If no approver is defined, keep the change as a documented proposal and do not activate it.
+
+Do not provide a self-service policy editor until there is a trusted policy registry, server-side validation, immutable version history, authorization, approval semantics, audit coverage, and rollback procedure. A client-side form or hidden admin-only control is not a security boundary.
+
+### 45.5 Retention, archival, and disposal policy
+
+Do not invent a universal number of days or years for TACResQ records. Retention must be assigned by record category and approved by the appropriate project/institutional authority after applicable legal, contractual, educational, operational, and investigation needs are established.
+
+Create a retention schedule with at least:
+- record category and source system;
+- purpose and data classification;
+- authoritative storage location and copies/backups;
+- retention trigger (creation, closure, account termination, or other defined event);
+- approved retention period and authority/source for the decision;
+- legal hold or active-investigation exception process;
+- archival format, retrieval owner, and integrity controls;
+- disposal method and verification evidence;
+- review date and policy version.
+
+Keep distinct schedules for security/audit events, account lifecycle evidence, operational/domain histories, sensitive incident records, attachments and Storage objects, authentication-provider logs, Render/application logs, and backups. A database retention rule does not automatically govern object storage, provider logs, exports, caches, or backups.
+
+Retention controls must not silently delete evidence under an active investigation or legal hold. Conversely, an investigation flag must not become an indefinite retention loophole: require an owner, reason, scope, approval, review date, and documented release from hold. Disposal should cover primary records and controlled copies according to the approved schedule; record the disposal action without retaining the sensitive content being disposed of.
+
+**Current-state caveat:** the reviewed repository does not establish a complete cross-source retention schedule, universal archival service, legal-hold workflow, Storage orphan cleanup policy, or verified backup expiry. Do not show a retention-compliance badge or promise automatic deletion until each source and copy has an implemented and tested lifecycle.
+
+### 45.6 Integrity, separation of duties, and review
+
+Protect audit records and their configuration against unauthorized read, alteration, and deletion. Use append-only event semantics where feasible, restrictive database grants, narrowly scoped writer identities, and tamper-evident controls appropriate to the deployment. An append-only UI is not enough if a privileged database owner can still modify or delete rows; describe the actual integrity guarantee precisely.
+
+Review periodically:
+- who has Admin access and whether the account remains necessary;
+- Admin MFA/assurance and recovery arrangements;
+- effective database/RPC grants and RLS policies;
+- access to audit sources, exports, backups, and provider consoles;
+- logging coverage, source health, ingestion gaps, and retention exceptions;
+- active policy versions, exceptions, approvals, and overdue reviews.
+
+Because the product currently has one Admin role, do not imply two-person control is technically enforced. For high-impact decisions that need independent review, use a documented external approval/record until a real, authorized workflow is designed and implemented. The Admin UI may show the decision and its evidence only when backed by an authoritative record.
+
+### 45.7 Admin IPS interface implications
+
+The redesigned website should present governance as a compact, evidence-backed workspace rather than a new generic dashboard section.
+
+- **Security:** show assurance state, source coverage, policy version, and known gaps separately. Do not imply complete session visibility or cross-source telemetry where none exists.
+- **Activity log:** distinguish event occurrence from evidence access. Add access events only after server-side read/search/export instrumentation is implemented.
+- **Investigation:** show classification, sensitivity, provenance, permitted access, purpose, and retention/hold status. Redact sensitive values by default.
+- **Settings:** expose approved operational preferences separately from security policy. Policy controls remain read-only or proposal-only until governance and backend contracts exist.
+- **Data & continuity:** document retention and backup status by source. Do not offer deletion, archive, restore, or export actions that lack verified backend support.
+- **Help & about:** provide concise explanations of evidence categories, source limitations, escalation authority, and the difference between an unavailable control and a healthy/empty result.
+
+Use explicit states: approved, pending external approval, proposal only, expired, under review, on hold, not configured, not monitored, unavailable, and unknown. A missing record is not proof of approval, a zero-row result is not proof of no activity, and an unimplemented workflow must not appear as completed governance.
+
+### 45.8 Acceptance criteria
+
+- The single Admin application role is preserved; no unverified roles or approvers are invented.
+- Application permissions, operational responsibilities, and policy authority are documented separately.
+- Evidence classes and sensitive-data exclusions are defined before building evidence views or exports.
+- Authorization is enforced by database/API contracts, not React visibility.
+- Sensitive read/search/export actions are server-audited before the related feature is enabled.
+- Audit events contain bounded metadata and never expose credentials or unnecessary payloads.
+- Policy changes are versioned, justified, validated, approved by a real authority, and reversible before activation.
+- Retention periods are approved per source/category; no arbitrary duration is presented as a legal requirement.
+- Legal holds, backups, Storage objects, exports, provider logs, and disposal copies are considered explicitly.
+- Audit integrity guarantees are described accurately and tested against the actual privileged threat model.
+- Access reviews, policy reviews, retention exceptions, and disposal decisions are attributable.
+- UI states distinguish missing, unavailable, unmonitored, pending, and approved evidence.
+- No new schema, RPC, role, retention job, export, policy editor, or production change is implied to exist until implemented and verified.
+
+### 45.9 References
+
+- [NIST Cybersecurity Framework 2.0 — Govern function and governance outcomes](https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf)
+- [NIST SP 800-53 Rev. 5, Release 5.2.0 — Audit and Accountability controls, including AU-9 and AU-11](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final)
+- [OWASP Logging Cheat Sheet — event selection, sensitive-data exclusion, access protection, monitoring, and disposal](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+
+**Evidence boundary:** Section 45 defines governance and target design requirements. It does not establish a legally approved retention schedule, a second approver, a staffed security function, universal read-access logging, immutable storage, or automated archival/disposal. No application code, database schema, RPC, permission, provider setting, retention job, theme, or production configuration is changed by this research.
