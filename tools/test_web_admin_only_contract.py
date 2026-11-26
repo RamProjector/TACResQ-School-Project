@@ -6,6 +6,23 @@ dockerfile = (ROOT / "backend/Dockerfile").read_text()
 web_routes = (ROOT / "backend/src/routes/web.php").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
 web_readme = (ROOT / "backend/web/README.md").read_text()
+admin_console_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
+
+
+# Compact density must reduce the content-card spacing across Admin workspaces,
+# not just table rows and the outer panel margins.
+compact_density = admin_console_css.split(".admin-shell--compact .admin-table th", 1)[1].split(".admin-shell--high-contrast", 1)[0]
+for selector in (
+    ".admin-shell--compact .admin-settings-card",
+    ".admin-shell--compact .admin-help-card",
+    ".admin-shell--compact .admin-recovery-card",
+    ".admin-shell--compact .admin-attachment-card",
+    ".admin-shell--compact .admin-analytics-card",
+    ".admin-shell--compact .audit-event-card",
+    ".admin-shell--compact .admin-security-status__item",
+):
+    assert selector in compact_density, f"Compact density is not applied to {selector}"
+assert "padding:13px" in compact_density
 
 # The browser frontend must not offer an incident queue or dispatch mutations.
 for forbidden in ("DispatcherBoard", "assignIncident(", "getAllIncidents(", "getFieldUnits("):
