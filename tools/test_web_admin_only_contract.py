@@ -132,7 +132,8 @@ assert 'role="status" aria-live="polite">{copyError || (copiedEventId ? "Technic
 assert '<dd>{actorDisplay(event, profile)}</dd>' in audit_page
 
 # Overview and directory states remain accurate while server-side filters are pending.
-assert "Searchable read-only history across seven event sources" in admin_console
+assert "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." in admin_console
+assert "Searchable read-only history across seven event sources" not in admin_console
 assert "Searchable read-only history across six event sources" not in admin_console
 assert '{directoryError ? "User data is unavailable" : "No accounts match this filter"}' in admin_console
 assert '{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}' in admin_console
