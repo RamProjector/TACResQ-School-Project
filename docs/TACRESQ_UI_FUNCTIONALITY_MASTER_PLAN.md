@@ -6628,3 +6628,110 @@ A green build, successful migration replay, or passing fake-provider test must n
 - Android command-line test tasks — `test` and `connectedAndroidTest`: https://developer.android.com/studio/test/command-line
 
 **Evidence boundary:** This is a repository/workflow audit plus one test-only expected-string correction. No complete synthetic SOS was executed. No production data, live Supabase schema, Render configuration, worker schedule, FCM provider, credentials, or paid service was changed.
+
+
+## 53 — WP0 live/source baseline: migration drift, effective function grants, and current Supabase advisor snapshot
+
+**Assessment date:** 2026-11-26. **Target:** Supabase project `TACResQ-School-Project` (`kttguamhznoflzagfutr`), not LifeLink or the inactive Storage test project. **Branch reviewed:** `docs/admin-ips-ui-master-plan`, head observed as `cca2ab1a32bd2184d3cbd0e10ce04d055b792665`. **Method:** read-only Supabase project metadata, migration ledger, SQL catalog queries, advisor snapshots and GitHub migration-directory comparison. No schema, grants, data, provider settings or production configuration were changed.
+
+### 53.1 Environment identity and health
+
+- Supabase project name and ID match TACResQ-School-Project; project status returned `ACTIVE_HEALTHY`.
+- Region: `ap-southeast-1`; database engine PostgreSQL 17 (reported version `17.11.0.003`).
+- The separate LifeLink project was not queried for this audit. The separate TACResQ-Storage-Test project was inactive and was not treated as the application's production database.
+- Supabase health advisor returned no findings in this snapshot. This is an advisor result, not end-to-end service health or proof that Render, Android, FCM, Storage uploads or routing are healthy.
+
+### 53.2 Migration ledger comparison — 104 entries on each side, but not the same history
+
+The connected database returned **104 migration ledger entries**. The current branch migration directory also contains **104 SQL migration files**. Equal counts do not mean the migration histories match.
+
+The exact version-set comparison identified:
+
+| Comparison | Live ledger | Current branch |
+|---|---|---|
+| Read-only account profile RLS | `20261125025825` — `read_only_account_profile_rls` | `20261125120000_read_only_account_profile_rls.sql` |
+| Remove legacy FCM active-account policy | `20261125030010` — `remove_legacy_fcm_active_account_policy` | `20261125130000_remove_legacy_fcm_active_account_policy.sql` |
+| Actor-role lookup volatility change | `20261125030354` — `make_actor_role_lookup_read_only_safe` | No same-version migration file found in the branch directory |
+| Incident-location trigger function client EXECUTE revocation | No matching live ledger entry | `20261126100000_revoke_incident_trigger_function_client_execute.sql` |
+
+Therefore:
+- The two account-profile/FCM migrations are logical-name matches with different version identifiers. Do not apply either branch migration to production until the timestamp/version mapping and exact SQL effects have been reconciled. A clean replay must establish whether the branch files are intended equivalents of the live entries.
+- `20261125030354` is present in the live ledger, not absent from production. The live `private.tacresq_actor_role()` catalog reports STABLE volatility. The branch currently has no same-version migration file in `supabase/migrations`; the exact source-history explanation and replay equivalence remain unresolved. The earlier statement that the live helper was still VOLATILE is stale and must not be repeated as a current live finding.
+- The branch contains a newer trigger-function revocation migration that is **not yet recorded in the live ledger**. This is a source/deployment difference, not evidence that it has been applied.
+- The live and source histories must be reconciled by migration identity and effects, not by equal total count or filename similarity.
+
+**WP0 blocker:** no production migration push/replay or history repair until the project owner reviews the exact SQL, its dependency/order, clean-replay result and rollback implications. Do not fabricate a replacement migration for the live-only version.
+
+### 53.3 Confirmed live trigger-function EXECUTE exposure
+
+Read-only catalog checks returned:
+
+- `public.tacresq_require_incident_location()` exists as a non-definer trigger function.
+- It has one non-internal trigger binding.
+- Its effective ACL still includes default PUBLIC EXECUTE and explicit EXECUTE for `anon`, `authenticated` and `service_role`.
+- Both `has_function_privilege('anon', ...)` and `has_function_privilege('authenticated', ...)` returned true.
+- The branch contains `20261126100000_revoke_incident_trigger_function_client_execute.sql`, which revokes EXECUTE from PUBLIC and those named roles and documents the trigger-only intent.
+
+This is a confirmed unnecessary direct-call surface for a function intended to be invoked through a trigger. It does **not** establish that arbitrary client input can bypass the trigger's row invariants or that a successful exploit occurred. The source migration has not been shown as applied to the live database.
+
+**Next verification before rollout:** inspect the trigger definition/owner and all direct references, run a clean migration replay, prove normal authorized INSERT/UPDATE operations still invoke the trigger, prove direct RPC calls are denied, and inspect the resulting effective ACL. Apply only through the reviewed migration workflow with explicit production approval; no live grant was changed in this audit.
+
+### 53.4 Current callable function inventory — correct the stale expected count
+
+A read-only catalog count returned:
+
+| Live catalog measure | Count |
+|---|---:|
+| All functions in `public` | 58 |
+| Public functions executable by `authenticated` | 39 |
+| Of those, SECURITY DEFINER | 24 |
+| Of those, SECURITY INVOKER | 15 |
+| Public functions executable by `anon` | 2 |
+| All functions in `private` | 35 |
+| Private SECURITY DEFINER functions executable by `authenticated` | 13 |
+
+The prior Section 29 expected-source baseline of 75 public authenticated-callable functions (24 definer + 51 invoker) is **not the current live catalog count** and must be treated as a stale source expectation pending reconciliation. The current live query found 39 authenticated-callable public functions, not 75. This difference must be investigated against exact function signatures, overloads, grants, schema visibility and branch migration replay before the old number is reused.
+
+The 24 authenticated-callable public SECURITY DEFINER functions match the advisor count. That count is a review queue, not proof that all 24 are vulnerable: each function must be checked for explicit identity, role, AAL2/TOTP, active-account, ownership and state-transition checks. Do not blindly revoke EXECUTE or convert functions to INVOKER; many are intended RPC boundaries.
+
+For the 13 private SECURITY DEFINER helpers, `authenticated` has schema USAGE and EXECUTE on those functions; `anon` does not have private-schema USAGE. The PostgREST exposed-schema setting could not be established from the queried database setting (`pgrst.db_schemas` returned NULL). Confirm the Dashboard Data API exposed-schema configuration before concluding whether any private function can be reached through REST. Schema name alone is not proof of API inaccessibility.
+
+### 53.5 RLS advisor findings — distinguish protected tables from exposed tables
+
+The live security advisor reported 16 RLS-enabled tables without policies:
+- 14 tables in `public`;
+- two tables in `private`, including the private incident-chat upload policy/reservation tables.
+
+A separate read-only privilege query found **zero** of those 14 public RLS/no-policy tables with direct table-level anon/authenticated SELECT, INSERT, UPDATE or DELETE privileges. This makes the advisor finding informational for those public tables under the inspected direct-table privilege model; it does not prove that no privileged function, view, trigger or service-role path can reach them.
+
+Do not add broad policies merely to silence the advisor. First verify effective table and column grants, schema exposure, views, definer functions, triggers and intended server-only access. Preserve RLS and least privilege for private metadata tables. Advisor findings and direct privilege checks should remain separately reported.
+
+### 53.6 Advisor snapshot — 2026-11-26
+
+**Security**
+- 16 `rls_enabled_no_policy` findings (14 public, two private; see 53.5).
+- 24 `authenticated_security_definer_function_executable` findings.
+- One `auth_leaked_password_protection` warning: leaked-password protection is disabled. Review whether the current plan/settings support enabling it without a paid upgrade; do not upgrade or change Auth settings without approval.
+
+**Performance**
+- 10 unindexed foreign-key findings, concentrated in device security/session records, assignment events, user devices and notifications.
+- One RLS init-plan finding on `public.incident_assignment_events` policy `incident_assignment_events_dispatch_read`.
+- 34 unused-index notices in the advisor snapshot. These are workload-dependent observations, not deletion instructions. Do not drop indexes without query-plan, write-cost, retention and workload review.
+
+**Health**
+- No health-advisor lints were returned at this snapshot.
+
+Advisor output is a point-in-time diagnostic, not a substitute for query plans, workload measurements, policy review or application tests. Re-run after any approved schema or policy changes.
+
+### 53.7 Immediate WP0 follow-up order
+
+1. Reconcile the two version-renamed migration pairs and the live-only `20261125030354` entry against exact SQL effects and clean replay.
+2. Review and test the pending branch migration `20261126100000_revoke_incident_trigger_function_client_execute.sql`; it addresses a directly confirmed grant surface but has not been applied to the connected database.
+3. Rebuild the public function inventory by exact signature and effective grant; replace the stale 75-function expectation with the verified 58/39/24/15 live counts, while documenting source/deployed differences.
+4. Confirm PostgREST exposed schemas and effective private-schema API reachability.
+5. Review the 24 public SECURITY DEFINER functions one by one; do not mass-revoke.
+6. Review the 14 public RLS/no-policy tables and two private tables against effective privileges and privileged access paths.
+7. Prioritize the 10 FK indexes and one RLS init-plan only after workload/query-plan evidence; do not prune the 34 unused-index candidates from advisor output alone.
+8. Decide whether leaked-password protection can be enabled within the current plan and policy, without purchasing an upgrade.
+
+**Evidence boundary:** this section records a live read-only catalog/advisor snapshot and a source migration-directory comparison. It does not establish clean replay, deployed Render revision, Auth setting change, Storage HTTP behavior, function exploitability, full PostgREST schema exposure, or end-to-end security. No production migration, grant, policy, data, Auth setting, Edge Function, Render configuration or Android release setting was changed.
