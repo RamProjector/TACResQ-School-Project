@@ -1884,6 +1884,7 @@ DO $account_suspension_privilege_baseline$
 DECLARE
   anon_oid oid;
   authenticated_oid oid;
+  privilege_name text;
 BEGIN
   SELECT oid INTO anon_oid FROM pg_catalog.pg_roles WHERE rolname = 'anon';
   SELECT oid INTO authenticated_oid FROM pg_catalog.pg_roles WHERE rolname = 'authenticated';
