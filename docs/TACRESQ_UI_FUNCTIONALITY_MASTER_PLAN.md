@@ -5809,3 +5809,141 @@ Report results by requirement and environment, not as a single “secure” perc
 - Supabase database testing overview (pgTAP, application-level policy tests and CI): https://supabase.com/docs/guides/local-development/testing/overview
 - Laravel 13 testing overview: https://laravel.com/docs/13.x/testing
 - Laravel 13 HTTP tests: https://laravel.com/docs/13.x/http-tests
+
+
+## 49 — Security threat model, trust boundaries, and attack-surface prioritization
+
+**Purpose and status:** this is a source-informed threat model for the TACResQ Admin IPS website and its connected application services. It identifies plausible attack scenarios from the documented architecture and known observability gaps. A threat scenario is not proof of an exploitable vulnerability. Every item must be validated against the current source commit, effective database catalog, deployed configuration and actual runtime path before it is described as a confirmed finding. No penetration test, exploit attempt, production change or live configuration change is performed by this documentation.
+
+### 49.1 Modeling method and scope
+
+Use OWASP's threat-modeling approach with data-flow diagrams and trust boundaries, applying STRIDE to technical components and abuse-case analysis to privileged workflows. Use NIST SP 800-30 Rev. 1 concepts to assess threat source, threat event, vulnerability or predisposing condition, likelihood, impact and uncertainty. Do not turn a qualitative school-project prioritization into a numeric risk score or claim a formal enterprise risk assessment.
+
+Scope includes:
+- Admin IPS browser application and its session/runtime configuration;
+- Supabase Auth, profiles, Postgres functions, grants, RLS, triggers and audit/event tables;
+- Android clients using direct Supabase Auth/PostgREST/Storage;
+- Render-hosted Laravel API, Admin portal hosting/build, Sanctum/Eloquent identity and Supabase bridge;
+- Supabase Edge Functions and service-role operations;
+- private Storage objects and reservation/membership checks;
+- FCM dispatch/attempt path and external map/routing dependencies where they receive TACResQ data;
+- repository, migrations, build workflows, deployment configuration and secrets as the software supply chain.
+
+Out of scope unless separately approved and modeled: the user's personal device compromise, provider-internal infrastructure, telecom carrier networks, physical responder safety, institutional networks, and external emergency-service systems. These remain dependencies or residual risks, not assumed secure.
+
+### 49.2 Assets and security objectives
+
+| Asset | Security objective | Consequence if compromised |
+|---|---|---|
+| Supabase and Laravel identities, sessions and tokens | Authenticity, separation, revocation and least privilege | Impersonation, unauthorized access or cross-system identity confusion |
+| Profiles, roles, account lifecycle and policy state | Integrity and server-side authorization | Privilege escalation, unauthorized suspension or access |
+| Incident/request and assignment records | Confidentiality, integrity and availability | Exposure, falsification, duplicate or disrupted coordination |
+| Live and historical location data | Confidentiality, integrity and purpose limitation | Tracking exposure, misleading location or personal safety harm |
+| Chat messages, attachment metadata and private Storage bytes | Membership-bound confidentiality and integrity | Private conversation/media disclosure or tampering |
+| Admin audit, lifecycle, action and detection evidence | Integrity, provenance, completeness and availability | Unaccountable privileged actions, false investigations or missed detections |
+| FCM tokens, notification content and delivery ledger | Recipient correctness and truthful delivery state | Misdelivery, spoofed operational status or notification abuse |
+| Runtime configuration, service-role credentials and CI secrets | Confidentiality and integrity | Broad data access, service impersonation or supply-chain compromise |
+| Backup, migration and recovery artifacts | Integrity, confidentiality and recoverability | Irrecoverable service/data loss or exposure of copied data |
+
+Prioritize personal safety and coordination integrity alongside conventional confidentiality, integrity and availability. Location and incident records can be safety-sensitive even when they are not credentials.
+
+### 49.3 Trust-boundary and data-flow inventory
+
+The architecture must be modeled as multiple distinct paths, not one “backend”:
+
+1. **Public browser → Render-hosted Admin portal:** the browser downloads the built Admin application and runtime configuration. The publishable Supabase key is public by design; it is not an authorization control. Browser-held session state and all request parameters are untrusted.
+2. **Admin browser → Supabase Auth/Postgres RPC:** the Admin UI directly invokes Supabase JS/Auth and protected RPCs. This path does not automatically traverse Laravel. Authorization depends on effective grants, function checks, RLS and the authenticated caller context.
+3. **Android → Supabase Auth/PostgREST/Storage:** the normal app path directly uses Supabase. It bypasses Laravel operation logging for direct calls and must be tested at the actual Supabase boundary.
+4. **Android/browser → Render Laravel API:** Sanctum endpoints use Laravel's separate Eloquent identity/token model. Do not infer a Supabase profile identity from email, display name or a matching role.
+5. **Render bridge → Supabase RPC:** bridge requests validate the Supabase access token and forward only allowlisted RPCs with caller context. The bridge must not replace the caller with an elevated service identity.
+6. **Supabase Edge Function → Supabase services/providers:** service-role execution crosses a high-trust boundary. Explicit bearer, caller, incident and recipient validation is essential because service-role operations can bypass RLS.
+7. **Application → private Storage:** upload reservations, deterministic object paths, MIME/size limits, account status and chat membership determine access. UI hiding is not a security boundary.
+8. **Laravel dispatch worker → FCM → device/app:** provider acceptance, device receipt, display, in-app read, responder acknowledgement and operational action are separate events.
+9. **Application → map/routing providers:** location and route requests may disclose coordinates or operational context to a third party; record exactly what is sent and avoid assuming provider calls are private.
+10. **Source repository/CI → build artifact → Render/Android release:** code review, dependency updates, build permissions, secrets and release provenance form a separate supply-chain boundary.
+
+For each flow, maintain a diagram with external entity, process, data store, protocol/data class, authentication mechanism, authorization enforcement point, logging source and trust boundary. Label direct Supabase paths explicitly so reviewers do not assume Laravel middleware or telemetry protects them.
+
+### 49.4 STRIDE threat register — plausible scenarios requiring verification
+
+| ID | STRIDE | Scenario and affected boundary | Existing control/evidence to verify | Priority |
+|---|---|---|---|---|
+| TM-01 | Elevation of privilege / spoofing | A caller forges client role/profile fields or invokes an Admin RPC directly, bypassing hidden UI controls | Admin AAL2/TOTP checks, server-derived identity, function grants, role checks and same-valid-JWT negative tests | Critical |
+| TM-02 | Spoofing / elevation | Supabase Auth principal is confused with a Laravel Sanctum user, especially where identifiers or email addresses appear similar | Separate identity namespaces; no assumed email mapping; explicit mapping only if a trusted immutable contract exists | Critical |
+| TM-03 | Information disclosure | A user changes IDs, filters, pagination or RPC arguments to read another user's incidents, logs, chat or location history | RLS, caller-scoped functions, membership/ownership checks, bounded readers and cross-user tests | Critical |
+| TM-04 | Elevation / tampering | Suspended, stale or insufficiently assured accounts continue using a less-reviewed direct path, Storage policy, Edge Function or bridge endpoint | Account lifecycle guards across every entry point; same-principal tests per surface; verify JWT expiry/revocation semantics | Critical |
+| TM-05 | Information disclosure / tampering | Edge Function service-role path accepts an untrusted caller/incident/recipient combination and performs privileged work | Explicit bearer and resource checks before service-role calls; provider-spy tests; least-privilege operation inventory | Critical |
+| TM-06 | Repudiation / tampering | Privileged reads, denied calls, direct Android operations or provider events are absent from the audit sources, or a source outage is mistaken for no activity | Source-to-event inventory, source health, immutable/protected records, audit-read tests and visible coverage gaps | High |
+| TM-07 | Information disclosure | Storage object path, reservation, MIME/size, account state or chat membership checks permit cross-incident/private attachment access | Private bucket policy, reservation enforcement state, membership checks and authenticated HTTP tests | High |
+| TM-08 | Spoofing / repudiation | Browser/client-supplied IP, device, actor role, timestamp or description is trusted as authoritative audit metadata | Server-derived metadata, source provenance, nullability and explicit trust labels; do not treat user-agent as hardware identity | High |
+| TM-09 | Tampering / repudiation | Migration-ledger drift, trigger-only EXECUTE grants or divergent live catalog state means source-reviewed policy differs from deployed enforcement | Clean replay, effective catalog snapshots, migration reconciliation and trigger/function binding review | High |
+| TM-10 | Denial of service | Public/authenticated endpoints, expensive searches, pagination, upload reservations or notification workflows are abused to exhaust quotas or block legitimate users | Rate limits, bounds, timeouts, concurrency limits, idempotency, provider quotas and observable failure modes | High |
+| TM-11 | Information disclosure | Incident/location/chat details, tokens or secrets appear in logs, CI artifacts, browser storage, crash output or analytics | Data classification, redaction tests, secret scanning, minimal telemetry and artifact access controls | High |
+| TM-12 | Tampering / denial of service | Compromised dependency, CI token, workflow permission or deployment secret changes a trusted build or migration | Branch protections, least-privilege workflow permissions, pinned/reviewed dependencies, secret handling and artifact provenance | High |
+| TM-13 | Spoofing / information disclosure | FCM token reuse/staleness or incorrect recipient binding causes a notification to be sent to the wrong device/account | Token ownership checks, recipient validation, invalid-token cleanup and distinction between provider acceptance and delivery | Medium–High |
+| TM-14 | Information disclosure / privacy | Map/routing integrations receive precise coordinates or route context beyond what is necessary | Provider/data-flow inventory, minimization, user disclosure and configuration review | Medium–High |
+| TM-15 | Denial of service / repudiation | A log, event or notification ingestion failure silently drops evidence or creates an apparently healthy monitoring state | Fail-open/fail-closed behavior documented per path, source health and explicit unknown/incomplete status | High |
+
+**Priority meaning:** Critical means a plausible path could defeat a core authorization boundary or expose highly sensitive user/incident data and should be validated before expanding privileged functionality. High means material security or accountability risk requiring planned verification. Medium–High indicates meaningful privacy or operational exposure whose ranking depends on actual provider configuration and data sent. These are qualitative triage labels, not measured exploitability, CVSS scores or proof of an active vulnerability.
+
+### 49.5 Highest-priority attack paths to validate first
+
+1. **Direct Admin RPC authorization:** authenticate as a non-Admin and attempt each Admin RPC through the same Supabase client path; test Admin without AAL2/TOTP, stale assurance, suspended Admin, malformed target IDs and direct invocation independent of the UI. Confirm both denial and no side effect.
+2. **Cross-user and cross-namespace access:** use two dedicated Supabase users and two dedicated Sanctum users; attempt cross-user reads/writes for incidents, logs, chat, locations and attachments. Confirm that a same-email identity in another namespace is not silently joined.
+3. **Suspended-account bypass:** for one controlled principal, test all applicable direct Supabase RPC, Storage, Edge, Render bridge, Laravel/Sanctum and chat paths. Verify the narrow self-unregister exception separately. Do not test by suspending a real user.
+4. **Service-role Edge Function boundary:** test absent/invalid bearer, mismatched caller, unrelated incident, wrong recipient, suspended caller and replayed request using an isolated project/provider stub. Confirm no service-role side effect occurs before authorization.
+5. **Audit evidence integrity and completeness:** enumerate each source writer and read path; test missing telemetry credentials, provider failure, denied RPCs, direct Android calls and retries. Ensure monitoring shows unknown/incomplete rather than “no activity” when a source is unavailable.
+6. **Private Storage authorization:** run authenticated HTTP tests for wrong user, wrong incident/chat, invalid reservation, expired reservation, MIME/size violations, suspended account and unauthorized update/delete. Verify the deployed reservation-enforcement switch instead of assuming its default is strict.
+7. **Migration/catalog consistency:** reconcile the known ledger discrepancies and trigger-only function EXECUTE grant, replay the exact branch migration set locally, then compare the effective deployed catalog only in an authorized read-only review. Do not apply a guessed repair migration.
+8. **Build and deployment integrity:** review repository permissions, workflow token scopes, dependency provenance, secret exposure and deployment source SHA. Treat this separately from application runtime authorization.
+
+### 49.6 Risk scoring and prioritization rules
+
+For every threat, record:
+- attacker capability and access required (anonymous, authenticated user, compromised account, privileged insider, CI/deployment access, provider-side);
+- preconditions and reachable entry point;
+- asset and security property affected;
+- existing preventive, detective and recovery controls, with evidence references;
+- likelihood rationale (exposure, complexity, required privilege, known abuse path, rate limits and source evidence);
+- impact rationale (privacy, safety, operational coordination, data integrity, availability and recovery);
+- uncertainty and missing evidence;
+- response: mitigate, avoid/remove, transfer with explicit owner, or accept with authorized rationale and review date;
+- accountable owner, due date, verification test and residual risk.
+
+Do not multiply arbitrary 1–5 values and present the result as scientific. Use a documented qualitative matrix (likelihood: Unlikely/Plausible/Likely; impact: Limited/Material/Severe) and a confidence field (High/Medium/Low). If likelihood cannot be estimated because telemetry is missing, mark it **Unknown** rather than Unlikely. Re-rank after new evidence or architecture changes.
+
+### 49.7 Admin IPS presentation and governance
+
+The Admin IPS should not become an offensive security console or imply that every threat is actively detected. Use existing pages:
+- **Security:** prioritized threat scenarios, evidence confidence, affected boundary, source coverage and verification status.
+- **Activity log:** actual source events with provenance; no fabricated attack timeline or universal audit claim.
+- **Overview:** only verified dependency health, not a threat score or “secure” badge.
+- **Data & continuity:** recovery dependencies and restore evidence, separate from threat likelihood.
+
+For each threat display a concise scenario, affected asset/boundary, severity/priority, confidence, evidence source, last verified date, mitigation owner/status and explicit limitations. Distinguish **Suspected**, **Validated**, **Mitigation planned**, **Mitigated and retested**, **Accepted**, **Not monitored**, and **Unknown**. A manually documented threat is not a live detection. A rule match is not a confirmed incident.
+
+Keep the Admin-only application role model unchanged. Technical review, institutional approval and project ownership are governance responsibilities, not reasons to invent additional application roles or grant more privileges.
+
+### 49.8 Reassessment triggers and acceptance criteria
+
+Refresh the threat model when any of these change:
+- authentication provider, session/token behavior, role mapping or account lifecycle;
+- RPC/function grants, RLS, triggers, views, schema exposure or migration history;
+- direct Android/Admin Supabase paths, Laravel/Sanctum routes or bridge allowlists;
+- Edge Function service-role use, Storage buckets/policies/reservation behavior;
+- FCM token ownership, dispatch scheduler/provider integration or notification payload;
+- location/map/routing data flow or external provider;
+- audit source, retention, detection rule, incident workflow or recovery mechanism;
+- CI permissions, dependencies, secrets, deployment pipeline or hosting configuration.
+
+The model is acceptable for implementation planning when every in-scope trust boundary and sensitive data flow is listed; each high-priority scenario has an owner, evidence requirement and disposition; critical authorization paths have negative tests; unresolved architecture uncertainty is explicit; and the Admin UI does not present planned controls as implemented.
+
+**Current evidence boundary:** this model is grounded in the repository architecture and audit findings documented in earlier sections of this master plan, including the separate Supabase and Sanctum identity domains, direct Supabase clients, Render bridge, service-role Edge Function, Storage reservations and audit-source gaps. It is not a complete deployed-system DFD, live exploit assessment, formal penetration test, provider security review or proof that any scenario is exploitable. Validate against the exact current commit and effective runtime configuration before converting any scenario into a confirmed vulnerability.
+
+### 49.9 References
+
+- OWASP Threat Modeling Cheat Sheet — DFDs, trust boundaries, STRIDE, attack trees, abuse cases and threat response: https://cheatsheetseries.owasp.org/cheatsheets/Threat_Modeling_Cheat_Sheet.html
+- OWASP Attack Surface Analysis Cheat Sheet — entry/exit paths, protection code, valuable data and user privilege levels: https://cheatsheetseries.owasp.org/cheatsheets/Attack_Surface_Analysis_Cheat_Sheet
+- NIST SP 800-30 Rev. 1 — threat sources/events, vulnerabilities, likelihood, impact, uncertainty and risk response: https://csrc.nist.gov/pubs/sp/800/30/r1/final
+- Microsoft Security Development Lifecycle — threat modeling as a recurring cycle of requirements, architecture, identification, mitigation and validation: https://www.microsoft.com/en-us/securityengineering/sdl/threatmodeling
+- Microsoft Secure by Design — architecture overview, data-flow diagrams and trust-boundary review: https://www.microsoft.com/en-us/securityengineering/sdl/practices/secure-by-design
