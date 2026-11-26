@@ -40,9 +40,6 @@ DECLARE
     'public.api_all_incidents()',
     'public.api_assign_incident(bigint,bigint)',
     'public.api_assign_incident_team(bigint,bigint[])',
-    'public.api_create_incident(text,text,double precision,double precision,real)',
-    'public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamp with time zone)',
-    'public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamp with time zone,text)',
     'public.api_dependency_health()',
     'public.api_me()',
     'public.api_my_incidents()',
@@ -153,7 +150,7 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 24 OR cardinality(expected_invoker_signatures) <> 14 THEN
+  IF cardinality(expected_signatures) <> 24 OR cardinality(expected_invoker_signatures) <> 11 THEN
     RAISE EXCEPTION 'Inventory contract must contain exactly 24 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
@@ -170,14 +167,14 @@ BEGIN
     AND left(p.proname, 4) = 'api_'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
-  IF api_callable_count <> 38
+  IF api_callable_count <> 35
      OR api_definer_count <> 24
-     OR api_invoker_count <> 14 THEN
+     OR api_invoker_count <> 11 THEN
     RAISE EXCEPTION
-      'Application API callable baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 38/24/14',
+      'Application API callable baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 35/24/11',
       api_callable_count, api_definer_count, api_invoker_count;
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 24 public API SECURITY DEFINER and 14 public API SECURITY INVOKER signatures remain inventoried.'
+\echo 'PASS: all 24 public API SECURITY DEFINER and 11 public API SECURITY INVOKER signatures remain inventoried; legacy requester-create invokers are tested separately.'
