@@ -90,7 +90,7 @@ Add focused pgTAP suites under the Supabase CLI's expected test directory after 
 - field-unit location writer scope and assignment-bound access;
 - chat participant authorization and upload reservation/object path policies;
 - notification inbox ownership and caller-scoped read state;
-- account suspension blocking relevant mutations and preserving audit integrity.
+- account suspension blocking relevant mutations and preserving audit integrity; notification mark-read denial for a suspended caller with the same valid JWT; and the narrow FCM self-unregister exception for suspended accounts.
 
 Use explicit `SET LOCAL ROLE`, JWT claim settings, transaction rollback/isolated fixtures, and deterministic IDs. Do not combine dispatcher-managed team assignment and claimable incident claiming into one fixture. Preserve the current distinction between source event, database record, FCM provider acceptance, device delivery, and user action.
 
@@ -197,3 +197,16 @@ If the Android emulator lane is added, keep it separate from the local Supabase 
 ---
 
 **Implementation status:** design only. No Supabase CLI configuration, package dependency, migration, pgTAP test, emulator endpoint override, workflow, credentials, production project, or external provider has been changed or exercised.
+
+
+### Additional RPC authorization regressions from the live callable audit
+
+Include these cases in the first runtime test batches:
+- `api_mark_notification_read`: active owner can mark own row; cross-owner ID cannot mutate; suspended user with the same pre-suspension valid JWT must be denied after the proposed active-profile correction.
+- `api_unregister_fcm_token`: suspended user can remove only their own exact token; cannot list/register/update tokens or remove another user's token. Preserve the deliberate cleanup-only helper and transaction-local exception.
+- `tacresq_require_incident_location()`: direct client EXECUTE is denied, but real trigger-driven DML still invokes the trigger and enforces the location invariant.
+- Admin wrappers: AAL1, missing TOTP, non-Admin, and suspended Admin with same valid AAL2/TOTP JWT are denied; active Admin with required MFA succeeds.
+- Legacy `api_admin_list_audit_logs(integer)`: preserve the compatibility grant until all supported clients are traced.
+- Grant inventory: assert exact API signatures, security modes, search paths, and anon/authenticated EXECUTE rather than schema-wide function counts.
+
+The live mark-read correction is not implemented by this test plan. A forward migration and explicit deployment approval are separate prerequisites.
