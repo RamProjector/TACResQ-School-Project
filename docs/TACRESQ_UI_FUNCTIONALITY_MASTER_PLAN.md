@@ -2265,7 +2265,7 @@ This function returns trigger and enforces a row invariant. PostgreSQL's trigger
 
 ### 30.7 Branch/deployment drift and release requirements
 
-The connected migration ledger's latest observed version is 20261125030354, which is absent from the current documentation branch. The branch contains 20261125120000_read_only_account_profile_rls.sql and 20261125130000_remove_legacy_fcm_active_account_policy.sql, which were not present in the live ledger snapshot. The current branch also adds 20261126100000_revoke_incident_trigger_function_client_execute.sql. Treat these as migration drift/pending work; do not claim the branch is fully deployed.
+The connected migration ledger's latest observed version is 20261125030354. It contains read_only_account_profile_rls and remove_legacy_fcm_active_account_policy under versions 20261125025825 and 20261125030010, while the current branch carries the same migration names/content under versions 20261125120000 and 20261125130000. This is a migration version-identity mismatch, not proof that those schema changes are absent. Reconcile canonical filenames/versions and history before merge so the logical migrations are not represented twice. The current branch also adds 20261126100000_revoke_incident_trigger_function_client_execute.sql, which remains pending.
 
 - [ ] Run exact-head clean PostgreSQL replay with the new extension-independent 24/14 API inventory contract.
 - [ ] Verify the trigger-only EXECUTE revocation and trigger attachment in replay.
