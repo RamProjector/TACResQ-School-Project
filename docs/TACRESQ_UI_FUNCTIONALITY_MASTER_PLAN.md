@@ -3641,3 +3641,131 @@ Before claiming the Admin IPS supports security investigations:
 - [CISA — Logging Reference Architecture](https://www.cisa.gov/resources-tools/resources/logging-reference-architecture)
 
 **Evidence boundary:** Section 41 is a researched design and governance specification. It does not claim that TACResQ currently has a complete detection engine, case-management lifecycle, immutable evidence repository, universal audit coverage, or legally sufficient chain of custody. It does not add new database tables, RPCs, permissions, alert delivery, remediation actions, or provider integrations.
+
+## 41. Administrator account governance, role boundaries, and safe lifecycle UX
+
+**Research date:** 2026-11-26.  
+**Scope:** Clarify the single Admin-portal role model, separate application roles from administrator privilege, and specify safe directory and account-lifecycle interactions. This section combines current repository source evidence with NIST account-management and least-privilege guidance and OWASP authorization principles. It does not authorize new roles, new account-provisioning paths, or backend changes.
+
+### 41.1 Keep the Admin portal's privileged role singular
+
+The current portal is explicitly gated to the `admin` role. The User Management directory can manage operational roles for requester, responder, driver, and dispatcher accounts, while Admin accounts are labelled operator-managed and are not available for in-portal creation, promotion, demotion, or editing.
+
+Preserve that separation:
+
+- **Admin portal authorization:** one privileged `admin` role, protected by the existing administrator authentication and AAL2/TOTP requirements.
+- **Operational application roles:** requester, responder, driver, and dispatcher. These describe application workflows and are not Admin-portal privilege tiers.
+- **Duty status:** an operational availability/state field. It is not account enabled/disabled state, authentication state, or suspension status.
+- **Account status:** active/suspended lifecycle state, enforced by protected backend controls.
+
+Do not introduce `super_admin`, `security_admin`, `auditor`, `support_admin`, or other Admin sub-roles merely to imitate a larger enterprise product. A new privileged role is justified only by a documented separation-of-duties requirement, a named accountable owner, a complete resource/action permission matrix, server-side enforcement, migration and recovery planning, and negative authorization tests. A UI-only role selector or hidden navigation item is not a security boundary.
+
+This is consistent with NIST SP 800-53 AC-2 (account management) and AC-6 (least privilege): accounts and privileges should be assigned and managed according to authorized tasks. OWASP further recommends deny-by-default authorization, checking permissions on every request, and enforcing authorization at the server/resource boundary rather than relying on client-side controls.
+
+### 41.2 Verified repository behavior to preserve
+
+The current Admin implementation provides these source-backed behaviors:
+
+- The directory is read through the protected Admin users-page RPC and supports server-side name/email/profile-ID search, operational-role filtering, bounded page sizes (10/25/50/100), and pagination.
+- The directory exposes account role, account status, duty status, creation date, and a contextual details panel. The UI explicitly distinguishes duty status from account suspension.
+- Admin accounts are marked operator-managed; the UI does not expose role or suspension actions for them.
+- Operational role changes require a reason, reject unchanged roles, re-read the target immediately before mutation, and refuse to submit if the role changed while the dialog was open.
+- Suspension/reactivation requires a 10–500 character reason, re-reads the target account, checks the expected account status and role, and relies on a protected compare-and-set database transition. Successful changes are recorded in lifecycle history.
+- The UI blocks role changes for field units assigned to an active incident according to the documented backend rule; the backend remains authoritative.
+- Directory results are cleared while a new filter/page request is pending and after protected retrieval failures, preventing stale privileged data from appearing to belong to a new query.
+- Recent account activity is a bounded preview from integrated investigation sources, not a complete account timeline.
+
+These behaviors are the baseline to retain during redesign. Re-check the source and protected RPC contract before changing any of them.
+
+### 41.3 Account directory: prioritize identity and decision context
+
+Keep the directory table-first. The primary row should answer: who is this account, which operational role does it have, is the account active or suspended, what is its duty state, and which actions are permitted?
+
+Recommended ordering and presentation:
+
+1. Account identity (display name, email, stable profile reference).
+2. Operational role.
+3. Account lifecycle status.
+4. Operational duty status, clearly separated and visually secondary.
+5. Creation date or another verified account-age field.
+6. Contextual actions.
+
+Do not collapse account status and duty status into one badge or one status column. Do not infer online presence from duty status or recent GPS activity. Do not present a stale location as account activity.
+
+Keep search and role filters visibly scoped to the server-side directory query. Preserve the current matching-count and retrieval-freshness explanation. Reset pagination when filters change, and do not show a previous result set while a new query is pending. Empty results, query failure, loading, and zero accounts are distinct states.
+
+On narrow workspaces, retain access to every field and action. Prefer a responsive row-to-record presentation or a deliberate horizontal scroll region with a visible affordance; do not silently hide role, account state, or actions. Ensure the row action labels remain understandable without relying on icon-only controls.
+
+### 41.4 Separate the three state machines
+
+The UI and any future API projection must keep these independent:
+
+| State | Meaning | Examples | Must not be treated as |
+|---|---|---|---|
+| Authorization role | What the identity is permitted to do | requester, responder, driver, dispatcher, admin | duty or account status |
+| Account lifecycle | Whether the account is enabled for normal use | active, suspended | operational availability |
+| Duty/assignment state | Current operational participation/availability | off duty, available, en route, on scene, transporting; assignment reservation | authentication or account suspension |
+
+A suspended responder may still have a historical duty state in stored records; the interface must not reinterpret that value as proof the account is usable. A role change must not silently change duty status. Suspending an account must not fabricate an operational completion or incident release. Those are distinct backend transitions and require their own authorized workflows.
+
+### 41.5 Privileged actions: explain, verify, commit, and report
+
+For role changes and account suspension/reactivation, use a consistent four-stage interaction:
+
+1. **Explain:** identify the target account, current state, requested state, and practical consequence.
+2. **Verify:** require a reason; show any relevant guard such as active-incident assignment; re-read the current record before committing.
+3. **Commit:** submit one protected server-side operation with the expected prior state. Disable duplicate submission while the operation is in flight.
+4. **Report:** show success only after the backend confirms the mutation; identify the resulting state and link to the corresponding history where available. On conflict, close or invalidate the stale confirmation and require a fresh review.
+
+Do not use a generic browser confirmation as the only explanation for a consequential state change. Do not allow a stale open dialog to overwrite a change made by another administrator. Do not optimistically update the row before the server confirms the transition.
+
+Keep the audit reason specific and proportionate. The current 10–500 character contract should remain visible and validated consistently. Do not ask for unnecessary personal, medical, incident-narrative, or credential details in the reason field.
+
+### 41.6 Account provisioning and administrator bootstrap
+
+The current in-portal boundary is intentional: administrator accounts are operator-managed, not created or promoted through the ordinary user directory. Preserve that boundary unless a separately reviewed bootstrap and recovery design is approved.
+
+Any future administrator-provisioning process must define, before implementation:
+
+- who may request and approve a privileged account;
+- how the person's identity and authority are verified;
+- how MFA enrollment and recovery are established;
+- how the first privileged account is bootstrapped without public self-registration;
+- how lost-factor and compromised-account recovery work;
+- how an administrator is disabled or removed without locking out the system;
+- how every provisioning, recovery, and privilege change is attributable and reviewed;
+- how break-glass access is controlled, time-bounded, monitored, and revoked, if it is required at all.
+
+Do not add an in-app “Create Admin” action, public admin signup, or an unverified secondary admin role as a convenience shortcut.
+
+### 41.7 Evidence, privacy, and history boundaries
+
+Account details and activity previews should expose only the fields needed for the administrative decision. Keep the current protected RPC boundary and do not broaden the directory response to include raw authentication metadata, tokens, MFA secrets, IP addresses, device identifiers, precise location, private incident narratives, or attachment paths.
+
+A recent activity preview must retain its source-coverage caveat. Absence of an event from the integrated feed is not proof that the account performed no action. Lifecycle history is a separate trusted source and must not be merged into a fictitious complete audit timeline.
+
+Do not expose internal account IDs as the only identity cue. Retain a stable reference for support and investigation, but pair it with the authorized display identity and explain its purpose.
+
+### 41.8 Acceptance and regression criteria
+
+- [ ] Only the existing `admin` role grants access to the Admin portal unless a separately approved permission model is implemented end-to-end.
+- [ ] Operational roles are not presented as Admin privilege tiers.
+- [ ] Admin accounts remain operator-managed; no public or self-service Admin promotion path is introduced.
+- [ ] Role, account lifecycle, and duty/assignment states remain distinct in labels, filters, data contracts, and actions.
+- [ ] Search and role filters remain server-side and their scope is visible.
+- [ ] Loading, empty, stale, error, and successful directory states remain distinct; stale results are not shown as current.
+- [ ] Role and account-status mutations require a reason, revalidate the current record, and use protected server-side authorization and expected-state checks.
+- [ ] Concurrent changes cause a conflict/review state, not an overwrite.
+- [ ] No success message or optimistic row update occurs before backend confirmation.
+- [ ] Activity and lifecycle-history coverage limitations remain explicit.
+- [ ] Sensitive authentication, device, location, and incident content is not added to general account views.
+- [ ] Negative tests prove non-admin callers cannot read or mutate protected Admin operations, regardless of client navigation visibility.
+
+### 41.9 Research references
+
+- [NIST SP 800-53 Rev. 5, updated publication page](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final) — account management (AC-2) and least privilege (AC-6); NIST records a minor Release 5.2.0 update in August 2025.
+- [NIST SP 800-53 Rev. 5 controls download and supporting material](https://csrc.nist.gov/Projects/risk-management/sp800-53-controls/downloads) — authoritative control catalog and derivative formats.
+- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) — least privilege, deny by default, per-request authorization, server-side enforcement, and safe handling of authorization failures.
+- [OWASP Authorization Patterns Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Patterns_Cheat_Sheet.html) — enforcement close to protected resources and separation of policy decision from enforcement.
+
+**Evidence boundary:** Section 41 records existing repository behavior and a recommended UX/security contract. It does not claim formal NIST compliance, a complete account-management program, or a new Admin role model. No application code, database, authorization grant, or production configuration is changed by this research section.
