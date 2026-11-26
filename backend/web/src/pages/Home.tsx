@@ -3,10 +3,11 @@ import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AlertCircle, ArrowUpRight, BadgeCheck, LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
 import { Brand } from "@/components/Brand";
-const AdminConsole = lazy(() => import("@/pages/AdminConsole"));
 import AdminMfaGate from "@/components/AdminMfaGate";
 import { getMyProfile, getSupabase } from "@/lib/supabase";
 import type { TacruProfile } from "@/lib/supabase";
+
+const AdminConsole = lazy(() => import("@/pages/AdminConsole"));
 
 interface HomeProps {
   session: Session | null;
