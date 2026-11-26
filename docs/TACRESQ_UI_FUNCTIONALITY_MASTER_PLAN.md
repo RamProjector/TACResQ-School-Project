@@ -6381,3 +6381,169 @@ Non-goals: replace Supabase with Laravel or vice versa; route every Android requ
 - Laravel 13 authorization: https://laravel.com/docs/13.x/authorization
 - NIST SP 800-207 Zero Trust Architecture: https://csrc.nist.gov/pubs/sp/800/207/final
 - NIST SP 800-53 Rev. 5 security and privacy controls: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+
+
+## 52 — Security implementation roadmap and dependency ordering
+
+**Purpose:** convert Sections 19–51 into an executable, risk-ordered implementation plan. The order is dependency-driven: establish the actual source/deployed baseline first, close authoritative enforcement gaps second, prove cross-client behavior third, improve audit/detection evidence fourth, and expose only verified capabilities in Admin IPS last.
+
+**Guardrails:** preserve TACResQ's Supabase + Laravel/Render architecture, Android direct-Supabase release path, existing application roles and Admin-only website management role. No paid services, new identity provider, universal API gateway, broad backend migration, production mutation or theme change is implied.
+
+### 52.1 Prioritization rules
+
+1. **Risk first:** unauthorized access, privilege escalation, cross-user exposure, service-role misuse, account-lifecycle bypass and migration drift outrank presentation improvements.
+2. **Dependencies first:** downstream UI/detection waits for authoritative API, database policy, event source and verification contract.
+3. **Path coverage:** evaluate Android direct-Supabase, Admin-web direct-Supabase, Laravel/Sanctum, bridge, Edge, Storage and provider paths independently.
+4. **Evidence quality:** source assertions do not prove deployed controls; UI tests do not prove database authorization; provider acceptance does not prove end-user delivery.
+5. **Reversibility:** prefer isolated, additive, tested changes with explicit rollback over broad refactors or live dashboard edits.
+6. **Operational value:** do not build an Admin control without a safe action endpoint, audit trail, owner and verifiable outcome.
+
+### 52.2 Dependency map
+
+| Work package | Prerequisite | Required output | Blocks |
+|---|---|---|---|
+| WP0 — Source/deployment baseline | Read-only repository and provider access | Exact source SHA, migration reconciliation, runtime/config inventory, discrepancy register | All security-sensitive implementation |
+| WP1 — Authorization contract inventory | WP0 | Principal namespace, role/assurance, ownership, effective grants/RLS, callable function and route matrix | Authorization fixes and UI actions |
+| WP2 — Privilege and identity boundary hardening | WP1 | Tested Supabase RPC/RLS, Laravel/Sanctum policies, bridge allowlist and Edge service-role checks | Sensitive workflows and Admin mutations |
+| WP3 — Storage and account-lifecycle parity | WP1–WP2 | Verified private-object access, membership, reservation and suspension behavior | Media features and continuity claims |
+| WP4 — Cross-client regression assurance | WP2–WP3 | Same-policy positive/negative tests for Android direct, Admin direct, Laravel, Edge and Storage | Release confidence |
+| WP5 — Audit and telemetry coverage | WP0–WP4 | Event/source coverage matrix, durable action evidence, source health and explicit gaps | Detection, investigations and security analytics |
+| WP6 — Detection and response contracts | WP5 plus approved policy ownership | Versioned rules, validation fixtures, case/decision evidence and human-authorized response | Actionable Security features |
+| WP7 — Admin IPS integration | Verified contracts from WP1–WP6 | Page-specific read/action UX, safe API integration and truthful states | Release of Admin security features |
+| WP8 — Operational assurance | WP4–WP7 | Repeatable release gates, monitoring ownership, recovery evidence and periodic review | Ongoing assurance claims |
+
+A prototype may be designed in parallel, but must remain clearly non-operational until its dependencies pass.
+
+### 52.3 WP0 — establish one trustworthy baseline
+
+Resolve source/deployment ambiguity before changing security-sensitive behavior.
+
+- Pin the exact repository branch, commit SHA, migrations and build configuration.
+- Reconcile the known migration-ledger discrepancies from Section 34, including the live-only migration entry and mismatched logical migration versions. Recover original SQL or verify exact effects; do not invent replacement history.
+- Reconcile source function declarations against the effective Supabase catalog: public callable functions, private definer helpers, owners, security mode, search path and effective grants.
+- Confirm exposed schemas and access to private helpers; verify trigger-only function bindings and legitimate callers before changing EXECUTE grants.
+- Inventory deployed RLS policies, table/column grants, views, triggers, Storage buckets/policies, Edge Function versions and Auth settings through authorized read-only checks.
+- Record Render service revision and configuration names without exposing secret values.
+- Verify Android release transport and optional bridge flags from source/build configuration; do not infer production transport from a debug build.
+- Record unresolved discrepancies with evidence, impact, owner and safe next action.
+
+**Exit gate:** a reviewed source-to-deployed difference register exists. No unexplained migration mismatch or uncertain privilege surface is silently treated as safe. Unresolved critical mismatches block dependent production changes.
+
+### 52.4 WP1 — define principals, actions and authoritative policy
+
+Create a versioned authorization matrix for each resource/action pair. Include source/client path; principal namespace; authentication and assurance; actual role and active-account requirement; operation class; target ownership/membership/assignment; allowed state transitions and concurrency; authoritative enforcement point; expected denial/no-side-effect behavior; and audit evidence.
+
+Keep Supabase profiles and Laravel users separate. Do not create an implicit email-based identity bridge. Preserve existing roles and requester-only public registration. Admin privileges remain protected by the current AAL2/TOTP and database checks.
+
+**Exit gate:** every privileged Admin action and high-risk mobile operation has a named authoritative enforcement point; no policy ambiguity is hidden in UI conditionals.
+
+### 52.5 WP2 — close highest-risk authorization boundaries
+
+Recommended order:
+
+1. **Admin privilege surface:** revalidate Admin RPC assurance, active account, role, self-target restrictions, target-role allowlist, reason validation, concurrency and atomic audit behavior. Exercise valid and invalid assurance states.
+2. **Cross-user reads/writes:** verify RLS and RPC ownership/membership for incidents, messages, notifications, locations, assignments and private audit data.
+3. **Account lifecycle:** enumerate direct RPC, Storage, Edge and Laravel paths reachable by suspended/inactive accounts; prove blocking at the resource owner.
+4. **SECURITY DEFINER and helper grants:** validate owner, search_path, object qualification, dynamic SQL, nested helper grants and execute exposure. Change only after replay and regression tests.
+5. **Laravel/Sanctum:** verify token authentication, route policies, resource ownership and registration role constraints independently of Supabase profiles.
+6. **Render bridge:** test token validation, RPC allowlist, caller-JWT forwarding, rejection of unapproved methods and safe error mapping.
+7. **Edge service-role operations:** enumerate every privileged query/write and prove caller, active-account, incident and recipient checks occur before service-role operations.
+
+**Exit gate:** negative tests prove unauthorized calls fail with no side effects. No browser-only control is counted as an authorization fix.
+
+### 52.6 WP3 — close Storage and lifecycle parity
+
+- Verify private bucket configuration and deployed Storage policies for every upload, download and list path.
+- Test object path/profile/incident/chat membership, MIME, byte limits, reservation ownership, expiry, active-account status and attempts to read another user's object.
+- Confirm the actual deployed reservation_enforcement_enabled value and behavior. If false or unknown, describe enforcement as incomplete/unverified; do not imply strict reservation protection.
+- Verify authenticated clients cannot update/delete objects outside the intended lifecycle.
+- Test orphan reservation/object scenarios and define retention/cleanup policy before introducing a cleanup worker.
+- Confirm Admin does not gain private attachment access simply by holding the Admin role.
+- Validate suspension and sign-out behavior for Storage, chat and Edge paths separately.
+
+**Exit gate:** HTTP-level tests using authenticated client sessions establish allowed and denied Storage behavior. SQL policy inspection alone is insufficient.
+
+### 52.7 WP4 — cross-client and workflow regression assurance
+
+Build reusable tests with isolated synthetic identities and data for:
+- Supabase Android direct release path;
+- Admin web direct Supabase path;
+- Laravel/Sanctum API path;
+- debug/QA bridge path only where explicitly enabled;
+- Edge Function/service-role path;
+- Storage upload/download path.
+
+Include anonymous, wrong-role, wrong-owner, suspended, stale assurance, expired token, revoked refresh session, cross-namespace identity, malformed input, duplicate retry, stale state, concurrent update and provider-timeout cases.
+
+Test success and no-side-effect failure paths for requester create/edit/cancel, assignment/claim, duty changes, dispatcher progress, Admin role/account lifecycle, chat/media and notification evidence. Use deterministic fixtures and clean migration replay. Do not send real emergency notifications or write production data as test fixtures.
+
+**Exit gate:** the same policy is enforced regardless of supported client. A debug-only bridge pass cannot prove release direct-Supabase behavior.
+
+### 52.8 WP5 — audit and telemetry before detection
+
+Build an event coverage register containing source system/native event; principal namespace and actor-resolution confidence; operation/action, resource and outcome; event/observed/ingested times; source-local event ID; session/request/interaction identifiers only when available; IP/device metadata only when legitimately collected; retention/access policy; expected delay/source health; and known gaps/retry semantics.
+
+Prioritize privileged writes and denied privileged attempts where observable, then sensitive reads/searches and exports. Define purpose, privacy impact, volume and retention before adding broad read logging.
+
+Preserve metadata-only Laravel telemetry boundaries. Direct Android/Admin Supabase calls remain outside Laravel API logs unless a verified source-specific event exists. Keep admin audit, lifecycle, app-action, domain-history, Auth and Laravel telemetry sources distinct and provenance-preserving.
+
+**Exit gate:** every high-risk action has a known audit source or explicit coverage gap. Telemetry failure is detectable and cannot be mistaken for a successful write. Missing logs are not interpreted as zero events.
+
+### 52.9 WP6 — detection and response after evidence is dependable
+
+- Create a versioned rule inventory with purpose, owner, prerequisites, severity, confidence, false-positive cases, expected evidence and response recommendation.
+- Test positive, negative, boundary, missing-source, duplicate, retry, ordering, concurrency and malformed-event fixtures.
+- Run new rules in test/shadow mode before notifying Admin.
+- Separate signal, detection, investigation, suspected incident and confirmed incident.
+- Define authorized review, approval, containment, recovery and closure responsibilities without creating new application roles.
+- Require explicit human authorization for suspension, session revocation, token removal, deletion or disruptive containment unless a separately approved policy explicitly permits automation.
+- Keep Supabase Auth and Laravel Sanctum session consequences distinct; refresh-session revocation does not necessarily invalidate an already-issued access JWT immediately.
+
+**Exit gate:** every alert is explainable, evidence-backed, actionable, assigned to an authorized reviewer and tested against false positives. No automatic containment is introduced here.
+
+### 52.10 WP7 — Admin IPS feature dependency map
+
+| Admin destination/feature | Backend/evidence prerequisite | Safe first release |
+|---|---|---|
+| Overview dependency status | WP0 inventory and independently verified health probes | Read-only per-dependency states with freshness/scope |
+| User management | WP1 policy matrix; WP2 tested Admin RPC/lifecycle controls | Read-only authoritative directory first; then verified actions |
+| Security assurance | WP5 source coverage/health; WP6 validated detection contracts | Evidence coverage and source status before live alerts |
+| Security investigation | WP5 bounded source readers; WP6 case/evidence contract | Read-only investigation detail with provenance and gaps |
+| Analytics & reports | WP5 validated events and WP8 metric definitions | Sourced metrics with denominators, freshness and limitations |
+| Activity log | WP5 verified readers and access checks | Bounded source-specific feeds; no false universal timeline |
+| Data & continuity | WP0 provider inventory and WP8 restore evidence | Read-only inventory and last-verified status; no destructive actions |
+| Settings | Existing verified backend APIs and audit contract | Only settings with secure tested action paths |
+| Help & about | Approved project documentation and accurate limitations | Explanatory content only |
+
+Build page shells, tables, dialogs and visual prototypes independently if useful, but connect a control only after its API contract, authorization, audit expectation, failure states and tests exist. Retain the existing theme and eight-destination information architecture.
+
+### 52.11 WP8 — release gates and maintenance
+
+A security-sensitive release is ready only when source/migration baseline is known; relevant grants/RLS/RPC/Storage/Laravel/Edge controls are verified; positive and negative tests pass for affected client paths; no unresolved critical authorization or data-exposure finding remains; audit expectations and telemetry failure states are documented; rollback/recovery is defined; CI results refer to the exact reviewed commit; deployment status is separately verified; and the Admin UI communicates only what the backend proves.
+
+Reassess after changes to roles, grants, RLS, Auth/session behavior, direct transport, Storage, Edge/service-role usage, providers, migration history or audit sources. A passing CI build is not continuous operational security.
+
+### 52.12 First implementation backlog
+
+1. Reconcile migration ledger and live/source drift; resolve missing historical migration and version collisions without fabricating SQL.
+2. Reconcile effective function/grant inventory, especially trigger-only PUBLIC EXECUTE and private-helper exposure.
+3. Produce a current route/RPC/Storage/Edge call graph and authorization matrix from the exact branch head.
+4. Add/repair negative authorization tests for Admin MFA, active account, cross-user reads, role changes and lifecycle enforcement.
+5. Verify Storage reservation configuration and real HTTP policy behavior.
+6. Test Edge service-role recipient/resource checks and Laravel/Sanctum namespace separation.
+7. Extend source coverage for privileged mutations and denials, preserving privacy and telemetry semantics.
+8. Only then connect Admin Security and Activity Log UI to verified, bounded evidence readers.
+
+This is a priority order, not a claim that any item has already been implemented. Each item should be a small, reviewable change with explicit files, tests, evidence and rollback notes. Do not bundle unrelated schema repairs and UI redesign into one unreviewable change.
+
+### 52.13 Research references
+
+- OWASP ASVS 5.0.0 — verification requirements: https://asvs.owasp.org/
+- NIST Cybersecurity Framework 2.0 — risk-based outcomes and improvement profiles: https://www.nist.gov/publications/nist-cybersecurity-framework-csf-20
+- NIST SP 1302 — using CSF 2.0 implementation tiers: https://csrc.nist.gov/pubs/sp/1302/final
+- Supabase Testing Overview — pgTAP, application-level policy testing and CI: https://supabase.com/docs/guides/local-development/testing/overview
+- Supabase Local Database Migrations — reproducible, version-controlled migrations: https://supabase.com/docs/guides/local-development/database-migrations
+- Supabase Managing Environments — local, staging and production workflow: https://supabase.com/docs/guides/deployment/managing-environments
+- Supabase CLI testing and linting: https://supabase.com/docs/guides/local-development/cli/testing-and-linting
+
+**Evidence boundary:** this roadmap uses source/provider findings in Sections 19–51 and current official guidance. It is not a new source audit, penetration test, clean migration replay or deployment verification. No application code, database schema, grants, provider configuration or production data are changed by this documentation update.
