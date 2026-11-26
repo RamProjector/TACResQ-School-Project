@@ -15,4 +15,17 @@ GRANT UPDATE (duty_status, updated_at)
   ON TABLE public.profiles
   TO authenticated;
 
+-- PostgreSQL 17 introduced the MAINTAIN table privilege. Keep the migration
+-- compatible with the PG16 replay lane by parsing the PG17-only statement only
+-- when the target server supports it. No client workflow requires maintenance
+-- commands on profile or incident relations.
+DO $revoke_client_maintain$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE
+      'REVOKE MAINTAIN ON TABLE public.profiles, public.incidents FROM PUBLIC, anon, authenticated';
+  END IF;
+END;
+$revoke_client_maintain$;
+
 COMMIT;
