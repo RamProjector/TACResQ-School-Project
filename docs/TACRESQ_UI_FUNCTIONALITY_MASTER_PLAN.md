@@ -9877,3 +9877,22 @@ For each table, record exact operations, caller, RPC/function security mode, own
 - No hosted ACL, default privilege, table data, migration ledger, or deployment was changed during this audit.
 
 **Evidence boundary:** effective privileges and default ACLs are read-only catalog observations. They do not prove that every possible external consumer has been identified. A service-role reduction must be backed by a complete writer inventory and isolated runtime tests before merge/deployment.
+
+
+### 73.6 Candidate least-privilege service-role matrix (not yet migrated)
+
+The current checked-in server paths imply the following candidate direct table privileges. This is a review target, not an authorization to apply grants:
+
+| Table | Direct service-role operations evidenced in current code | Candidate direct grant | Verification boundary |
+|---|---|---|---|
+| `profiles` | Edge Function `tacresq-notify` reads `id, auth_user_id, role, account_status`; legacy `api_record_location` reads `id, auth_user_id, role`. | Column SELECT on `id, auth_user_id, role, account_status`; no direct INSERT/UPDATE/DELETE. | Keep the Auth profile trigger and Admin lifecycle RPCs owner-executed; test notification recipient resolution and the legacy location function. |
+| `incidents` | `tacresq-notify` reads `id, requester_id, assigned_to, status`. | Column SELECT on those fields; no direct DML. | Current v4 creation is SECURITY DEFINER; bridge business RPCs forward the caller JWT. Test incident-created/assigned/status notification authorization. |
+| `fcm_tokens` | `tacresq-notify` reads `id, profile_id, token` and deletes invalid registrations by `id`. | Column SELECT on `id, profile_id, token` plus DELETE; no direct INSERT/UPDATE. | User token registration/removal is handled by RPCs; test UNREGISTERED cleanup and profile scoping. |
+| `fcm_delivery_attempts` | Laravel dispatcher PATCHes `status, provider_message_name, last_error_code, next_attempt_at, updated_at` filtered by `id`; claim/insert is a SECURITY DEFINER RPC. | SELECT on `id` plus column UPDATE on those five fields; no direct INSERT/DELETE. | Column-only PostgREST PATCH behavior must be verified against a local PostgREST instance before narrowing the current table-level grant. |
+| `api_operation_logs` | Laravel `ApiOperationAuditLogger` sends metadata-only INSERT with `Prefer: return=minimal`. | INSERT on the ten payload columns; sequence USAGE for generated id; no SELECT/UPDATE/DELETE. | Test logger success/fail-open behavior and identity generation. |
+| `location_logs` | Legacy service_role-only `api_record_location` inserts `user_id, latitude, longitude, accuracy_m, recorded_at` and returns `id`. | INSERT on those five columns, SELECT on `id`, sequence USAGE; no other direct DML. | Keep only while external/server consumers of the legacy RPC have not been ruled out. Current Android uses the v2/private SECURITY DEFINER path. |
+| `user_notifications` | No direct service-role table call in current Laravel or Edge Function source; the FCM claim RPC reads it under SECURITY DEFINER owner context. | No direct service-role table grant indicated by checked-in code. | Validate notification queue and claim/retry workflow before revocation. |
+
+The Laravel bridge uses the caller's JWT for business RPCs, not the service-role secret. The service-role secret is used by the operation logger and FCM worker; the Edge Function uses it for Auth user verification and the explicitly listed table reads/deletes. The service-role RPC allowlist evidenced by the worker includes `api_claim_fcm_delivery_batch` and `api_unregister_fcm_token_for_delivery`; the legacy `api_record_location` remains a separately reviewed server compatibility function.
+
+Before implementing this matrix, add a disposable PostgREST integration lane for the exact column-level grants. PostgreSQL ACL unit checks alone cannot prove that PostgREST's generated PATCH/DELETE/RETURNING behavior works with the proposed column privileges. Keep this matrix as the source contract; do not replace the existing broad grants until that integration test and all server-consumer checks pass.
