@@ -32,6 +32,21 @@ DECLARE
     'public.api_admin_set_user_role(bigint,text,text)'
   ];
 BEGIN
+  -- Prove the disposable replay includes the live owner/schema default ACL
+  -- responsible for granting service_role EXECUTE on newly created public functions.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_default_acl AS default_acl
+    CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS privilege_row
+    WHERE default_acl.defaclrole = 'postgres'::regrole
+      AND default_acl.defaclnamespace = 'public'::regnamespace
+      AND default_acl.defaclobjtype = 'f'
+      AND privilege_row.grantee = 'service_role'::regrole
+      AND privilege_row.privilege_type = 'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'Replay fixture must model postgres/public default EXECUTE for service_role';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_class
     WHERE oid = 'public.admin_audit_logs'::regclass
