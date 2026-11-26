@@ -312,3 +312,80 @@ The live inventory is a catalog snapshot only. It does not prove behavior under 
 
 
 **Extension-schema-independent application inventory:** the exact live baseline is 38 authenticated-callable public API functions, including 24 authenticated-callable public SECURITY DEFINER functions and 14 authenticated-callable application API invoker functions. The 13 authenticated-callable private SECURITY DEFINER helpers are separate. The inventory contract is extension-schema-independent because it counts only explicit api_ application signatures; extension functions are tracked by their installed extension schema. The public incident-location trigger is tracked separately as trigger-only, not as an RPC.
+
+
+## Private callable-helper dependency audit — live catalog, 2026-11-26
+
+**Scope:** all 13 private SECURITY DEFINER functions with effective authenticated EXECUTE, their direct private helper calls, their RLS/Storage/trigger consumers, and relevant object privileges. This is a source/catalog review; it is not a same-JWT runtime test.
+
+### Namespace and exposure boundary
+
+- The live database grants USAGE on schema private to authenticated, but not anon. Authenticated has no CREATE on private; anon has neither USAGE nor CREATE.
+- The 13 private functions grant EXECUTE to authenticated, but PUBLIC and anon do not have EXECUTE. The internal implementation functions inspected below have authenticated and anon EXECUTE false.
+- Repository migrations explicitly describe private as outside the PostgREST-exposed Data API. Supabase documentation also describes private as inaccessible through the API. The live SQL role settings do not reveal the Dashboard's external API Exposed Schemas setting, so that setting still requires a read-only Dashboard verification before release. Do not equate schema USAGE with PostgREST exposure.
+- Storage policies call selected private helpers directly. Their authenticated EXECUTE grants and private schema USAGE are therefore part of the Storage authorization path, not merely unused grants.
+
+### Exact 13-helper register
+
+| Callable private helper | Current behavior and transitive path | Boundary / finding |
+|---|---|---|
+| private.tacresq_active_responder_locations() | Resolves auth.uid() to an active dispatcher profile under FOR SHARE; calls private.tacresq_active_responder_locations_internal(). The internal reader returns only fresh (two-minute) locations for en-route incident/team members. | Active dispatcher guard is at callable edge; internal reader is not directly executable by authenticated/anon. |
+| private.tacresq_actor_role() | Returns the caller's role only when the matching profile is active. Used by role-sensitive RLS and selected internal functions. | Active-aware role predicate; no role is returned for suspended/missing profile. |
+| private.tacresq_assign_incident_team_guarded(bigint,bigint[]) | Requires active dispatcher and holds profile FOR SHARE; calls private.tacresq_assign_incident_team(...). Internal implementation validates incident state, team size (1–5), unique targets, available responder/driver status, existing active assignments, and locks incident/profile rows. | Internal implementation's initial role check does not independently check account_status, but it is not client-executable and the only live function-body caller is the guarded wrapper. Keep that call graph closed and same-transaction share lock. |
+| private.tacresq_auth_can_access_incident_chat(bigint) | Calls active private.tacresq_auth_profile_id() then private.tacresq_can_access_incident_chat(incident, profile). | Missing/suspended profile fails closed. Shared access helper allows dispatcher, incident requester, or assigned responder/driver; unknown roles including Admin fail closed. |
+| private.tacresq_auth_profile_id_for_token_cleanup() | Returns only the caller's own profile ID, without requiring active status. Used by the FCM self-unregister path and suspended-account cleanup policy. | Intentional suspended-account exception: it returns no profile fields and does not itself mutate data. Preserve only the narrow own-token cleanup path; do not reuse as general identity resolution. |
+| private.tacresq_auth_profile_id() | Resolves the caller's profile ID only for an active profile and takes FOR SHARE. Used by chat RPCs and Storage authorization helpers. | Active-aware identity resolver; serialized with suspension transitions. |
+| private.tacresq_current_account_active_read() | STABLE, non-locking boolean check of the current profile's account_status. Used by restrictive read/write RLS predicates and operation-specific FCM policies. | Correctly separated from locking mutation helper so SELECT/USING policies remain safe in read-only transactions. Same-valid-JWT and statement-snapshot tests remain required. |
+| private.tacresq_current_account_active() | VOLATILE active check that takes profile FOR SHARE. Used by write-entry guards and mutation boundaries. | Serializes protected writes with account suspension/reactivation; do not call from read-only RLS predicates. |
+| private.tacresq_dispatch_update_incident_status(bigint,text) | Requires active dispatcher under FOR SHARE; locks incident; validates allowed progress transition; updates incident, all team assignment statuses, and field-unit duty states atomically. | Preserve active dispatcher lock, transition matrix, and assignment/profile trigger guards. |
+| private.tacresq_is_incident_assignee(bigint) | Resolves active profile under FOR SHARE, then checks normalized incident assignment membership. | Active-aware membership predicate used by incident and assignment RLS. |
+| private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz) | Requires active responder/driver under FOR SHARE; calls internal writer. Internal writer validates coordinates, accuracy, capture time, active assignment, incident and assignment en-route states, locks incident/assignment, and applies an eight-second per-actor advisory throttle. | Internal writer has no client EXECUTE and is only called by guarded wrapper. Live body confirms it does not independently test account_status; wrapper lock is essential. |
+| private.tacresq_release_incident_assignment(bigint,bigint) | Requires active dispatcher under FOR SHARE; calls internal release implementation. Internal implementation checks dispatcher role, incident/member state, refuses release of last member, maintains legacy primary assignment and duty status, and writes through assignment triggers. | Internal implementation's role check is not itself account-aware; it has no client EXECUTE and the only live function-body caller is the guarded wrapper. Preserve wrapper and profile-lock serialization. |
+| private.tacresq_upload_reservation_allows_insert(text,text,bigint) | Resolves active profile; reads private upload policy. If strict reservation enforcement is disabled, returns true after identity check. If enabled, requires a matching unconsumed/unexpired reservation and chat membership. | This is one predicate in the Storage INSERT policy, not a standalone upload authorization. Path/profile folder, MIME, size, bucket, and chat membership checks remain conjunctive. The strict-enforcement switch is still a separate rollout gate. |
+
+### Internal helper call graph and grants
+
+The live function-body scan found the following internal-only edges:
+
+- active responder locations -> tacresq_active_responder_locations_internal
+- guarded team assignment -> tacresq_assign_incident_team
+- chat access wrapper -> tacresq_auth_profile_id -> tacresq_can_access_incident_chat
+- location wrapper -> tacresq_record_location_v2_internal
+- release wrapper -> tacresq_release_incident_assignment_internal
+- upload reservation predicate -> tacresq_auth_profile_id and tacresq_can_access_incident_chat
+
+The five privileged implementation helpers listed above returned authenticated EXECUTE false and anon EXECUTE false. The shared chat predicate also returned authenticated/anon EXECUTE false. This is an important boundary: their legacy internal bodies may perform privileged work without repeating every active-account predicate because the live callers establish the trusted identity and lock first. Keep them non-callable and audit every new caller.
+
+### RLS and Storage consumers
+
+- private.tacresq_actor_role() is used by policies on admin_audit_logs, incident_assignment_events, incident_assignments, incident_status_logs, incidents, location_logs, and profiles.
+- private.tacresq_is_incident_assignee() is used by incident_assignments, incidents, and related participant-read/update predicates.
+- private.tacresq_current_account_active_read() is the restrictive active-account predicate on the reviewed public operational tables, including profiles, incidents, incident_assignments, incident_status_logs, location_logs, admin_audit_logs, and incident_assignment_events; it also gates FCM SELECT/INSERT/UPDATE.
+- private.tacresq_auth_profile_id_for_token_cleanup() appears in the narrow FCM DELETE policies. The live catalog contains both legacy fcm_tokens_delete_self and restrictive tacresq_fcm_delete_self_cleanup with the same own-profile predicate. Direct authenticated DELETE on fcm_tokens is false, so the intended supported suspended cleanup path is the guarded api_unregister_fcm_token(text) RPC, not direct table DML.
+- Storage objects has RLS enabled. The incident-chat-attachments INSERT policy requires the exact bucket, constrained incident/profile/UUID file path, caller profile folder, allowed image MIME, numeric size metadata, reservation predicate, and chat membership. SELECT requires the bucket and chat membership. The reviewed policies target authenticated, not anon.
+- The private upload policy and reservation tables have RLS enabled, no client policies, and no anon/authenticated table privileges. They remain server/helper-only.
+
+### Important operational interpretation
+
+1. The 13 authenticated EXECUTE grants do not mean 13 additional public PostgREST endpoints. The private schema is intentionally not in the Data API surface; verify the project's actual Exposed Schemas setting before release.
+2. Do not revoke helper EXECUTE indiscriminately: Storage policies and SECURITY INVOKER wrappers need the caller role to execute these predicates. If exposure must be reduced, first move the policy execution boundary to a supported role/function design and test Storage HTTP behavior.
+3. tacresq_auth_profile_id_for_token_cleanup() is the only reviewed helper that deliberately resolves a suspended profile. It exists to permit self-token cleanup, not to restore application access.
+4. The guarded assignment, release, and location wrappers are critical because their internal implementation functions do not all repeat account_status checks. Internal functions must remain non-client-executable and must not gain a second caller without a fresh review.
+5. The SQL catalog and policy definitions do not prove actual Storage HTTP authorization, token behavior, race outcomes, or that the Dashboard's API schema configuration matches repository intent.
+
+### Supabase Advisor snapshot — 2026-11-26
+
+- Security advisor: one WARN for leaked-password protection disabled. Supabase documentation says this HaveIBeenPwned-backed option is available on Pro and above. Do not upgrade or introduce a paid dependency as part of this work. Confirm the project's plan and Auth settings; if the feature is unavailable on the current plan, record the limitation and use the password-strength controls available without claiming leaked-password screening.
+- Security advisor: 16 RLS-enabled tables have no policies. For the reviewed private upload tables and server/RPC-only audit/device/notification tables, no-policy RLS is intentional deny-by-default when direct client grants are absent. Keep grants and policies reviewed together; do not add permissive policies just to silence the advisor.
+- Security advisor: 24 authenticated-callable public SECURITY DEFINER functions are reported as WARN. This is the intended public RPC surface, not an automatic vulnerability verdict; each function still requires exact body, grants, and caller review.
+- Performance advisor also reports 10 unindexed foreign keys and one RLS initplan warning on incident_assignment_events_dispatch_read; unused-index findings are not grounds for automatic deletion. These belong in a separate performance pass.
+
+### Remaining release tests
+
+- [ ] Verify private is absent from Supabase Dashboard → API → Exposed Schemas (read-only check); preserve private schema USAGE needed by invoker/Storage paths.
+- [ ] With the same still-valid JWT, test all 13 helper paths before and after suspension; distinguish read-only helpers from mutation/Storage predicates.
+- [ ] Verify suspended own-token unregister succeeds only for the caller's exact token; registration, enumeration, rotation, and other-user deletion remain denied.
+- [ ] Exercise Storage HTTP upload/download for requester, assigned field unit, dispatcher, unrelated profile, removed member, and suspended caller; test reservation enforcement both disabled and enabled.
+- [ ] Test guarded assignment, release, and GPS operations concurrently with account suspension and role changes.
+- [ ] Assert the five internal implementation helpers and shared chat predicate remain non-client-executable after clean replay.
+- [ ] Keep Auth leaked-password configuration plan-aware and do not claim the feature is enabled from advisor output alone.
