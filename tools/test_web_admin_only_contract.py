@@ -157,7 +157,7 @@ assert 'id="admin-health-limitations"' in admin_console
 assert 'reachableDependencyCount === dependencyProbes.length' in admin_console
 assert 'reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in admin_console
 assert '{dependencyProbes.map(([label, result]) => (' in admin_console
-assert 'Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)"' in admin_console
+assert '"Checked " + formatManilaDateTime(dependencyHealth.checked_at) + " · Asia/Manila"' in admin_console
 assert 'className={"admin-health-status admin-health-status--" + result.status} role="status"' not in admin_console
 assert '.admin-health-grid { grid-template-columns:minmax(0,1fr); }' in admin_css
 
