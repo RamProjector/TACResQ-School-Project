@@ -27,7 +27,7 @@ for marker in (
 
 for marker in (
     'import AdminAccountSessions from "@/components/AdminAccountSessions";',
-    "<AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} />",
+    '<AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} onFindSessionActivity={(sessionId) => navigateToSection("audit", sessionId)} />',
 ):
     assert marker in page, f"Session inventory is not integrated in account details: {marker}"
 
@@ -44,6 +44,10 @@ for marker in (
     "Validity",
     "Not evaluated",
     "it does not revoke sessions",
+    "onFindSessionActivity: (sessionId: string) => void",
+    "onClick={() => onFindSessionActivity(session.session_id)}",
+    "Find activity",
+    "Use Find activity to open the Audit history filtered to this session",
     "Previous",
     "Next",
     "aria-busy={loading}",
