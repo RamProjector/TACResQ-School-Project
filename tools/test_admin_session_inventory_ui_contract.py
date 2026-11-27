@@ -43,7 +43,7 @@ for marker in (
     "Record present",
     "Validity",
     "Not evaluated",
-    "This view does not revoke sessions",
+    "it does not revoke sessions",
     "Previous",
     "Next",
     "aria-busy={loading}",
