@@ -37,10 +37,10 @@ BEGIN
   UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
 
   INSERT INTO auth.sessions (id, user_id)
-  VALUES (
-    '10000000-0000-4000-8000-000000000172',
-    '00000000-0000-4000-8000-000000000172'
-  );
+  VALUES
+    ('10000000-0000-4000-8000-000000000170', '00000000-0000-4000-8000-000000000170'),
+    ('10000000-0000-4000-8000-000000000171', '00000000-0000-4000-8000-000000000171'),
+    ('10000000-0000-4000-8000-000000000172', '00000000-0000-4000-8000-000000000172');
 
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
@@ -54,12 +54,18 @@ BEGIN
   -- role, target profile, and before/after values, never location or secrets.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000171', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000171","session_id":"10000000-0000-4000-8000-000000000171","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   UPDATE public.profiles SET duty_status = 'available' WHERE id = responder_id;
 
   -- Exercise the real authenticated chat RPC. The audit trigger must not copy
   -- the message body or any attachment payload/path into its metadata.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000170', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000170","session_id":"10000000-0000-4000-8000-000000000170","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   PERFORM public.api_send_incident_message(
     v_incident_id, 'Synthetic private chat body must not enter audit metadata',
     '00000000-0000-4000-8000-000000000170'::uuid
@@ -82,6 +88,9 @@ BEGIN
   -- denied/no-op result must not create a successful-action audit row.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000171', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000171","session_id":"10000000-0000-4000-8000-000000000171","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   IF public.api_mark_notification_read(notification_id) THEN
     RAISE EXCEPTION 'Unrelated responder must not read this notification';
   END IF;
@@ -96,6 +105,7 @@ BEGIN
        AND audit.incident_id = v_incident_id
        AND audit.outcome = 'success'
        AND audit.metadata->>'message_kind' = 'text'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid
   ) OR NOT EXISTS (
     SELECT 1 FROM public.app_action_audit_logs AS audit
      WHERE audit.action = 'notification_marked_read'
@@ -104,6 +114,7 @@ BEGIN
        AND audit.target_id = notification_id::text
        AND audit.target_user_id = requester_id
        AND audit.metadata->>'notification_type' = 'incident_message'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid
   ) OR NOT EXISTS (
     SELECT 1 FROM public.app_action_audit_logs AS audit
      WHERE audit.action = 'duty_status_changed'
@@ -112,6 +123,7 @@ BEGIN
        AND audit.target_user_id = responder_id
        AND audit.metadata->>'previous_status' = 'off_duty'
        AND audit.metadata->>'new_status' = 'available'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000171'::uuid
   ) THEN
     RAISE EXCEPTION 'App-action audit rows do not preserve the expected actor, target, outcome, or safe metadata';
   END IF;
@@ -194,6 +206,7 @@ BEGIN
           AND value->'details'->>'target_id' IS NOT NULL
           AND value->'details'->>'outcome' = 'success'
           AND value->'details'->>'correlation_id' IS NOT NULL
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
@@ -201,14 +214,24 @@ BEGIN
           AND value->'details'->>'target_type' = 'notification'
           AND value->'details'->>'target_id' = notification_id::text
           AND value->'details'->>'actor_role' = 'requester'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'duty_status_changed'
           AND value->'details'->>'actor_role' = 'responder'
           AND value->'details'->'metadata'->>'new_status' = 'available'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000171'
      ) THEN
     RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, '10000000-0000-4000-8000-000000000170',
+    'all', 'app_action_audit_logs', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 2 THEN
+    RAISE EXCEPTION 'Session-ID search should return only the requester session actions; found %', feed->>'total_count';
   END IF;
 
   IF feed::text ILIKE '%Synthetic private chat body%'
