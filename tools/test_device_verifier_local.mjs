@@ -307,7 +307,10 @@ try {
 
   const bravoDevice = psql(`SELECT id FROM public.user_devices WHERE profile_id = ${bravoProfile} AND trust_status = 'active'`);
   const expired = await issue(bravo, "session_proof", bravoDevice);
-  psql(`UPDATE public.device_challenges SET expires_at = clock_timestamp() - interval '1 second' WHERE id = '${expired.challenge_id}'::uuid`);
+  psql(`UPDATE public.device_challenges
+           SET created_at = clock_timestamp() - interval '3 minutes',
+               expires_at = clock_timestamp() - interval '1 second'
+         WHERE id = '${expired.challenge_id}'::uuid`);
   const expiredAttempt = await invoke(bravo, {
     action: "verify",
     challengeId: expired.challenge_id,
