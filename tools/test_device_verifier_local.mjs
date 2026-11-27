@@ -301,8 +301,23 @@ try {
   // Four more challenges bring this session to five within 15 minutes.
   for (let i = 0; i < 3; i++) await issue(bravo, "session_proof", bravoDevice);
   const limited = await invoke(bravo, { action: "issue", purpose: "session_proof", deviceId: bravoDevice });
-  assert.equal(limited.status, 429, "persistent per-profile/session issuance limit must reject the sixth challenge");
-  console.log("PASS: persistent per-profile/session challenge issuance limit is enforced");
+  assert.equal(limited.status, 429, "persistent per-session issuance limit must reject the sixth challenge");
+  console.log("PASS: persistent per-session challenge issuance limit is enforced");
+
+  // Spread issuance over additional Auth sessions to prove the account-level
+  // ceiling cannot be bypassed by opening more sessions.
+  let accountLimitSession = bravo;
+  for (let sessionIndex = 0; sessionIndex < 3; sessionIndex++) {
+    accountLimitSession = await createAdditionalSession(bravo);
+    for (let challengeIndex = 0; challengeIndex < 5; challengeIndex++) {
+      await issue(accountLimitSession, "session_proof", bravoDevice);
+    }
+  }
+  const accountLimited = await invoke(accountLimitSession, {
+    action: "issue", purpose: "session_proof", deviceId: bravoDevice,
+  });
+  assert.equal(accountLimited.status, 429, "persistent account-level issuance limit must reject the twenty-first challenge across sessions");
+  console.log("PASS: persistent per-account challenge limit cannot be bypassed with additional Auth sessions");
 
   const bravoExpiredSession = await createAdditionalSession(bravo);
   psql(`UPDATE auth.sessions SET not_after = clock_timestamp() - interval '1 second' WHERE id = '${bravoExpiredSession.sessionId}'::uuid`);
