@@ -1,3 +1,15 @@
+## 2026-11-27 — Local Supabase CLI compatibility spike and exact-head CI recheck
+
+- **Exact-head CI:** At 4ebe120bfa7bb02a7655f7f686bfe3c5aeabaa3e, all six PR workflow groups completed successfully: TACResQ CI (source, Android debug/release, clean PostgreSQL migration replay, Laravel/dashboard integration), RPC grant contract, Security (repository guardrails and CodeQL Android/Web/Actions), QA, Frontend Review, and read-only profile verification. The combined-status endpoint had no legacy status entries; workflow-run/job records are the evidence. This does not prove hosted migration state, manual Admin UI acceptance, or device-verifier JWT propagation.
+- **CLI research:** Official Supabase release notes show CLI 3.4.0 (released 2026-11-24) as a GA release supporting JSONC config and supabase config validate; current visible v3.5 and v4 releases are prereleases. Proposed reproducible initial pin is exactly 3.4.0 with supabase/setup-cli@v3 and explicit version: 3.4.0; do not float to latest/beta/next.
+- **Config:** Repository has no supabase/config.toml or supabase/config.jsonc. Use a single canonical CLI-generated/validated config.jsonc; no guessed ports, remote mappings, project link, hosted URL, or production secrets. CLI v3 local-by-default behavior does not replace loopback/project-ref guards.
+- **Documentation:** Added docs/QA_LOCAL_SUPABASE_CLI_COMPATIBILITY_SPIKE.md with release evidence, pin decision, safety rules, Stage A sequence, and official references.
+- **No runtime proof yet:** No local Supabase CLI/Docker runtime is exposed through the repository connector, and the full migration set has not been tested against the actual local Supabase stack. No config/workflow or temporary probe was added in this documentation-only step.
+- **Next:** Implement isolated Stage A config/CI spike on PR #370 using CLI 3.4.0; run full local stack/migration reset; capture sanitized failures; only then add the two-user JWT auth.uid()/session_id propagation proof. Keep the lane advisory initially and do not implement trusted device challenge writes until the proof passes.
+- **Safety:** No hosted Supabase command, SQL, migration, Edge Function deployment, Auth setting, secret, Render configuration, production data, deployment, session revocation, account suspension, or merge occurred.
+
+---
+
 ## Admin protected session inventory — 2026-11-27
 
 - **Research/spec:** `docs/security/admin-session-inventory-and-event-correlation-implementation-spec.md` (commit `0dadf6b`). It records live schema/ACL evidence, Supabase session timeout semantics, the active Admin MFA guard, identifier boundaries, and the supported session-revocation limits.
