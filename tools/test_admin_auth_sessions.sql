@@ -157,6 +157,9 @@ BEGIN
      OR v_page_one -> 'items' -> 0 ->> 'aal' <> 'aal2' THEN
     RAISE EXCEPTION 'Session status semantics or allowlisted AAL projection is incorrect';
   END IF;
+  IF v_page_one -> 'items' -> 0 ->> 'last_refreshed_at' NOT LIKE '%+00:00' THEN
+    RAISE EXCEPTION 'UTC Auth refreshed_at timestamp must be normalized to an offset-aware JSON timestamp';
+  END IF;
 
   -- A genuinely empty target is distinguishable from a failed source.
   v_page_two := public.api_admin_list_auth_sessions_page(v_empty_target_profile_id, 2, NULL, NULL);
