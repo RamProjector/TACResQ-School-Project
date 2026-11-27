@@ -169,8 +169,19 @@ try {
       AND NOT has_table_privilege('tacresq_device_verifier', 'public.device_challenges', 'UPDATE')
   `);
   assert.equal(roleChecks, "t", "dedicated verifier role must have only private function execution");
+  const verifierUrl = new URL(verifierDbUrl);
   const directRead = await import("node:child_process").then(({ spawnSync }) =>
-    spawnSync("psql", [verifierDbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", "SELECT * FROM public.user_devices LIMIT 1"], { encoding: "utf8" })
+    spawnSync("psql", [
+      "-h", verifierUrl.hostname,
+      "-p", verifierUrl.port || "5432",
+      "-U", decodeURIComponent(verifierUrl.username),
+      "-d", verifierUrl.pathname.slice(1),
+      "-X", "-v", "ON_ERROR_STOP=1", "-q",
+      "-c", "SELECT * FROM public.user_devices LIMIT 1",
+    ], {
+      encoding: "utf8",
+      env: { ...process.env, PGPASSWORD: decodeURIComponent(verifierUrl.password) },
+    })
   );
   assert.equal(directRead.error, undefined, "psql must run for the direct-table denial check");
   assert.notEqual(directRead.status, 0, "dedicated verifier login must not read registry tables directly");
