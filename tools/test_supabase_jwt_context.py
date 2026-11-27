@@ -43,7 +43,7 @@ AS $function$
   );
 $function$;
 REVOKE ALL ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
-  FROM PUBLIC, anon;
+  FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   TO authenticated;
 
@@ -51,13 +51,13 @@ CREATE OR REPLACE FUNCTION public.__tacresq_session_valid_probe()
 RETURNS boolean
 LANGUAGE sql
 VOLATILE
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
   SELECT private.tacresq_current_auth_session_valid();
 $function$;
 REVOKE ALL ON FUNCTION public.__tacresq_session_valid_probe()
-  FROM PUBLIC, anon;
+  FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.__tacresq_session_valid_probe()
   TO authenticated;
 NOTIFY pgrst, 'reload schema';
