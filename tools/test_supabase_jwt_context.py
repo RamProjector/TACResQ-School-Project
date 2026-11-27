@@ -161,7 +161,7 @@ def main() -> int:
             claims = json.loads(base64.urlsafe_b64decode(segments[1] + "=" * (-len(segments[1]) % 4)))
             if claims.get("sub") != user_id or not claims.get("session_id"):
                 raise AssertionError("Access token is missing the expected sub/session_id claims")
-            users[-1].update({"token": token, "session_id": str(claims["session_id"])})
+            users[-1].update({"token": token, "refresh_token": str(session.get("refresh_token", "")), "session_id": str(claims["session_id"])})
             session_id = str(uuid.UUID(str(claims["session_id"])))
             user_id = str(uuid.UUID(user_id))
             session_sql = (
@@ -244,7 +244,52 @@ def main() -> int:
             raise AssertionError(f"Expired signed JWT was not rejected with HTTP 401 (got {status})")
         print("PASS: expired locally signed JWT was rejected")
 
-        print("RESULT: local Auth -> PostgREST JWT context proof passed")
+        # Supabase revokes the refresh token/session row on sign-out, but an
+        # already-issued access JWT remains cryptographically valid until exp.
+        # Prove both facts so callers do not confuse JWT validation with
+        # immediate session-revocation enforcement.
+        revoked_user = users[0]
+        logout_status, _ = request_json(
+            f"{api}/auth/v1/logout?scope=local", method="POST",
+            headers={**auth_headers, "Authorization": f"Bearer {revoked_user['token']}"},
+        )
+        if logout_status not in (200, 204):
+            raise AssertionError(f"Local Auth sign-out failed (HTTP {logout_status})")
+        revoked_session_sql = (
+            "SELECT EXISTS (SELECT 1 FROM auth.sessions WHERE id = '"
+            + str(uuid.UUID(revoked_user["session_id"])) + "'::uuid AND user_id = '"
+            + str(uuid.UUID(revoked_user["id"])) + "'::uuid);"
+        )
+        if psql(cfg["DB_URL"], revoked_session_sql).stdout.strip() != "f":
+            raise AssertionError("Local sign-out did not remove the revoked auth.sessions row")
+        print("PASS: local sign-out removed the session row from auth.sessions")
+
+        stale_status, stale_body = request_json(
+            f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
+            headers={**auth_headers, "Authorization": f"Bearer {revoked_user['token']}"},
+            payload={"p_claimed_sub": None, "p_claimed_session_id": None},
+        )
+        if stale_status != 200 or not isinstance(stale_body, dict):
+            raise AssertionError(
+                "Expected the still-unexpired access JWT to pass stateless PostgREST validation "
+                f"after sign-out (HTTP {stale_status}); inspect local Supabase behavior"
+            )
+        if stale_body.get("actual_uid") != revoked_user["id"] or stale_body.get("actual_session_id") != revoked_user["session_id"]:
+            raise AssertionError("PostgREST did not preserve claims from the still-unexpired revoked-session JWT")
+        print("PASS: old access JWT remains accepted by stateless PostgREST after sign-out")
+
+        refresh_status, _ = request_json(
+            f"{api}/auth/v1/token?grant_type=refresh_token", method="POST",
+            headers=auth_headers,
+            payload={"refresh_token": revoked_user["refresh_token"]},
+        )
+        if refresh_status not in (400, 401):
+            raise AssertionError(
+                f"Revoked refresh token unexpectedly remained usable (HTTP {refresh_status})"
+            )
+        print("PASS: refresh token from the revoked local session was rejected")
+
+        print("RESULT: local Auth -> PostgREST JWT context and revocation-boundary proof passed")
         return 0
     finally:
         if probe_created:
