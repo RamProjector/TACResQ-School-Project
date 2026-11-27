@@ -135,7 +135,7 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 - [PostgREST Transactions and request headers](https://docs.postgrest.org/en/stable/references/transactions.html)
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/)
 
-No trace propagation, database migration, RLS/grant, Auth setting, credential, Render configuration, or production data was changed by this research.
+At the time of the original research, no trace propagation, database migration, RLS/grant, Auth setting, credential, Render configuration, or production data was changed. Subsequent repository-only trace-context implementation is recorded in Section 9; it does not change hosted resources.
 
 
 ## 9. Repository implementation checkpoint — 2026-11-27
