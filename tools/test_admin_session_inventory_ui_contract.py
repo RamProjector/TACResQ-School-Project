@@ -34,6 +34,8 @@ for marker in (
 for marker in (
     'getAdminAuthSessionsPage(profileId, 10, cursor)',
     "requestVersion = useRef(0)",
+    "useEffect(() => () =>",
+    "requestVersion.current += 1",
     "if (requestId !== requestVersion.current) return",
     "page.status_semantics",
     "page.source_status",
