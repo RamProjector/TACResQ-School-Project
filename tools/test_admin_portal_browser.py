@@ -268,10 +268,21 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
 
         if "/auth/v1/aal" in url:
             fulfill_json(route, {
-                "currentLevel": "aal1",
+                "currentLevel": aal,
                 "nextLevel": "aal2",
-                "currentAuthenticationMethods": [],
+                "currentAuthenticationMethods": ([{"method": "totp", "timestamp": int(time.time())}] if aal == "aal2" else []),
             })
+            return
+
+        if "/auth/v1/factors" in url:
+            factors = [{
+                "id": "22222222-2222-4222-8222-222222222222",
+                "friendly_name": "TACResQ Authenticator",
+                "factor_type": "totp",
+                "status": "verified",
+                "created_at": datetime.now().astimezone().isoformat(),
+            }]
+            fulfill_json(route, {"all": factors, "totp": factors, "phone": []})
             return
 
         # Unanticipated calls should not be silently converted into fake success.
@@ -464,6 +475,48 @@ def run_browser_tests(browser: Browser) -> list[str]:
         raise AssertionError(f"Analytics export did not produce a CSV: {download.suggested_filename}")
     expect(page.locator(".admin-analytics-export-notice")).to_contain_text("Export prepared:")
     completed.append("analytics page renders validated aggregate metrics and exports a CSV")
+
+    # Cover the remaining Admin workspaces. These pages are intentionally
+    # transparent when a workflow is guidance-only rather than live-connected.
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Security").click()
+    expect(page.get_by_role("heading", name="Security overview")).to_be_visible()
+    expect(page.get_by_role("heading", name="Recent authentication and device-security events")).to_be_visible()
+    expect(page.get_by_role("heading", name="Admin access review")).to_be_visible()
+    expect(page.get_by_text("Elevated (AAL2)")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("TACResQ Authenticator")).to_be_visible(timeout=10000)
+    completed.append("Security workspace renders verified TOTP/AAL2 state and authentication/access-review sections")
+
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Settings").click()
+    expect(page.get_by_role("heading", name="General & appearance")).to_be_visible()
+    page.get_by_label("Layout density").select_option("compact")
+    page.get_by_role("button", name="Save preferences").click()
+    expect(page.get_by_role("status")).to_contain_text("Your Admin display preferences were saved on this device.")
+    page.get_by_role("navigation", name="Settings pages").get_by_role("button", name="Accessibility").click()
+    expect(page.get_by_role("heading", name="Accessibility")).to_be_visible()
+    page.get_by_label("Reduce motion").check()
+    page.get_by_role("button", name="Save preferences").click()
+    page.get_by_role("navigation", name="Settings pages").get_by_role("button", name="Notifications").click()
+    expect(page.get_by_role("heading", name="Notifications")).to_be_visible()
+    expect(page.get_by_text("Automatic queue execution")).to_be_visible()
+    page.get_by_role("navigation", name="Settings pages").get_by_role("button", name="Privacy & data").click()
+    expect(page.get_by_role("heading", name="Privacy & data")).to_be_visible()
+    expect(page.get_by_text("Formal request intake and case register")).to_be_visible()
+    completed.append("Settings saves local display/accessibility preferences and clearly marks notification/privacy workflows not connected")
+
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Data & continuity").click()
+    expect(page.get_by_role("heading", name="Backup & recovery readiness")).to_be_visible()
+    expect(page.get_by_text("Recovery capability is not currently verified.")).to_be_visible()
+    page.get_by_role("navigation", name="Data and continuity views").get_by_role("button", name="Attachment safeguards").click()
+    expect(page.get_by_role("heading", name="Attachment storage safeguards")).to_be_visible()
+    expect(page.get_by_text("Live inventory not connected")).to_be_visible()
+    completed.append("Data & continuity navigates to recovery and attachment safeguards with explicit read-only evidence limits")
+
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Help & about").click()
+    expect(page.get_by_role("heading", name="Admin help centre")).to_be_visible()
+    page.get_by_label("Search Admin guidance").fill("authenticator")
+    expect(page.get_by_role("heading", name="Security & authenticator")).to_be_visible()
+    expect(page.get_by_role("heading", name="User management")).to_be_hidden()
+    completed.append("Help centre search filters guidance and hides unrelated workspace cards")
 
     # The authenticated Admin shell must also remain usable on a narrow screen.
     page.set_viewport_size({"width": 390, "height": 844})
