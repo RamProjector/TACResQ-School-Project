@@ -18,6 +18,21 @@ ALTER ROLE tacresq_device_verifier
 
 GRANT USAGE ON SCHEMA private TO tacresq_device_verifier;
 
+-- The legacy service_role grants predate the dedicated verifier boundary.
+-- Remove them: registry mutation must occur only inside the private,
+-- transactionally guarded SECURITY DEFINER routines below.
+REVOKE ALL PRIVILEGES ON TABLE
+  public.user_devices,
+  public.device_sessions,
+  public.device_challenges,
+  public.device_security_events,
+  public.device_integrity_checks
+FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.device_security_events_id_seq,
+  public.device_integrity_checks_id_seq
+FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE INDEX IF NOT EXISTS device_challenges_profile_session_created_idx
   ON public.device_challenges (profile_id, auth_session_id, created_at DESC);
 
