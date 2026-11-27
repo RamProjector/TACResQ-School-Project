@@ -118,3 +118,21 @@ These tests prove the new branch behavior in disposable environments. They do no
 - No Render environment variable or secret was read or changed.
 - No service was deployed or restarted.
 - No new paid service or monitoring vendor was introduced.
+
+
+## Follow-up: cross-source search behavior and migration readiness
+
+A subsequent source review found a UI-level reason that correlation searches could appear incomplete: the **Find related** actions replaced the query text but retained the current source, category, date, actor, target, and incident filters. A prior filter could therefore hide events from another source even when they shared the selected technical reference.
+
+The branch now routes all four technical-reference actions (Auth session ID, W3C trace ID, Laravel correlation ID, and Supabase provider request ID) through one helper that clears those prior filters before searching across the full investigation feed. The existing Python contract now asserts each reference action and each filter reset.
+
+The session-inventory and investigation RPC clients also now convert PostgREST's missing-function/schema-cache response (PGRST202) into explicit migration-readiness messages rather than a generic unexpected-service error. These messages do not attempt to apply migrations or refresh the hosted schema.
+
+A fresh read-only query of the connected Supabase migration ledger confirmed:
+- Latest applied migration: `20261125030354`
+- Admin session-inventory migration `20261127020000`: not applied
+- Admin trace-correlation migration `20261127080000`: not applied
+
+Therefore, the branch's session inventory and new correlation projection are **not yet available in the hosted project**. A green local replay is not evidence of hosted deployment. The Admin portal and database migration must be released together after the project's operator authorizes deployment.
+
+No hosted migration, schema-cache reload, Auth setting, session, Render configuration, or production data was changed during this follow-up.
