@@ -33,9 +33,12 @@ internal object W3CTraceContext {
 
 internal class TraceparentInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request().newBuilder()
-            .header("traceparent", W3CTraceContext.newTraceparent())
-            .build()
-        return chain.proceed(request)
+        val builder = chain.request().newBuilder()
+        try {
+            builder.header("traceparent", W3CTraceContext.newTraceparent())
+        } catch (_: Exception) {
+            // Optional telemetry must never prevent SOS or another API request.
+        }
+        return chain.proceed(builder.build())
     }
 }
