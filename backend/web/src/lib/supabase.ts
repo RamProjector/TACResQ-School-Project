@@ -465,7 +465,7 @@ export async function getAdminInvestigationEventsPage(
     p_incident_id: incidentId,
   });
   if (error?.code === "PGRST202") {
-    throw new Error("The Admin investigation reader is not available in this database schema yet. Apply the reviewed investigation-feed migration and refresh the Admin portal.");
+    throw new Error("The Admin investigation reader is not visible in this database's API schema cache. Confirm migration 20261127080000 is applied, refresh the schema cache, and reload the Admin portal.");
   }
   throwAdminError(error);
   if (!data || typeof data !== "object") {
