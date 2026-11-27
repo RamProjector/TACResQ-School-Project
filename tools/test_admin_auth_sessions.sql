@@ -148,10 +148,6 @@ BEGIN
     'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)',
     'EXECUTE'
   ) THEN
-    'authenticated',
-    'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)',
-    'EXECUTE'
-  ) THEN
     RAISE EXCEPTION 'Authenticated role must be able to call the protected session RPC';
   END IF;
   IF has_function_privilege(
