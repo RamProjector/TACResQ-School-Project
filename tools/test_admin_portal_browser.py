@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -129,10 +128,9 @@ def wait_for_server(process: subprocess.Popen[str]) -> None:
         if process.poll() is not None:
             raise RuntimeError(f"Vite exited early with code {process.returncode}")
         try:
-            with urllib.request.urlopen(BASE_URL, timeout=2) as response:
-                if response.status == 200:
-                    return
-        except (OSError, urllib.error.URLError):
+            with socket.create_connection((HOST, PORT), timeout=1):
+                return
+        except OSError:
             time.sleep(0.5)
     raise TimeoutError("Vite did not become ready within 60 seconds")
 
