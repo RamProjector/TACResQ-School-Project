@@ -13,7 +13,7 @@ The detailed and authoritative design specification is:
 
 - [TACResQ Admin IPS — Web UI/UX Redesign Master Plan](../../../docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md)
 
-Read the complete master plan before substantial design or implementation work. It is the canonical source for the research, repository audits, IDS/IPS coursework requirements, architecture boundaries, page-level requirements, Material 3 findings, responsive strategy, and acceptance criteria. This skill is the concise operating procedure; it does not replace or fork that plan. When the plan is extended, keep this skill's workflow aligned and link to the new sections rather than copying the entire plan here.
+Read the complete master plan before substantial design or implementation work. It is the canonical source for the research, repository audits, IDS/IPS coursework requirements, architecture boundaries, page-level requirements, Material 3 findings, responsive strategy, and acceptance criteria. For the current session/security-event correlation diagnosis and implementation gates, also read Section 74. This skill is the concise operating procedure; it does not replace or fork that plan. When the plan is extended, keep this skill's workflow aligned and link to the new sections rather than copying the entire plan here.
 
 Also follow repository-wide instructions in `AGENTS.md`, `CURRENT_TASK.md`, and `docs/AGENT_WORKFLOW.md`. The user's latest explicit instruction takes precedence.
 
@@ -164,6 +164,8 @@ For the Overview, Section 34 of the master plan is the source-grounded compositi
 
 - Verify each metric, event, status, and action against the current RPC/database/API source before presenting it.
 - Keep Supabase Auth/Postgres and Laravel Sanctum/Eloquent identity namespaces distinct unless a trusted mapping is proven. Do not join identities by email or assume role/session synchronization.
+- Keep Auth provider request IDs, Supabase session IDs, Laravel request-correlation IDs, provider request IDs, device-session associations, and database row IDs distinct. Never present a row-local random UUID as end-to-end correlation.
+- Do not present session inventory, authentication history, or security alerts as functional/complete when the authoritative source is empty, unconfigured, unavailable, or omitted from the protected investigation RPC. Show source coverage and freshness honestly.
 - Keep Render/Laravel transport telemetry, direct Supabase operations, provider Auth audit events, domain history, Admin investigation events, and FCM delivery attempts semantically distinct.
 - Do not label the current Activity Log as a complete system-wide audit trail while read/search, denied actions, session/IP/device fields, and other sources remain incomplete.
 - Preserve Admin AAL2/TOTP checks, protected RPC access, RLS, least privilege, bounded pagination, and server-side enforcement.
