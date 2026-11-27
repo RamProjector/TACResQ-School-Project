@@ -39,18 +39,20 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 
 | Source | Existing coverage | Auth-session correlation | Trace limitation |
 |---|---|---|---|
-| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | Present only when the bridge validated a user JWT and extracted its signed `session_id`; no direct Android/browser coverage | Laravel request `correlation_id` and provider request ID remain separate; W3C trace propagation is not implemented |
-| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | Present from the verified PostgREST JWT `session_id`; NULL for system/no-user actions | `correlation_id` remains transaction-local; no propagated trace ID |
-| `incident_status_logs` | Incident status changes | Not recorded | No trace ID |
-| `incident_claimability_logs` | Claimability transitions | Not recorded | No trace ID |
-| `incident_request_edit_logs` | Requester edit history | Not recorded | No trace ID |
-| `incident_assignment_events` | Assignment/release/team closure | Not recorded | No trace ID |
-| `admin_audit_logs` | Role-change audit | Not recorded | No trace ID |
-| `account_lifecycle_audit_logs` | Suspension/reactivation; separate protected reader, not part of the unified feed | Not recorded | Has a row-local `correlation_id`; no trace ID |
+| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | Present when the bridge validated a user JWT and extracted its signed `session_id`; direct Android/browser calls that bypass Laravel are not represented here | Laravel request `correlation_id` and provider request ID remain separate; W3C trace propagation is not implemented |
+| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | Present from the signed PostgREST JWT `session_id`; NULL for system/no-user actions | `correlation_id` remains transaction-local; no propagated trace ID |
+| `incident_status_logs` | Incident status changes | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
+| `incident_claimability_logs` | Claimability transitions | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
+| `incident_request_edit_logs` | Requester edit history | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
+| `incident_assignment_events` | Assignment/release/team closure | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
+| `admin_audit_logs` | Role-change audit | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
+| `account_lifecycle_audit_logs` | Suspension/reactivation; dedicated protected reader plus unified investigation-feed source | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | Has a row-local `correlation_id`; no trace ID |
 | `auth.audit_log_entries` | Provider Auth events when Postgres persistence is enabled | Not exposed by the current feed; do not infer a session ID from undocumented payload fields | Optional persistence; project setting remains unverified |
-| `device_security_events` | Private registry table exists and has an Auth-session metadata column | Column exists, but no trusted writer populates it | No trusted challenge/proof writers; do not treat client events as authoritative |
+| `device_security_events` | Private registry table exists and has an Auth-session metadata column and capture trigger | Column/trigger exist, but no trusted writer populates it | No trusted challenge/proof writers; do not treat client events as authoritative |
 
-The current Admin session-inventory "Find activity" action searches the unified investigation feed by `auth_session_id`, but that join key is populated only on `app_action_audit_logs` and bridge-mediated `api_operation_logs` today (plus any device rows written by a future trusted writer). It therefore cannot yet find the full set of incident, assignment, requester-edit, role-change, or account-lifecycle events from the same session. This is a real coverage gap, not a UI search defect. Add the verified JWT session claim at each trusted PostgREST writer boundary, expose it in the feed's minimized details, and bring the separate account-lifecycle ledger into a session-searchable path before describing the inventory as a complete session activity timeline.
+**Session search coverage is now implemented.** Migration `20261127060000_admin_event_session_context.sql` adds the session column and trusted insert trigger to the domain/Admin event tables. Migration `20261127070000_admin_session_activity_feed.sql` projects those IDs in minimized event details and includes account-lifecycle rows in the protected unified feed. The Admin session-inventory "Find activity" action can now search incident status, claimability, requester-edit, assignment, role-change, and suspension/reactivation events by the same signed Auth session ID, alongside existing app-action and bridge operation events.
+
+The stored `auth_session_id` is a signed JWT claim used as a historical attribution key. It is not a claim that the Auth session row is still present or that the session remains valid now. There is deliberately no foreign key to `auth.sessions`, so historical event attribution survives sign-out/session deletion. Laravel's `local_account_lifecycle_events` remains a separate Sanctum identity domain and is not joined to Supabase Auth sessions.
 
 The existing sources should remain distinct. Do not manufacture cross-source joins from actor ID plus timestamp proximity.
 
@@ -66,7 +68,7 @@ The current SQL writers were inspected before designing the parser migration:
 - `admin_audit_logs`: direct insert in `public.api_admin_set_user_role()`.
 - `account_lifecycle_audit_logs`: direct insert in `public.api_admin_set_account_status()`; this separate immutable ledger is rendered in the Admin lifecycle-history section and is not currently part of the unified investigation-feed union.
 
-These SQL writers execute in the originating database transaction and can read PostgREST's transaction-scoped request headers. Each writer still needs to call the private parser; merely adding a column will not populate it. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and needs explicit trace propagation through the bridge. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer. Laravel's `local_account_lifecycle_events` belongs to the separate Sanctum identity domain and must not be assigned a Supabase Auth session or joined as if it shared the PostgREST caller context.
+These SQL writers execute in the originating database transaction. Migration `20261127060000_admin_event_session_context.sql` attaches a private BEFORE INSERT trigger that stamps the signed Auth `session_id` claim; the writers do not accept a caller-supplied session ID. This is separate from the future W3C trace parser, which still needs to read and validate `traceparent`. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and receives its session ID only from the bridge's verified Auth context; trace propagation through that bridge remains unimplemented. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer. Laravel's `local_account_lifecycle_events` belongs to the separate Sanctum identity domain and must not be assigned a Supabase Auth session or joined as if it shared the PostgREST caller context.
 
 ## 4. Supabase request correlation semantics
 
