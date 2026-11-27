@@ -50,6 +50,7 @@ BEGIN
     'incident_request_edit_logs',
     'incident_assignment_events',
     'app_action_audit_logs',
+    'device_security_events',
     'api_operation_logs'
   ) THEN
     RAISE EXCEPTION 'Unsupported investigation source'
@@ -281,6 +282,33 @@ BEGIN
     FROM public.app_action_audit_logs AS a
     LEFT JOIN public.profiles AS actor ON actor.id = a.actor_profile_id
     LEFT JOIN public.profiles AS target ON target.id = a.target_user_id
+
+    UNION ALL
+
+    -- Device events are read through this Admin-only projection. Raw details
+    -- are intentionally excluded; the verified Auth session UUID is the
+    -- cross-source join key shared with Laravel API-operation telemetry.
+    SELECT
+      'device-security:' || d.id::text,
+      'device_security_events',
+      'authentication',
+      d.event_type,
+      d.created_at,
+      d.profile_id,
+      coalesce(actor.name, CASE
+        WHEN d.profile_id IS NULL THEN 'Unlinked / deleted account'
+        ELSE 'Profile #' || d.profile_id::text
+      END),
+      NULL::bigint,
+      NULL::text,
+      NULL::bigint,
+      'Device security event: ' || replace(d.event_type, '_', ' '),
+      jsonb_build_object(
+        'severity', d.severity,
+        'auth_session_id', d.auth_session_id
+      )
+    FROM public.device_security_events AS d
+    LEFT JOIN public.profiles AS actor ON actor.id = d.profile_id
 
     UNION ALL
 
