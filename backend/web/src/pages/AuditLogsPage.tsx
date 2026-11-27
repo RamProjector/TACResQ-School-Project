@@ -413,7 +413,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
-          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events, correlation IDs or session IDs" aria-label="Search investigation history" />
+          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs" aria-label="Search investigation history" />
         </label>
         <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="operations">API operations</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -489,6 +489,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                   <dl>
                     <div><dt>Event reference</dt><dd><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Reference copied" : "Copy technical reference"} title={copiedEventId === event.event_id ? "Copied" : "Copy reference"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy"}</button></dd></div>
                     <div><dt>Source key</dt><dd><code>{event.source}</code></dd></div>
+                    {getTechnicalReference(event, "trace_id") && (
+                      <div>
+                        <dt>W3C trace ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "trace_id")}</code>
+                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "trace_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this W3C trace ID" title="Find traced events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
                     {getTechnicalReference(event, "correlation_id") && (
                       <div>
                         <dt>Correlation ID</dt>
@@ -538,7 +547,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || page + 1 >= pageCount}>Next <ChevronRight size={14} /></button>
         </div>
       </nav>
-      <p className="admin-panel__footnote">This feed reads administrative role-change and account-lifecycle, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, metadata-only app-action, device-security, and Laravel API-operation records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Auth session IDs are recorded only when the source has a verified JWT context; correlation IDs and provider request IDs remain distinct. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. Device-security rows are included when present but have no trusted server-side writer yet; direct-client API/Storage activity and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads administrative role-change and account-lifecycle, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, metadata-only app-action, device-security, and Laravel API-operation records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Auth session IDs are recorded only when the source has a verified JWT context; W3C trace IDs, Laravel correlation IDs, Auth session IDs, and provider request IDs remain distinct. Trace IDs are caller-influenced observability references, not identity or security verdicts. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. Device-security rows are included when present but have no trusted server-side writer yet; direct-client API/Storage activity and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }
