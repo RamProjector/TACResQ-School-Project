@@ -31,6 +31,7 @@ import {
 import { Brand } from "@/components/Brand";
 import AuditLogsPage from "@/pages/AuditLogsPage";
 import AdminSecurityStatus from "@/components/AdminSecurityStatus";
+import AdminAccountSessions from "@/components/AdminAccountSessions";
 import {
   getAdminAnalyticsSummary,
   getAdminAccountLifecycleEvents,
@@ -1395,6 +1396,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                                   </div>
                                 )}
                               </div>
+                              <AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} />
                             </section>
                           </td>
                         </tr>
