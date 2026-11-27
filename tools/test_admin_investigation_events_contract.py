@@ -7,6 +7,7 @@ operation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investig
 operation_session_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
 event_session_migration = (ROOT / "supabase/migrations/20261127060000_admin_event_session_context.sql").read_text()
 session_feed_migration = (ROOT / "supabase/migrations/20261127070000_admin_session_activity_feed.sql").read_text()
+trace_migration = (ROOT / "supabase/migrations/20261127080000_admin_trace_context_correlation.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -115,6 +116,331 @@ for forbidden in (
     "INSERT INTO public.incident_assignment_events",
 ):
     assert forbidden not in session_feed_migration, f"Feed migration must remain read-only: {forbidden}"
+
+# W3C trace context is parsed as caller-influenced telemetry only, stored
+# on trusted event writes, and exposed as a separate Admin technical reference.
+for marker in (
+    "private.tacresq_current_trace_id()",
+    "v_traceparent !~ '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}
+# share Auth session IDs with API-operation telemetry for cross-source search.
+device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
+assert "jsonb_build_object(" in device_projection
+assert "'auth_session_id', d.auth_session_id" in device_projection
+assert "'severity', d.severity" in device_projection
+assert "d.details" not in device_projection
+assert "'device_security_events'" in operation_migration
+
+for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
+    assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
+assert "api_operation_logs" in client
+assert 'new Set(["administrative", "authentication", "operations", "incident", "assignment"])' in client
+assert 'api_operation_logs: "Laravel API operations"' in page
+assert 'account_lifecycle_audit_logs: "Account lifecycle"' in page
+assert 'device_security_events: "Device security events"' in page
+assert 'operations: "API operations"' in page
+assert '<option value="operations">API operations</option>' in page
+
+# New committed app-action sources must be server-written and metadata-only.
+for marker in (
+    "CREATE TABLE public.app_action_audit_logs",
+    "correlation_id uuid NOT NULL DEFAULT gen_random_uuid()",
+    "actor_profile_id bigint",
+    "actor_role text",
+    "outcome text NOT NULL DEFAULT 'success'",
+    "metadata jsonb NOT NULL DEFAULT '{}'::jsonb",
+    "octet_length(metadata::text) <= 1024",
+    "REVOKE ALL PRIVILEGES ON TABLE public.app_action_audit_logs",
+    "private.tacresq_record_app_action_audit()",
+    "tacresq_app_action_audit_immutable",
+    "BEFORE UPDATE OR DELETE ON public.app_action_audit_logs",
+    "AFTER INSERT ON public.incident_messages",
+    "AFTER UPDATE OF read_at ON public.user_notifications",
+    "AFTER UPDATE OF duty_status ON public.profiles",
+    "'incident_message_sent'",
+    "'notification_marked_read'",
+    "'duty_status_changed'",
+    "FROM public.app_action_audit_logs AS a",
+    "'correlation_id', a.correlation_id",
+    "'actor_role', a.actor_role",
+    "'target_type', a.target_type",
+    "'target_id', a.target_id",
+    "'app_action_audit_logs'",
+    "PERFORM private.tacresq_require_admin_mfa()",
+):
+    assert marker in action_migration, f"Missing app-action audit contract: {marker}"
+
+audit_trigger = action_migration.split(
+    "CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()", 1
+)[1].split("$function$;", 1)[0]
+for forbidden in (
+    "NEW.message",
+    "NEW.latitude",
+    "NEW.longitude",
+    "jsonb_build_object('attachment_path'",
+    "NEW.token",
+    "access_token",
+    "refresh_token",
+):
+    assert forbidden not in audit_trigger, (
+        f"Sensitive content must not be copied into app-action audit: {forbidden}"
+    )
+
+assert "app_action_audit_logs" in client
+assert 'app_action_audit_logs: "App actions"' in page
+
+# Auth rows are projected through allowlisted fields only. Do not expose raw
+# provider payloads, IP addresses, or user-agent metadata in the Admin feed.
+auth_projection = migration.split("FROM auth.audit_log_entries AS a", 1)[0].split("UNION ALL")[-1]
+assert "payload ->> 'action'" in auth_projection
+assert "payload ->> 'user_id'" in auth_projection
+assert "'ip_address'" not in auth_projection
+assert "user_agent" not in auth_projection
+assert "to_jsonb(a)" not in auth_projection
+
+# Requester edit history contains location and narrative snapshots. The
+# investigation feed may reveal changed-field names, never snapshot values.
+assert "'before_values'" not in migration
+assert "'after_values'" not in migration
+assert "changed_fields" in migration
+assert "r.before_values -> field.key IS DISTINCT FROM r.after_values -> field.key" in migration
+
+# The feed reads existing event sources; it must not create a duplicate ledger
+# or grant browser clients direct access to protected event tables.
+for forbidden in (
+    "INSERT INTO public.admin_audit_logs",
+    "INSERT INTO public.incident_status_logs",
+    "INSERT INTO public.incident_assignment_events",
+    "GRANT SELECT ON TABLE public.incident_claimability_logs",
+    "GRANT SELECT ON TABLE public.api_operation_logs",
+):
+    assert forbidden not in migration, f"Unexpected write or broad grant: {forbidden}"
+
+for marker in (
+    "api_admin_list_investigation_events",
+    "AdminInvestigationSource",
+    "p_source: source",
+    "administrative",
+    "authentication",
+    "incident",
+    "assignment",
+    "incident_id",
+    "occurred_at",
+    "source",
+):
+    assert marker in client, f"Missing client event contract: {marker}"
+
+for marker in (
+    "getAdminInvestigationEventsPage",
+    "Authentication",
+    "Incident",
+    "Assignment",
+    "Source",
+    "sourceLabels",
+    "All sources",
+    "Coverage boundaries",
+    "Feed reader: integrated.",
+    "Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting",
+    "A zero-row result means no matching records were returned, not that no activity occurred.",
+    "database event writers: integrated",
+    "date boundaries and displayed times use Asia/Manila",
+    "Laravel API operations",
+    "No trusted server-side writer currently creates these rows",
+    "an empty result is not evidence that devices are safe",
+    "This best-effort source does not cover direct Android/browser Supabase or Storage calls.",
+    "FCM delivery attempts",
+    "Provider acceptance does not prove device receipt or user acknowledgement.",
+    "Retention and integrity policy",
+    "cross-source integrity/restore standard is not established",
+):
+    assert marker in page, f"Missing Admin investigation UI contract: {marker}"
+
+# Audit metadata is database-backed JSON and must not cause unbounded UI work.
+for marker in (
+    "MAX_AUDIT_DETAIL_DEPTH = 3",
+    "MAX_AUDIT_DETAIL_ITEMS = 20",
+    "MAX_AUDIT_DETAIL_TEXT = 500",
+    "depth >= MAX_AUDIT_DETAIL_DEPTH",
+    ".slice(0, MAX_AUDIT_DETAIL_ITEMS)",
+    "boundedAuditText(value)",
+    "Additional nested details omitted",
+):
+    assert marker in page, f"Missing bounded audit-detail rendering guard: {marker}"
+
+print("PASS: Admin investigation source, authorization, privacy, and UI contracts are present.")
+",
+    "v_trace_id = repeat('0', 32)",
+    "v_span_id = repeat('0', 16)",
+    "NEW.trace_id := private.tacresq_current_trace_id()",
+    "ADD COLUMN IF NOT EXISTS trace_id text",
+    "CREATE TRIGGER tacresq_stamp_trace_id",
+    "trace_id ~ ''^[0-9a-f]{32}
+# share Auth session IDs with API-operation telemetry for cross-source search.
+device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
+assert "jsonb_build_object(" in device_projection
+assert "'auth_session_id', d.auth_session_id" in device_projection
+assert "'severity', d.severity" in device_projection
+assert "d.details" not in device_projection
+assert "'device_security_events'" in operation_migration
+
+for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
+    assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
+assert "api_operation_logs" in client
+assert 'new Set(["administrative", "authentication", "operations", "incident", "assignment"])' in client
+assert 'api_operation_logs: "Laravel API operations"' in page
+assert 'account_lifecycle_audit_logs: "Account lifecycle"' in page
+assert 'device_security_events: "Device security events"' in page
+assert 'operations: "API operations"' in page
+assert '<option value="operations">API operations</option>' in page
+
+# New committed app-action sources must be server-written and metadata-only.
+for marker in (
+    "CREATE TABLE public.app_action_audit_logs",
+    "correlation_id uuid NOT NULL DEFAULT gen_random_uuid()",
+    "actor_profile_id bigint",
+    "actor_role text",
+    "outcome text NOT NULL DEFAULT 'success'",
+    "metadata jsonb NOT NULL DEFAULT '{}'::jsonb",
+    "octet_length(metadata::text) <= 1024",
+    "REVOKE ALL PRIVILEGES ON TABLE public.app_action_audit_logs",
+    "private.tacresq_record_app_action_audit()",
+    "tacresq_app_action_audit_immutable",
+    "BEFORE UPDATE OR DELETE ON public.app_action_audit_logs",
+    "AFTER INSERT ON public.incident_messages",
+    "AFTER UPDATE OF read_at ON public.user_notifications",
+    "AFTER UPDATE OF duty_status ON public.profiles",
+    "'incident_message_sent'",
+    "'notification_marked_read'",
+    "'duty_status_changed'",
+    "FROM public.app_action_audit_logs AS a",
+    "'correlation_id', a.correlation_id",
+    "'actor_role', a.actor_role",
+    "'target_type', a.target_type",
+    "'target_id', a.target_id",
+    "'app_action_audit_logs'",
+    "PERFORM private.tacresq_require_admin_mfa()",
+):
+    assert marker in action_migration, f"Missing app-action audit contract: {marker}"
+
+audit_trigger = action_migration.split(
+    "CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()", 1
+)[1].split("$function$;", 1)[0]
+for forbidden in (
+    "NEW.message",
+    "NEW.latitude",
+    "NEW.longitude",
+    "jsonb_build_object('attachment_path'",
+    "NEW.token",
+    "access_token",
+    "refresh_token",
+):
+    assert forbidden not in audit_trigger, (
+        f"Sensitive content must not be copied into app-action audit: {forbidden}"
+    )
+
+assert "app_action_audit_logs" in client
+assert 'app_action_audit_logs: "App actions"' in page
+
+# Auth rows are projected through allowlisted fields only. Do not expose raw
+# provider payloads, IP addresses, or user-agent metadata in the Admin feed.
+auth_projection = migration.split("FROM auth.audit_log_entries AS a", 1)[0].split("UNION ALL")[-1]
+assert "payload ->> 'action'" in auth_projection
+assert "payload ->> 'user_id'" in auth_projection
+assert "'ip_address'" not in auth_projection
+assert "user_agent" not in auth_projection
+assert "to_jsonb(a)" not in auth_projection
+
+# Requester edit history contains location and narrative snapshots. The
+# investigation feed may reveal changed-field names, never snapshot values.
+assert "'before_values'" not in migration
+assert "'after_values'" not in migration
+assert "changed_fields" in migration
+assert "r.before_values -> field.key IS DISTINCT FROM r.after_values -> field.key" in migration
+
+# The feed reads existing event sources; it must not create a duplicate ledger
+# or grant browser clients direct access to protected event tables.
+for forbidden in (
+    "INSERT INTO public.admin_audit_logs",
+    "INSERT INTO public.incident_status_logs",
+    "INSERT INTO public.incident_assignment_events",
+    "GRANT SELECT ON TABLE public.incident_claimability_logs",
+    "GRANT SELECT ON TABLE public.api_operation_logs",
+):
+    assert forbidden not in migration, f"Unexpected write or broad grant: {forbidden}"
+
+for marker in (
+    "api_admin_list_investigation_events",
+    "AdminInvestigationSource",
+    "p_source: source",
+    "administrative",
+    "authentication",
+    "incident",
+    "assignment",
+    "incident_id",
+    "occurred_at",
+    "source",
+):
+    assert marker in client, f"Missing client event contract: {marker}"
+
+for marker in (
+    "getAdminInvestigationEventsPage",
+    "Authentication",
+    "Incident",
+    "Assignment",
+    "Source",
+    "sourceLabels",
+    "All sources",
+    "Coverage boundaries",
+    "Feed reader: integrated.",
+    "Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting",
+    "A zero-row result means no matching records were returned, not that no activity occurred.",
+    "database event writers: integrated",
+    "date boundaries and displayed times use Asia/Manila",
+    "Laravel API operations",
+    "No trusted server-side writer currently creates these rows",
+    "an empty result is not evidence that devices are safe",
+    "This best-effort source does not cover direct Android/browser Supabase or Storage calls.",
+    "FCM delivery attempts",
+    "Provider acceptance does not prove device receipt or user acknowledgement.",
+    "Retention and integrity policy",
+    "cross-source integrity/restore standard is not established",
+):
+    assert marker in page, f"Missing Admin investigation UI contract: {marker}"
+
+# Audit metadata is database-backed JSON and must not cause unbounded UI work.
+for marker in (
+    "MAX_AUDIT_DETAIL_DEPTH = 3",
+    "MAX_AUDIT_DETAIL_ITEMS = 20",
+    "MAX_AUDIT_DETAIL_TEXT = 500",
+    "depth >= MAX_AUDIT_DETAIL_DEPTH",
+    ".slice(0, MAX_AUDIT_DETAIL_ITEMS)",
+    "boundedAuditText(value)",
+    "Additional nested details omitted",
+):
+    assert marker in page, f"Missing bounded audit-detail rendering guard: {marker}"
+
+print("PASS: Admin investigation source, authorization, privacy, and UI contracts are present.")
+'",
+    "'trace_id', a.trace_id",
+    "'trace_id', l.trace_id",
+    "'trace_id', s.trace_id",
+    "'trace_id', c.trace_id",
+    "'trace_id', r.trace_id",
+    "'trace_id', e.trace_id",
+    "'trace_id', d.trace_id",
+    "'trace_id', o.trace_id",
+    "e.details ->> 'trace_id' = v_query",
+    "REVOKE ALL ON FUNCTION private.tacresq_current_trace_id()",
+):
+    assert marker in trace_migration, f"Missing W3C trace context migration contract: {marker}"
+assert "REFERENCES auth.sessions" not in trace_migration
+assert "auth.uid()" not in trace_migration, "Trace IDs must not become an identity or authorization input."
+for marker in (
+    "trace IDs, correlation IDs, Auth session IDs, and provider request IDs remain distinct",
+    'placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs"',
+    'getTechnicalReference(event, "trace_id")',
+    "W3C trace ID",
+):
+    assert marker in page, f"Missing W3C trace Admin UI contract: {marker}"
 
 # Device security rows are projected without arbitrary JSON details and
 # share Auth session IDs with API-operation telemetry for cross-source search.
