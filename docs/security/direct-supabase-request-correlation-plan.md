@@ -37,17 +37,20 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 
 ## 3. Existing event coverage
 
-| Source | Existing coverage | Correlation limitation |
-|---|---|---|
-| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | No direct Android/browser request coverage |
-| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | `correlation_id` defaults to a row-local UUID; no propagated trace |
-| `incident_status_logs` | Incident status changes | No trace ID |
-| `incident_claimability_logs` | Claimability transitions | No trace ID |
-| `incident_request_edit_logs` | Requester edit history | No trace ID |
-| `incident_assignment_events` | Assignment/release/team closure | No trace ID |
-| `admin_audit_logs` / account lifecycle audit | Role and account status transitions | No trace ID |
-| `auth.audit_log_entries` | Provider Auth events when Postgres persistence is enabled | Optional persistence; project setting remains unverified |
-| `device_security_events` | Private registry table exists | No trusted challenge/proof writers; do not treat client events as authoritative |
+| Source | Existing coverage | Auth-session correlation | Trace limitation |
+|---|---|---|---|
+| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | Present only when the bridge validated a user JWT and extracted its signed `session_id`; no direct Android/browser coverage | Laravel request `correlation_id` and provider request ID remain separate; W3C trace propagation is not implemented |
+| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | Present from the verified PostgREST JWT `session_id`; NULL for system/no-user actions | `correlation_id` remains transaction-local; no propagated trace ID |
+| `incident_status_logs` | Incident status changes | Not recorded | No trace ID |
+| `incident_claimability_logs` | Claimability transitions | Not recorded | No trace ID |
+| `incident_request_edit_logs` | Requester edit history | Not recorded | No trace ID |
+| `incident_assignment_events` | Assignment/release/team closure | Not recorded | No trace ID |
+| `admin_audit_logs` | Role-change audit | Not recorded | No trace ID |
+| `account_lifecycle_audit_logs` | Suspension/reactivation; separate protected reader, not part of the unified feed | Not recorded | Has a row-local `correlation_id`; no trace ID |
+| `auth.audit_log_entries` | Provider Auth events when Postgres persistence is enabled | Not exposed by the current feed; do not infer a session ID from undocumented payload fields | Optional persistence; project setting remains unverified |
+| `device_security_events` | Private registry table exists and has an Auth-session metadata column | Column exists, but no trusted writer populates it | No trusted challenge/proof writers; do not treat client events as authoritative |
+
+The current Admin session-inventory "Find activity" action searches the unified investigation feed by `auth_session_id`, but that join key is populated only on `app_action_audit_logs` and bridge-mediated `api_operation_logs` today (plus any device rows written by a future trusted writer). It therefore cannot yet find the full set of incident, assignment, requester-edit, role-change, or account-lifecycle events from the same session. This is a real coverage gap, not a UI search defect. Add the verified JWT session claim at each trusted PostgREST writer boundary, expose it in the feed's minimized details, and bring the separate account-lifecycle ledger into a session-searchable path before describing the inventory as a complete session activity timeline.
 
 The existing sources should remain distinct. Do not manufacture cross-source joins from actor ID plus timestamp proximity.
 
