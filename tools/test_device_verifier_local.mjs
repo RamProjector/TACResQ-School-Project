@@ -292,6 +292,14 @@ try {
   assert.equal(limited.status, 429, "persistent per-profile/session issuance limit must reject the sixth challenge");
   console.log("PASS: persistent per-profile/session challenge issuance limit is enforced");
 
+  const bravoExpiredSession = await createAdditionalSession(bravo);
+  psql(`UPDATE auth.sessions SET not_after = clock_timestamp() - interval '1 second' WHERE id = '${bravoExpiredSession.sessionId}'::uuid`);
+  const expiredAuthSession = await invoke(bravoExpiredSession, {
+    action: "issue", purpose: "session_proof", deviceId: bravoDevice,
+  });
+  assert.equal(expiredAuthSession.status, 400, "session beyond auth.sessions.not_after must be rejected even while its JWT signature is valid");
+  console.log("PASS: database rejects Auth sessions beyond their not_after deadline");
+
   // A still-unexpired JWT after sign-out must not issue a challenge because
   // the database boundary checks the live auth.sessions row.
   const logout = await request(`${api}/auth/v1/logout?scope=local`, {
