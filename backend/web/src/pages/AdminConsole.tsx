@@ -1685,12 +1685,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-table-wrap">
                   <table className="admin-table">
                     <caption className="admin-table-caption">Latest five authentication and device-security events returned by the protected investigation feed</caption>
-                    <thead><tr><th scope="col">Event</th><th scope="col">Account / actor</th><th scope="col">Auth session</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Severity</th><th scope="col">Account / actor</th><th scope="col">Auth session</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
                     <tbody>{recentAuthenticationEvents.map((event) => {
                       const authSessionId = typeof event.details.auth_session_id === "string" ? event.details.auth_session_id : null;
+                      const severity = typeof event.details.severity === "string" ? event.details.severity : null;
                       return (
                         <tr key={event.event_id}>
                           <td>{event.summary}</td>
+                          <td>{severity ? severity.toUpperCase() : "—"}</td>
                           <td>{event.actor_label}</td>
                           <td>{authSessionId ? <code title={authSessionId}>Session · {authSessionId.slice(-8)}</code> : "Not recorded"}</td>
                           <td className="admin-date">{formatDate(event.occurred_at)}</td>
