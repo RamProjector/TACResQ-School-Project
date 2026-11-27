@@ -16,6 +16,8 @@ DECLARE
   v_incident_id bigint;
   notification_id bigint;
   event_count integer;
+  correlation_count integer;
+  correlation_id uuid;
   feed jsonb;
 BEGIN
   SELECT id INTO requester_id FROM public.profiles
@@ -168,6 +170,16 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
   END IF;
+  SELECT count(DISTINCT audit.correlation_id), min(audit.correlation_id)
+    INTO correlation_count, correlation_id
+    FROM public.app_action_audit_logs audit
+   WHERE audit.actor_profile_id IN (requester_id, responder_id)
+     AND audit.action IN (
+       'duty_status_changed', 'incident_message_sent', 'notification_marked_read'
+     );
+  IF correlation_count <> 1 OR correlation_id IS NULL THEN
+    RAISE EXCEPTION 'App-action rows from one transaction must share one trusted correlation ID; found %', correlation_count;
+  END IF;
 
   BEGIN
     UPDATE public.app_action_audit_logs
@@ -232,6 +244,13 @@ BEGIN
   );
   IF (feed->>'total_count')::integer <> 2 THEN
     RAISE EXCEPTION 'Session-ID search should return only the requester session actions; found %', feed->>'total_count';
+  END IF;
+  feed := public.api_admin_list_investigation_events(
+    100, 0, correlation_id::text,
+    'all', 'app_action_audit_logs', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 3 THEN
+    RAISE EXCEPTION 'Transaction correlation search should return all three related app actions; found %', feed->>'total_count';
   END IF;
 
   IF feed::text ILIKE '%Synthetic private chat body%'
