@@ -20,7 +20,7 @@ for marker in (
 
 for marker in (
     'if (error?.code === "PGRST202")',
-    "The Admin investigation reader is not available in this database schema yet.",
+    "The Admin investigation reader is not visible in this database's API schema cache.",
 ):
     assert marker in client, f"Missing actionable investigation migration readiness error: {marker}"
 
