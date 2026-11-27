@@ -1,3 +1,17 @@
+## Admin session and security-event correlation investigation — 2026-11-27
+
+- **User-reported issue:** Admin Sessions and Security Alerts do not correlate and appear nonfunctional; requested error-log inspection.
+- **Source trace:** `backend/web/src/pages/AdminConsole.tsx` loads a five-event authentication preview through `getAdminInvestigationEventsPage`; `public.api_admin_list_investigation_events` reads `auth.audit_log_entries` but does not query `auth.sessions`, `public.device_sessions`, `public.device_security_events`, or `public.api_operation_logs`. The source allowlist also excludes the latter two relations.
+- **Correlation defect:** `app_action_audit_logs.correlation_id` is a row-local `gen_random_uuid()` default. The trigger does not propagate a trusted request identifier, so it cannot correlate a committed action with Auth, API, device, or session events.
+- **Read-only live Supabase snapshot (2026-11-27):** `auth.sessions` 15 rows; `auth.audit_log_entries` 0; `user_devices` 0; `device_sessions` 0; `device_security_events` 0; `device_integrity_checks` 0; `api_operation_logs` 0; `app_action_audit_logs` 0. Counts are point-in-time only.
+- **Provider log evidence:** The 24-hour unified Auth log stream contained 12 audit entries (six `token_refreshed`, six `token_revoked`) grouped into six provider request IDs. The current Admin RPC reads the empty database relation rather than the external/unified log stream. This is consistent with Auth Audit Log Postgres persistence being disabled, but the Dashboard setting has not been inspected and must not be changed without approval.
+- **Error-log inspection:** No Postgres error/fatal/warning, Auth error/fatal/warning, or matching Edge Function error entries were returned in the inspected 24-hour Supabase window. Render returned no TACResQ app logs, HTTP 5xx request logs, or matching service failure/deploy events in the inspected eight-hour window. This is bounded evidence, not a system-wide no-error claim.
+- **Documentation:** Added canonical master-plan Section 74, covering evidence, identifier semantics, root causes, privacy boundaries, implementation gates, and validation. Commit: `327c33aa3461f1ddecbc8b9ad2dc9bde5a6ff9ee`.
+- **Safety boundary:** No application runtime, schema, migration, RLS/grant, Auth setting, provider secret, Render configuration, production data, or deployment was changed.
+- **Next:** Verify the Supabase Auth Audit Logs database-persistence setting in the Dashboard; separately trace whether a trusted device-registration/proof writer is implemented and deployed. Then implement a protected session inventory and source-specific correlation contract before changing the Admin investigation RPC or alert UI. Do not treat row-local UUIDs as end-to-end correlation IDs.
+
+---
+
 ## Authenticated profile INSERT grant — 2026-11-27
 
 - **Exact-head CI:** At `db0958bc357b172cc0612c4fce16bcf7483430be`, main CI, QA, Security, Frontend Review, and read-only profile verification passed. The RPC grant contract failed at `Verify core table destructive privilege boundaries`.
