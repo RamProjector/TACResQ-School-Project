@@ -778,3 +778,80 @@ jobs:
 
       - name: Replay every migration on a clean database
         run: bash tools/test_supabase_migration_replay.sh
+
+
+  local-supabase-migration-compatibility:
+    name: Full local Supabase migration replay (advisory)
+    # The real Supabase stack is slower than the PostgreSQL contract job.
+    # Keep it advisory until startup, migrations, and teardown are repeatable.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect Supabase integration changes
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -Eq '^(supabase/migrations/|supabase/functions/|docs/QA_LOCAL_SUPABASE_CLI_COMPATIBILITY_SPIKE\\.md$|\\.github/workflows/ci\\.yml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No Supabase migration/function changes; skipping the advisory local stack."
+          fi
+
+      - name: Install pinned Supabase CLI
+        if: steps.scope.outputs.relevant == 'true'
+        uses: supabase/setup-cli@a9de0f0e1ffcf6ec895b135e292ddc76592d3c83 # v3
+        with:
+          version: 3.4.0
+
+      - name: Initialize and validate disposable local project
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF || true
+          test ! -e supabase/config.toml -o ! -e supabase/config.jsonc
+          if [ ! -e supabase/config.toml ] && [ ! -e supabase/config.jsonc ] && [ ! -e supabase/config.json ]; then
+            supabase init
+          fi
+          test ! -e supabase/.temp/project-ref
+          supabase --version
+          supabase config validate
+
+      - name: Start isolated Supabase services and replay all migrations
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          # No hosted project is linked and no remote flags are used. Redact
+          # generated local JWTs and key lines from startup output.
+          if ! supabase start 2>&1 | sed -E \\
+            -e 's/(service_role key:|anon key:|JWT secret:).*/\\1 [REDACTED]/I' \\
+            -e 's/eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g'; then
+            echo "Local Supabase startup or migration application failed."
+            exit 1
+          fi
+          supabase db reset --local
+          echo "Local Supabase migration replay completed."
+
+      - name: Stop local stack and delete its volumes
+        if: always() && steps.scope.outputs.relevant == 'true'
+        run: |
+          if [ -e supabase/config.toml ] || [ -e supabase/config.jsonc ] || [ -e supabase/config.json ]; then
+            supabase stop --no-backup || true
+          fi
