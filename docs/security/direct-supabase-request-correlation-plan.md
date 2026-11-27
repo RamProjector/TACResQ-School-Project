@@ -60,9 +60,10 @@ The current SQL writers were inspected before designing the parser migration:
 - `incident_request_edit_logs`: direct insert in `public.api_update_my_incident()`.
 - `incident_assignment_events`: `private.tacresq_log_assignment_membership_event()` on assignment insert/delete and `private.tacresq_log_incident_team_closure()` on incident closure.
 - `app_action_audit_logs`: `private.tacresq_record_app_action_audit()` triggers for incident-message sends, notification-read changes, and duty-status changes.
-- `admin_audit_logs`: direct insert in `public.api_admin_set_user_role()`; account lifecycle audit is written by its own trusted transition path.
+- `admin_audit_logs`: direct insert in `public.api_admin_set_user_role()`.
+- `account_lifecycle_audit_logs`: direct insert in `public.api_admin_set_account_status()`; this separate immutable ledger is rendered in the Admin lifecycle-history section and is not currently part of the unified investigation-feed union.
 
-These SQL writers execute in the originating database transaction and can read PostgREST's transaction-scoped request headers. Each writer still needs to call the private parser; merely adding a column will not populate it. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and needs explicit trace propagation through the bridge. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer.
+These SQL writers execute in the originating database transaction and can read PostgREST's transaction-scoped request headers. Each writer still needs to call the private parser; merely adding a column will not populate it. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and needs explicit trace propagation through the bridge. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer. Laravel's `local_account_lifecycle_events` belongs to the separate Sanctum identity domain and must not be assigned a Supabase Auth session or joined as if it shared the PostgREST caller context.
 
 ## 4. Supabase request correlation semantics
 
