@@ -166,6 +166,7 @@ UNAPPLIED_FORWARD_MIGRATIONS = {
     "20261127060000_admin_event_session_context.sql",
     "20261127070000_admin_session_activity_feed.sql",
     "20261127080000_admin_trace_context_correlation.sql",
+    "20261127090000_device_verifier_trusted_db_boundary.sql",
 }
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
