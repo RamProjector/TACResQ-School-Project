@@ -271,7 +271,10 @@ for marker in (
     "incident_request_edit_logs",
     "incident_claimability_logs",
     "incident_assignment_events",
-    "Admin session search did not find every stamped Admin event source",
+    "Admin session search did not find every stamped Admin and device-security event source",
+    "device_security_events",
+    "'severity', d.severity",
+    "'trace_id', d.trace_id",
     "Requester session search did not find incident status and edit events",
 ):
     assert marker in api_operation_test, f"Missing API-operation session attribution regression: {marker}"
