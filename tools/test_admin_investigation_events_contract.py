@@ -445,6 +445,9 @@ for marker in (
 trace_context = (ROOT / "backend/src/app/TraceContext.php").read_text()
 bridge = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
 audit_logger = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
+android_trace = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/W3CTraceContext.kt").read_text()
+android_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+android_trace_test = (ROOT / "app/src/test/java/com/tacresq/app/data/remote/W3CTraceContextTest.kt").read_text()
 for marker in (
     "request()->header('traceparent')",
     "'\\\\A00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})\\\\z/iD'",
@@ -456,6 +459,27 @@ assert "TraceContext::currentTraceparent()" in bridge
 assert "TraceContext::currentTraceparent()" in audit_logger
 assert "$headers['traceparent'] = $traceparent" in bridge
 assert "$additionalHeaders['traceparent'] = $traceparent" in audit_logger
+
+# Browser and Android shared transports emit fresh W3C context per request.
+for marker in (
+    "function createTraceparent(): string | null",
+    "globalThis.crypto.getRandomValues(bytes)",
+    'headers.set("traceparent", traceparent)',
+    "global: {",
+    "fetch: traceAwareFetch",
+):
+    assert marker in client, f"Missing browser trace propagation: {marker}"
+for marker in (
+    "object W3CTraceContext",
+    "SecureRandom()",
+    '"00-",
+    "class TraceparentInterceptor",
+    '.header("traceparent", W3CTraceContext.newTraceparent())',
+):
+    assert marker in android_trace, f"Missing Android trace generation/interceptor: {marker}"
+assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
+assert "everyHttpRequestGetsFreshTraceContext" in android_trace_test
+assert "generatedTraceparentUsesVersionZeroAndNonZeroIdentifiers" in android_trace_test
 
 # Device security rows are projected without arbitrary JSON details and
 # share Auth session IDs with API-operation telemetry for cross-source search.
