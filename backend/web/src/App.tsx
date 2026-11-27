@@ -44,6 +44,7 @@ function AuthGate() {
     const client = getSupabase();
     let mounted = true;
     let authEventVersion = 0;
+    const initialAuthEventVersion = authEventVersion;
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
       // A live auth event is newer than the initial getSession() snapshot.
@@ -53,7 +54,6 @@ function AuthGate() {
       setChecking(false);
     });
 
-    const initialAuthEventVersion = authEventVersion;
     void client.auth.getSession().then(({ data, error }) => {
       if (!mounted || authEventVersion !== initialAuthEventVersion) return;
       if (error) console.error("Unable to restore the Supabase session:", error.message);
