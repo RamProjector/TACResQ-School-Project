@@ -406,3 +406,24 @@ The following repository-only changes now exist on PR #370:
 - Session activity coverage now includes the signed Auth session claim on trusted incident, claimability, requester-edit, assignment, Admin role, and account-lifecycle events. The unified investigation feed exposes these fields and includes account lifecycle rows. The separate Laravel Sanctum lifecycle ledger remains isolated. `device_security_events` still has no trusted writer, and Supabase Auth audit payloads are not assumed to contain a session ID.
 
 No hosted migration, ACL update, Auth-session mutation, Render configuration change, production deployment, or merge was performed. PR #370 remains open and unmerged. The current PR head is documentation-only follow-up to the fully green code commit above; its checks are being rerun.
+
+
+### 11.9 W3C trace context milestone — repository implementation
+
+Migration `20261127080000_admin_trace_context_correlation.sql` adds a private, fail-open parser for W3C version-00 `traceparent`. It returns only the 32-character lowercase trace ID and rejects malformed headers, unsupported versions, all-zero trace IDs, and all-zero span IDs. The parser catches malformed request-header JSON and returns NULL rather than failing the event transaction.
+
+A private BEFORE INSERT trigger stamps nullable `trace_id` fields on the same nine trusted event tables that already carry Auth session attribution. The trigger overwrites any supplied column value from the transaction header; it does not accept a body-provided trace ID. Trace IDs are stored as 32-hex text, indexed, and constrained to the expected format. No foreign key to `auth.sessions` is added. Auth provider audit rows are not modified because their writer is provider-managed and no verified trace-header ingestion path has been established for that source.
+
+The protected Admin investigation feed includes trace IDs in its minimized details and supports exact 32-hex trace-ID search. The UI labels this value **W3C trace ID** and explicitly distinguishes it from Auth session IDs, Laravel correlation IDs, and Supabase provider request IDs. It does not present trace context as evidence of identity, compromise, or authorization.
+
+Laravel now validates inbound traceparent syntax before forwarding it to Supabase Auth, allowlisted RPC requests, and the metadata-only API-operation audit sink. This is propagation of caller-influenced context, not server-generated trace-root creation. Malformed values are omitted. The PHP bridge and audit logger do not store raw headers or add trace data to business payloads; PostgREST event triggers parse the forwarded header.
+
+Tests added:
+- PHP validation for valid/normalized, missing, malformed, unsupported-version, zero-trace, and zero-span headers.
+- Laravel bridge and audit-writer header propagation assertions.
+- PostgreSQL runtime parser checks for valid and invalid request contexts.
+- Trusted event-trigger assertions for API-operation, Admin, lifecycle, claimability, assignment, incident-status, and requester-edit rows.
+- Protected feed search assertions across independent traces.
+- Static migration, privacy, and Admin UI contracts.
+
+**Coverage limits:** Android and browser direct Supabase/Storage clients do not yet generate or propagate W3C trace context. Device-security events still have no trusted writer, and provider-managed Supabase Auth audit rows remain outside trace persistence. A missing trace ID therefore means only that no valid traceparent reached that event writer; it does not mean the event is absent or suspicious. The local PostgREST header-delivery integration proof remains the source of truth for gateway-to-database header availability. No hosted migration or deployment is authorized by this code change.
