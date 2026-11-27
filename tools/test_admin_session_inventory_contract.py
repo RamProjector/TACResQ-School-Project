@@ -230,7 +230,7 @@ for marker in (
     "Session-ID search should return only the requester session actions",
     "correlation_count <> 1",
     "api_correlation_id uuid",
-    "Transaction correlation search must return only the three app actions in that database transaction",
+    "Transaction correlation search must return all four app-action rows, including the system-attributed provisioning event",
     "Request correlation search must return only the related Laravel API operation",
     "Auth-session search should correlate app, device-security, and API operation events",
     "Device security feed exposed arbitrary event details",
