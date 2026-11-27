@@ -133,9 +133,11 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                 "status": "verified",
                 "created_at": "2026-01-01T00:00:00.000Z",
             }]
-            # The GoTrue REST endpoint returns a factors collection; auth-js
-            # derives the public all/totp/phone arrays from this response.
-            fulfill_json(route, {"factors": factors})
+            # The GoTrue REST endpoint returns the raw factor array; auth-js
+            # derives its all/totp/phone collections from these records.
+            if request.method == "GET":
+                fulfill_json(route, factors)
+                return
             return
 
         # Unanticipated calls should not be silently converted into fake success.
