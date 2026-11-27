@@ -1,3 +1,16 @@
+## 2026-11-27 — Advisory full local Supabase migration replay added
+
+- Added job local-supabase-migration-compatibility to the existing .github/workflows/ci.yml rather than a new workflow file, so the PR can execute it immediately without waiting for the workflow definition to reach main.
+- The job is advisory (continue-on-error), path-scoped to Supabase migrations/functions/config-plan/CI changes, and manually dispatchable. It installs Supabase CLI 3.4.0 through the SHA-pinned supabase/setup-cli action, creates/validates the local config on a fresh runner, starts the local Supabase stack, runs supabase db reset --local, and always stops the stack with --no-backup.
+- It receives no Supabase secrets, never links a project, uses no remote commands, disables CLI telemetry, and redacts generated local JWT/key output from startup logs. Existing PostgreSQL 16/17 replay and required CI gates remain intact.
+- Removed the standalone workflow prototype and folded its job into existing CI; the PR's existing CI definition now owns execution.
+- Documentation: extended docs/QA_LOCAL_SUPABASE_CLI_COMPATIBILITY_SPIKE.md with the implementation and trigger rationale.
+- **Validation status:** PR #370 head was 5bb0116ea22454d45076dd125cef43309d3237d1 at the last check; all six existing workflow groups were queued/in progress. The new advisory job result is not yet known. No successful local-stack replay is claimed.
+- **Next:** inspect the exact-head workflow jobs and local Supabase startup/migration logs; fix configuration or migration incompatibilities without weakening existing checks. Then add the isolated two-user JWT auth.uid()/session_id probe only after Stage A passes.
+- **Safety:** no hosted Supabase command, production migration, Edge Function deployment, Auth setting, secret, Render configuration, production data, deployment, session revocation, account suspension, or merge occurred.
+
+---
+
 ## 2026-11-27 — Local Supabase CLI compatibility spike and exact-head CI recheck
 
 - **Exact-head CI:** At 4ebe120bfa7bb02a7655f7f686bfe3c5aeabaa3e, all six PR workflow groups completed successfully: TACResQ CI (source, Android debug/release, clean PostgreSQL migration replay, Laravel/dashboard integration), RPC grant contract, Security (repository guardrails and CodeQL Android/Web/Actions), QA, Frontend Review, and read-only profile verification. The combined-status endpoint had no legacy status entries; workflow-run/job records are the evidence. This does not prove hosted migration state, manual Admin UI acceptance, or device-verifier JWT propagation.
