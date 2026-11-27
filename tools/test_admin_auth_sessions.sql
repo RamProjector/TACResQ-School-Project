@@ -64,7 +64,44 @@ INSERT INTO auth.sessions (
     NULL, NULL, NULL, NULL, NULL,
     'sensitive-user-agent-fixture', '192.0.2.25',
     'sensitive-refresh-hmac-fixture', 95, 'sensitive-scope-fixture'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000306',
+    '00000000-0000-4000-8000-000000000201',
+    '2026-11-27 03:00:00+00', '2026-11-27 03:05:00+00',
+    '2026-11-27 03:05:00', 'aal2', NULL,
+    'admin-session-fixture', '192.0.2.26',
+    'sensitive-refresh-hmac-fixture', 96, 'sensitive-scope-fixture'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000307',
+    '00000000-0000-4000-8000-000000000202',
+    '2026-11-27 03:10:00+00', '2026-11-27 03:15:00+00',
+    '2026-11-27 03:15:00', 'aal2', NULL,
+    'non-admin-session-fixture', '192.0.2.27',
+    'sensitive-refresh-hmac-fixture', 97, 'sensitive-scope-fixture'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000308',
+    '00000000-0000-4000-8000-000000000203',
+    '2026-11-27 03:20:00+00', '2026-11-27 03:25:00+00',
+    '2026-11-27 03:25:00', 'aal2', NULL,
+    'suspended-admin-session-fixture', '192.0.2.28',
+    'sensitive-refresh-hmac-fixture', 98, 'sensitive-scope-fixture'
   );
+
+INSERT INTO public.admin_audit_logs (
+  actor_user_id, actor_identity, target_user_id, action,
+  old_role, new_role, reason
+) VALUES (
+  (SELECT id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'),
+  'Session Inventory Admin',
+  (SELECT id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000202'),
+  'user_role_changed',
+  'requester',
+  'responder',
+  'Disposable audit fixture for session revocation policy'
+);
 
 SELECT set_config(
   'test.session_inventory_admin_id',
@@ -88,6 +125,21 @@ SELECT set_config(
 DO $privilege_contract$
 BEGIN
   IF NOT has_function_privilege(
+    'authenticated',
+    'private.tacresq_current_auth_session_present_read()',
+    'EXECUTE'
+  ) OR has_function_privilege(
+    'authenticated',
+    'private.tacresq_current_auth_session_valid()',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'Only the read-only session predicate may be directly callable by authenticated';
+  END IF;
+  IF NOT has_function_privilege(
+    'authenticated',
+    'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)',
+    'EXECUTE'
+  ) THEN
     'authenticated',
     'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)',
     'EXECUTE'
@@ -121,7 +173,7 @@ SELECT set_config(
 );
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000201","aal":"aal2","amr":[{"method":"totp"}]}'::text,
+  '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000306","aal":"aal2","amr":[{"method":"totp"}]}'::text,
   true
 );
 
@@ -134,7 +186,62 @@ DECLARE
   v_cursor_created_at timestamptz;
   v_cursor_session_id uuid;
   v_rejected boolean;
+  v_visible_audit_rows bigint;
 BEGIN
+  IF NOT private.tacresq_current_auth_session_valid()
+     OR NOT private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'Current Admin session should pass both session predicates';
+  END IF;
+  SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
+  IF v_visible_audit_rows <> 1 THEN
+    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access';
+  END IF;
+
+  -- A syntactically valid session UUID owned by another user must not pass.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000301","aal":"aal2","amr":[{"method":"totp"}]}',
+    true
+  );
+  IF private.tacresq_current_auth_session_valid()
+     OR private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A different user''s session UUID must not authenticate this Admin';
+  END IF;
+
+  -- Missing, malformed, and all-zero session claims fail closed without a cast error.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000201","aal":"aal2","amr":[{"method":"totp"}]}',
+    true
+  );
+  IF private.tacresq_current_auth_session_valid()
+     OR private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A missing session_id claim must fail closed';
+  END IF;
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"not-a-uuid","aal":"aal2","amr":[{"method":"totp"}]}',
+    true
+  );
+  IF private.tacresq_current_auth_session_valid()
+     OR private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A malformed session_id claim must fail closed';
+  END IF;
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-0000-0000-000000000000","aal":"aal2","amr":[{"method":"totp"}]}',
+    true
+  );
+  IF private.tacresq_current_auth_session_valid()
+     OR private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'An all-zero session_id claim must fail closed';
+  END IF;
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000306","aal":"aal2","amr":[{"method":"totp"}]}',
+    true
+  );
+
   v_page_one := public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
   IF jsonb_array_length(v_page_one -> 'items') <> 2
      OR v_page_one ->> 'has_more' <> 'true'
@@ -224,7 +331,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000202', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000202","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000202","session_id":"00000000-0000-4000-8000-000000000307","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
   v_rejected := false;
@@ -272,7 +379,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000203', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000203","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000308","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
   v_rejected := false;
@@ -286,5 +393,50 @@ BEGIN
   END IF;
 END;
 $session_reader_contract$;
+
+-- Delete the synthetic Admin Auth session as the database owner, then prove
+-- the same still-shaped AAL2/TOTP claims cannot read or invoke Admin surfaces.
+RESET ROLE;
+DELETE FROM auth.sessions
+ WHERE id = '00000000-0000-4000-8000-000000000306';
+SET LOCAL ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-4000-8000-000000000201',
+  true
+);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000306","aal":"aal2","amr":[{"method":"totp"}]}',
+  true
+);
+
+DO $revoked_session_contract$
+DECLARE
+  v_rejected boolean := false;
+  v_visible_audit_rows bigint;
+BEGIN
+  IF private.tacresq_current_auth_session_valid()
+     OR private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A deleted Auth session row must fail both session predicates';
+  END IF;
+
+  SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
+  IF v_visible_audit_rows <> 0 THEN
+    RAISE EXCEPTION 'A revoked Admin session must lose direct audit-history access';
+  END IF;
+
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(
+      current_setting('test.session_inventory_target_id')::bigint, 2, NULL, NULL
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'A revoked Admin session must be denied by protected Admin RPCs';
+  END IF;
+END;
+$revoked_session_contract$;
 
 ROLLBACK;
