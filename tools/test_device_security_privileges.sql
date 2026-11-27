@@ -124,6 +124,63 @@ BEGIN
     RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
   END IF;
 
+  -- The dedicated verifier login is the only caller of private device
+  -- routines. It has no direct registry-table privileges and no RLS bypass.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = 'tacresq_device_verifier'
+      AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
+      AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit
+  ) THEN
+    RAISE EXCEPTION 'Dedicated device verifier role is missing or over-privileged';
+  END IF;
+
+  IF NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_get_challenge(uuid,uuid,uuid)',
+       'EXECUTE'
+     )
+     OR NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_complete_challenge(uuid,uuid,uuid,text,text,text,text,text)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'Dedicated device verifier role is missing a required private function grant';
+  END IF;
+
+  FOREACH privilege_name IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] LOOP
+    IF has_table_privilege('tacresq_device_verifier', 'public.user_devices', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_sessions', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_challenges', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_security_events', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_integrity_checks', privilege_name) THEN
+      RAISE EXCEPTION 'Dedicated verifier role unexpectedly has direct table privilege %', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF has_function_privilege(
+       'authenticated',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR has_function_privilege(
+       'service_role',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR has_function_privilege(
+       'anon',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'A client or service_role can invoke the private device verifier';
+  END IF;
+
   -- Identity sequences are backend-only too; table grants alone do not
   -- protect INSERT ... RETURNING paths or direct sequence calls.
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
