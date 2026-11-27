@@ -423,9 +423,13 @@ Do not run this proof against the hosted TACResQ project and do not create a pro
 - Test that a failure rolls back all state changes and creates only the explicitly defined rejection event (if policy calls for one); it must never leave a partially bound device session.
 - Keep Admin TOTP/AAL2 requirements independent of device proof. Device recognition never grants a role and never blocks requester SOS submission.
 
-### Explicit implementation decision
+### Explicit implementation decision and runtime evidence
 
-The JWT-context proof is now a well-supported implementation path, but it has **not yet been executed**. Documentation and official examples establish the correct pattern; only the disposable runtime test above can prove the exact TACResQ function-to-PostgREST path. Do not treat documentation, a mocked Laravel HTTP test, a decoded JWT payload, or the existing PostgreSQL-only CI workflow as runtime proof.
+The original disposable local Auth-to-PostgREST identity proof **passed** on commit `c545506d8810d38b04c7a76afc293b580e823406` in PR #370. It used real Auth-issued JWTs for two synthetic local users and verified PostgreSQL `auth.uid()`, signed `session_id` propagation, cross-user isolation under concurrent requests, rejection of missing/malformed/expired/anonymous credentials, and resistance to body-supplied identity spoofing. The proof ran only against a disposable loopback Supabase stack; it did not use hosted TACResQ data or credentials.
+
+A subsequent extension adds local sign-out revocation-boundary assertions: the matching `auth.sessions` row is deleted, the old unexpired access JWT remains accepted by ordinary stateless PostgREST JWT verification, and the revoked refresh token is rejected. CI path detection was corrected so edits to `tools/test_supabase_jwt_context.py` trigger that local job. This extended revocation proof is part of the current PR #370 verification and must be confirmed against its latest head before it is treated as passed.
+
+Do not conflate the original JWT-context proof with immediate access-token invalidation. A stale access JWT can remain cryptographically valid until expiry; sensitive operations that require immediate sign-out enforcement must independently check the signed `session_id` against `auth.sessions`. Do not treat documentation, a mocked Laravel HTTP test, a decoded JWT payload, or PostgreSQL-only CI as a substitute for the disposable Auth/PostgREST runtime proof.
 
 
 ### Supabase-supported test conventions
