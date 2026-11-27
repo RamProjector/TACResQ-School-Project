@@ -14,7 +14,9 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from playwright.sync_api import Browser, Page, Route, expect, sync_playwright
@@ -149,6 +151,29 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
                 "contract_version": "session_trace_v1",
                 "events": [],
                 "total_count": 0,
+            })
+            return
+
+        if "/rest/v1/rpc/api_admin_analytics_summary" in url:
+            params = request.post_data_json or {}
+            period_end = str(params.get("p_to", ""))
+            period_start = str(params.get("p_from", ""))
+            report_day = datetime.fromisoformat(
+                period_end.replace("Z", "+00:00")
+            ).astimezone(ZoneInfo("Asia/Manila")).date().isoformat()
+            fulfill_json(route, {
+                "period_start": period_start,
+                "period_end": period_end,
+                "reporting_timezone": "Asia/Manila",
+                "total_requests": 1,
+                "pending": 0,
+                "active": 0,
+                "resolved": 1,
+                "cancelled": 0,
+                "average_assignment_minutes": 5,
+                "median_assignment_minutes": 4,
+                "assigned_request_count": 1,
+                "daily_requests": [{"day": report_day, "requests": 1}],
             })
             return
 
@@ -310,6 +335,21 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("heading", name="Audit history")).to_be_visible()
     expect(page.get_by_text("No matching activity")).to_be_visible(timeout=10000)
     completed.append("activity log loads the protected investigation feed and renders its truthful empty state")
+
+    # Aggregate analytics and CSV export use validated reporting data only.
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Analytics & reports").click()
+    expect(page.get_by_role("heading", name="Request performance")).to_be_visible()
+    expect(page.locator(".admin-analytics-metrics article strong")).to_have_text("1", timeout=10000)
+    expect(page.get_by_role("heading", name="Request status distribution")).to_be_visible()
+    expect(page.get_by_role("heading", name="Time to first assignment")).to_be_visible()
+    expect(page.get_by_role("heading", name="Daily requests")).to_be_visible()
+    with page.expect_download() as download_info:
+        page.get_by_role("button", name="Export incident performance report as CSV").click()
+    download = download_info.value
+    if not download.suggested_filename.endswith(".csv"):
+        raise AssertionError(f"Analytics export did not produce a CSV: {download.suggested_filename}")
+    expect(page.locator(".admin-analytics-export-notice")).to_contain_text("Export prepared:")
+    completed.append("analytics page renders validated aggregate metrics and exports a CSV")
     page.close()
 
     # Check both responsive layouts on the real login screen.
