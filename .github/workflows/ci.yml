@@ -880,7 +880,61 @@ jobs:
           supabase status -o env > "$status_file"
           chmod 600 "$status_file"
           python3 tools/test_supabase_jwt_context.py "$status_file"
-          rm -f "$status_file"
+
+      - name: Set up Node.js for device verifier integration
+        if: steps.scope.outputs.relevant == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Provision a disposable dedicated verifier database login
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          edge_env="$RUNNER_TEMP/tacresq-device-verifier.env"
+          supabase status -o env > "$status_file"
+          chmod 600 "$status_file"
+          python3 tools/prepare_device_verifier_local_env.py "$status_file" "$edge_env"
+
+      - name: Serve and exercise the device verifier against local Auth and PostgreSQL
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          edge_env="$RUNNER_TEMP/tacresq-device-verifier.env"
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          edge_log="$RUNNER_TEMP/tacresq-device-verifier-edge.log"
+          supabase functions serve tacresq-device-verifier --env-file "$edge_env" > "$edge_log" 2>&1 &
+          edge_pid=$!
+          echo "$edge_pid" > "$RUNNER_TEMP/tacresq-device-verifier.pid"
+          ready=false
+          for attempt in $(seq 1 45); do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --request POST --header "apikey: $(sed -n 's/^ANON_KEY=//p' "$status_file" | tr -d '"')" \
+              "http://127.0.0.1:54321/functions/v1/tacresq-device-verifier" || true)"
+            if [ "$status" != "000" ]; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            cat "$edge_log"
+            echo "Local device verifier Edge Function did not start."
+            exit 1
+          fi
+          node tools/test_device_verifier_local.mjs "$status_file" "$edge_env"
+
+      - name: Stop local device verifier and remove ephemeral credentials
+        if: always() && steps.scope.outputs.relevant == 'true'
+        run: |
+          if [ -f "$RUNNER_TEMP/tacresq-device-verifier.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/tacresq-device-verifier.pid")" 2>/dev/null || true
+          fi
+          rm -f "$RUNNER_TEMP/tacresq-device-verifier.pid" \
+            "$RUNNER_TEMP/tacresq-device-verifier.env" \
+            "$RUNNER_TEMP/tacresq-device-verifier-edge.log" \
+            "$RUNNER_TEMP/tacresq-supabase-local.env"
 
       - name: Stop local stack and delete its volumes
         if: always() && steps.scope.outputs.relevant == 'true'
