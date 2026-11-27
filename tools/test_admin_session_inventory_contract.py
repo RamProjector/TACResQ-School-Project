@@ -293,6 +293,9 @@ for marker in (
     "const correlationId = typeof event.details.correlation_id",
     'navigateToSection("audit", authSessionId)',
     'navigateToSection("audit", relatedReference)',
+    "Auth audit-log database persistence is enabled",
+    "external provider logs are not read here",
+    "trusted server writer, which is not implemented yet",
 ):
     assert marker in admin_console_source, f"Security preview does not link related activity: {marker}"
 assert 'className="admin-security-event-reference"' in admin_console_source
