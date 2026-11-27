@@ -22,7 +22,12 @@ required = (
     "FROM auth.sessions AS s",
     "WHERE s.user_id = v_target_auth_user_id",
     "ORDER BY s.created_at DESC NULLS LAST, s.id DESC",
+    "WITH page AS MATERIALIZED",
     "LIMIT p_limit + 1",
+    "items AS MATERIALIZED",
+    "page_state AS",
+    "next_cursor AS",
+    "ORDER BY created_at ASC NULLS FIRST, id ASC",
     "'session_id', i.id",
     "'last_refreshed_at', i.refreshed_at",
     "'record_status', 'record_present'",
@@ -35,6 +40,7 @@ required = (
     "REVOKE ALL ON FUNCTION public.api_admin_list_auth_sessions_page",
     "FROM PUBLIC, anon, service_role",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_auth_sessions_page",
+    "TO authenticated",
     "TO authenticated",
 )
 for marker in required:
