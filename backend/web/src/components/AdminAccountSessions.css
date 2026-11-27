@@ -42,16 +42,19 @@
 }
 .admin-account-sessions__list {
   display: grid;
-  gap: 10px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .admin-account-sessions__record {
-  padding: 13px;
-  border: 1px solid var(--admin-border, #d8dde5);
-  border-radius: 12px;
-  background: var(--admin-surface-subtle, #f8fafc);
+  padding: 13px 0;
+  border-bottom: 1px solid var(--admin-border, #d8dde5);
+  border-radius: 0;
+  background: transparent;
+}
+.admin-account-sessions__list li:first-child .admin-account-sessions__record {
+  border-top: 1px solid var(--admin-border, #d8dde5);
 }
 .admin-account-sessions__record-title {
   display: flex;
