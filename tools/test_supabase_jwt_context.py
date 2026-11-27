@@ -257,8 +257,8 @@ def main() -> int:
         print("PASS: each caller JWT preserved its own auth.uid()/session_id and passed both session predicates")
 
         # PostgREST exposes incoming HTTP headers through its transaction-local
-        # request.headers setting. This proves delivery only: traceparent remains
-        # client-influenced and must never become identity or authorization input.
+        # request.headers setting and the private parser's returned trace ID.
+        # Traceparent remains client-influenced and is never identity or authorization input.
         traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
         traced = probe(users[0], extra_headers={"traceparent": traceparent})
         if traced.get("traceparent_header") != traceparent:
@@ -395,7 +395,7 @@ def main() -> int:
             )
         print("PASS: refresh token from the revoked local session was rejected")
 
-        print("RESULT: local Auth -> PostgREST JWT context and revocation-boundary proof passed")
+        print("RESULT: local Auth -> PostgREST JWT, revocation-boundary, and W3C trace-context proof passed")
         return 0
     finally:
         if probe_created:
