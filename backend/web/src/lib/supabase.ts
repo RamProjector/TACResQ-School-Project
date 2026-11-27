@@ -23,6 +23,9 @@ export interface AdminInvestigationEvent {
 export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
 export interface AdminAccountLifecycleEvent { id: number; actor_profile_id: number; actor_identity: string; target_profile_id: number; target_name: string; action: "account_suspended" | "account_reactivated"; previous_status: "active" | "suspended"; new_status: "active" | "suspended"; reason: string; created_at: string; }
 export interface AdminAccountLifecyclePage { events: AdminAccountLifecycleEvent[]; total_count: number; }
+export interface AdminAuthSession { session_id: string; created_at: string | null; updated_at: string | null; last_refreshed_at: string | null; aal: string | null; not_after: string | null; record_status: "record_present"; validity_assessment: "not_evaluated"; }
+export interface AdminAuthSessionCursor { created_at: string | null; session_id: string; }
+export interface AdminAuthSessionPage { items: AdminAuthSession[]; has_more: boolean; next_cursor: AdminAuthSessionCursor | null; source: "supabase_auth_sessions"; source_status: "available"; observed_at: string; status_semantics: string; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
@@ -78,6 +81,7 @@ type TacruDatabase = {
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
       api_admin_list_account_lifecycle_events: { Args: { p_limit: number; p_offset: number }; Returns: AdminAccountLifecyclePage };
+      api_admin_list_auth_sessions_page: { Args: { p_target_profile_id: number; p_limit: number; p_before_created_at: string | null; p_before_session_id: string | null }; Returns: AdminAuthSessionPage };
       api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_source: AdminInvestigationSource; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
@@ -237,6 +241,82 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
   }
   return page;
 }
+export async function getAdminAuthSessionsPage(
+  profileId: number,
+  limit = 10,
+  cursor: AdminAuthSessionCursor | null = null,
+): Promise<AdminAuthSessionPage> {
+  if (!Number.isSafeInteger(profileId) || profileId < 1) {
+    throw new Error("A valid account is required to retrieve session records.");
+  }
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+    throw new Error("The session page size is outside the allowed range.");
+  }
+
+  const { data, error } = await getSupabase().rpc("api_admin_list_auth_sessions_page", {
+    p_target_profile_id: profileId,
+    p_limit: limit,
+    p_before_created_at: cursor?.created_at ?? null,
+    p_before_session_id: cursor?.session_id ?? null,
+  });
+  throwAdminError(error);
+
+  if (!data || typeof data !== "object") {
+    throw new Error("The Admin service returned an invalid session page.");
+  }
+  const page = data as unknown as AdminAuthSessionPage;
+  if (
+    !Array.isArray(page.items)
+    || page.items.length > limit
+    || typeof page.has_more !== "boolean"
+    || page.source !== "supabase_auth_sessions"
+    || page.source_status !== "available"
+    || typeof page.observed_at !== "string"
+    || !Number.isFinite(Date.parse(page.observed_at))
+    || typeof page.status_semantics !== "string"
+    || (page.next_cursor !== null && (
+      !page.next_cursor
+      || typeof page.next_cursor.session_id !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(page.next_cursor.session_id)
+      || (page.next_cursor.created_at !== null && (
+        typeof page.next_cursor.created_at !== "string"
+        || !Number.isFinite(Date.parse(page.next_cursor.created_at))
+      ))
+    ))
+    || (page.has_more && page.next_cursor === null)
+    || (!page.has_more && page.next_cursor !== null)
+  ) {
+    throw new Error("The Admin service returned an invalid session page.");
+  }
+
+  const seen = new Set<string>();
+  for (const item of page.items) {
+    if (
+      !item || typeof item !== "object"
+      || typeof item.session_id !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.session_id)
+      || !["record_present"].includes(item.record_status)
+      || item.validity_assessment !== "not_evaluated"
+      || (item.aal !== null && !["aal1", "aal2"].includes(item.aal))
+      || [item.created_at, item.updated_at, item.last_refreshed_at, item.not_after].some(
+        (value) => value !== null && (typeof value !== "string" || !Number.isFinite(Date.parse(value))),
+      )
+      || seen.has(item.session_id)
+    ) {
+      throw new Error("The Admin service returned an invalid session record.");
+    }
+    seen.add(item.session_id);
+  }
+
+  if (page.has_more && page.items.length !== limit) {
+    throw new Error("The Admin service returned an incomplete session cursor.");
+  }
+  if (page.has_more && page.items[page.items.length - 1]?.session_id !== page.next_cursor?.session_id) {
+    throw new Error("The Admin service returned a mismatched session cursor.");
+  }
+  return page;
+}
+
 export async function setAdminUserRole(userId: number, role: AdminManagedRole, reason: string): Promise<AdminRoleChangeResult> {
   const { data, error } = await getSupabase().rpc("api_admin_set_user_role", { p_user_id: userId, p_role: role, p_reason: reason });
   if (error) {
