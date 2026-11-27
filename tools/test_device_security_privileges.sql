@@ -129,6 +129,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_roles
     WHERE rolname = 'tacresq_device_verifier'
+      AND NOT rolcanlogin
       AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
       AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit
   ) THEN
