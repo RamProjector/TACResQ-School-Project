@@ -37,6 +37,96 @@ INSERT INTO public.api_operation_logs (
     503, 241, 'sb-rpc-request-fixture-410', 'upstream_unavailable'
   );
 
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000402',
+  'api-operation-investigation-requester@example.test',
+  '{"name":"Session Correlation Requester","phone":"+639171234568"}'::jsonb
+);
+
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000402',
+  '00000000-0000-4000-8000-000000000402'
+);
+
+-- Exercise the real BEFORE INSERT session-stamping triggers using two
+-- independent signed-JWT contexts. The feed reader below remains Admin-only.
+DO $session_event_fixtures$
+DECLARE
+  v_admin_profile_id bigint;
+  v_requester_profile_id bigint;
+  v_incident_id bigint;
+BEGIN
+  SELECT id INTO v_admin_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000401';
+  SELECT id INTO v_requester_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000402';
+
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000402', true);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000402","session_id":"10000000-0000-4000-8000-000000000402","aal":"aal1","amr":[{"method":"password"}]}'::text,
+    true);
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude, status
+  ) VALUES (
+    v_requester_profile_id, 'medical', 'Disposable session-correlation fixture',
+    10.0, 10.0, 'pending'
+  ) RETURNING id INTO v_incident_id;
+
+  INSERT INTO public.incident_request_edit_logs (
+    incident_id, requester_id, edit_number, before_values, after_values
+  ) VALUES (
+    v_incident_id, v_requester_profile_id, 1,
+    '{"type":"medical"}'::jsonb, '{"type":"fire"}'::jsonb
+  );
+
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000401', true);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000401","session_id":"10000000-0000-4000-8000-000000000401","aal":"aal2","amr":[{"method":"totp"}]}'::text,
+    true);
+
+  INSERT INTO public.incident_claimability_logs (
+    incident_id, actor_profile_id, source_rpc, previous_claimable,
+    new_claimable, incident_status
+  ) VALUES (
+    v_incident_id, v_admin_profile_id, 'api_set_incident_claimable',
+    false, true, 'pending'
+  );
+
+  INSERT INTO public.incident_assignment_events (
+    incident_id, user_id, event_type, actor_user_id, source,
+    assignment_status, incident_status
+  ) VALUES (
+    v_incident_id, v_requester_profile_id, 'assigned', v_admin_profile_id,
+    'assignment_insert', NULL, 'pending'
+  );
+
+  INSERT INTO public.admin_audit_logs (
+    actor_user_id, actor_identity, target_user_id, action,
+    old_role, new_role, reason
+  ) VALUES (
+    v_admin_profile_id, 'Session Correlation Admin', v_requester_profile_id,
+    'user_role_changed', 'requester', 'responder',
+    'Disposable session correlation fixture'
+  );
+
+  INSERT INTO public.account_lifecycle_audit_logs (
+    actor_profile_id, actor_identity, target_profile_id, action,
+    previous_status, new_status, reason
+  ) VALUES (
+    v_admin_profile_id, 'Session Correlation Admin', v_requester_profile_id,
+    'account_suspended', 'active', 'suspended',
+    'Disposable session correlation fixture'
+  );
+END;
+$session_event_fixtures$;
+
 DO $privilege_contract$
 BEGIN
   IF NOT has_function_privilege(
@@ -131,6 +221,56 @@ BEGIN
   );
   IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
     RAISE EXCEPTION 'Searching the Auth session ID must return both bridge events: %', v_by_correlation;
+  END IF;
+
+  -- The Admin session must find Admin role, lifecycle, claimability, and
+  -- assignment events through the same Auth session ID.
+  v_by_correlation := public.api_admin_list_investigation_events(
+    25, 0, '10000000-0000-4000-8000-000000000401',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'admin_audit_logs'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'account_lifecycle_audit_logs'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'incident_claimability_logs'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'incident_assignment_events'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
+  ) THEN
+    RAISE EXCEPTION 'Admin session search did not find every stamped Admin event source: %', v_by_correlation;
+  END IF;
+
+  -- The requester session must also find its incident status and edit events,
+  -- while the query itself remains authorized by the separate Admin session.
+  v_by_correlation := public.api_admin_list_investigation_events(
+    25, 0, '10000000-0000-4000-8000-000000000402',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'incident_status_logs'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000402'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'incident_request_edit_logs'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000402'
+  ) THEN
+    RAISE EXCEPTION 'Requester session search did not find incident status and edit events: %', v_by_correlation;
   END IF;
 
   -- The same RPC must still reject an Admin token without AAL2/TOTP.
