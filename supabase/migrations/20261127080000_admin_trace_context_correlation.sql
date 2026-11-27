@@ -111,8 +111,8 @@ BEGIN
       v_table, v_table || '_trace_id_format_check'
     );
     EXECUTE format(
-      'CREATE INDEX IF NOT EXISTS %I ON public.%I (trace_id, created_at DESC)',
-      v_table || '_trace_id_created_idx', v_table
+      'CREATE INDEX IF NOT EXISTS %I ON public.%I (trace_id)',
+      v_table || '_trace_id_idx', v_table
     );
   END LOOP;
 END;
