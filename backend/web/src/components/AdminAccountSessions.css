@@ -55,12 +55,16 @@
 }
 .admin-account-sessions__record-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px 12px;
   margin-bottom: 10px;
   color: var(--admin-text, #17212f);
   font-size: 0.85rem;
+}
+.admin-account-sessions__record-title > strong {
+  margin-right: auto;
 }
 .admin-account-sessions__record-title span {
   color: var(--admin-muted, #667085);
