@@ -472,7 +472,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("heading", name="Recent authentication and device-security events")).to_be_visible()
     expect(page.get_by_role("heading", name="Admin access review")).to_be_visible()
     expect(page.get_by_text("Elevated (AAL2)")).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Test authenticator")).to_be_visible(timeout=10000)
+    expect(page.locator(".admin-security-status__factor-list strong")).to_have_text("Test authenticator", timeout=10000)
     completed.append("Security workspace renders verified TOTP/AAL2 state and authentication/access-review sections")
 
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Settings").click()
