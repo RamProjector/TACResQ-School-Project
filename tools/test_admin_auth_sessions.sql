@@ -418,7 +418,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000203', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000308","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000203","session_id":"00000000-0000-4000-8000-000000000308","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
   v_rejected := false;
