@@ -202,7 +202,7 @@ final class SupabaseBridge
 
         try {
             $claims = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\\JsonException) {
+        } catch (\JsonException) {
             return null;
         }
 
