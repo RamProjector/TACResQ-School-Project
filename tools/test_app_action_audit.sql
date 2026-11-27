@@ -17,7 +17,7 @@ DECLARE
   notification_id bigint;
   event_count integer;
   correlation_count integer;
-  correlation_id uuid;
+  app_correlation_id uuid;
   feed jsonb;
 BEGIN
   SELECT id INTO requester_id FROM public.profiles
@@ -171,13 +171,13 @@ BEGIN
     RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
   END IF;
   SELECT count(DISTINCT audit.correlation_id), min(audit.correlation_id)
-    INTO correlation_count, correlation_id
+    INTO correlation_count, app_correlation_id
     FROM public.app_action_audit_logs audit
    WHERE audit.actor_profile_id IN (requester_id, responder_id)
      AND audit.action IN (
        'duty_status_changed', 'incident_message_sent', 'notification_marked_read'
      );
-  IF correlation_count <> 1 OR correlation_id IS NULL THEN
+  IF correlation_count <> 1 OR app_correlation_id IS NULL THEN
     RAISE EXCEPTION 'App-action rows from one transaction must share one trusted correlation ID; found %', correlation_count;
   END IF;
 
@@ -188,7 +188,7 @@ BEGIN
     correlation_id, actor_auth_user_id, auth_session_id, provider, operation,
     source, outcome, http_status, duration_ms, provider_request_id, error_code
   ) VALUES (
-    correlation_id,
+    app_correlation_id,
     '00000000-0000-4000-8000-000000000170',
     '10000000-0000-4000-8000-000000000170',
     'supabase', 'rpc.api_me', 'render_api', 'failure', 401, 12,
@@ -270,7 +270,7 @@ BEGIN
     RAISE EXCEPTION 'Session-ID search should return only the requester session actions; found %', feed->>'total_count';
   END IF;
   feed := public.api_admin_list_investigation_events(
-    100, 0, correlation_id::text,
+    100, 0, app_correlation_id::text,
     'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
   IF (feed->>'total_count')::integer <> 4
