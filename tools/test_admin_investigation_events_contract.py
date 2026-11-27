@@ -74,6 +74,9 @@ for marker in (
     "SECURITY DEFINER",
     "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
+    'export interface AdminInvestigationPage { contract_version: "session_trace_v1";',
+    'page.contract_version !== "session_trace_v1"',
+    "This database's Admin investigation feed does not include the reviewed session and trace correlation contract.",
 ):
     assert marker in operation_migration, f"Missing API operation correlation contract: {marker}"
 # The writer's verified Auth session field must exist in the database,
@@ -138,6 +141,7 @@ for marker in (
     "'trace_id', d.trace_id",
     "'trace_id', o.trace_id",
     "e.details ->> 'trace_id' = v_query",
+    "'contract_version', 'session_trace_v1'",
 ):
     assert marker in trace_migration, f"Missing W3C trace context migration contract: {marker}"
 assert "REFERENCES auth.sessions" not in trace_migration
