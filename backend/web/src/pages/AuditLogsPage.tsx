@@ -314,7 +314,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <details className="audit-page__coverage-details">
         <summary>Audit coverage and limitations</summary>
-        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span></div>
+        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Eight source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, direct-client API/Storage activity, and FCM delivery attempts are not included.</span></div>
       </details>
 
       <details className="audit-page__coverage-details">
@@ -329,7 +329,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Incident claiming</strong><span>Feed reader: integrated. Shows recorded claimability history; an empty result does not verify trigger health or prove no claimability changes occurred.</span></li>
               <li><strong>Requester edits</strong><span>Feed reader: integrated. Shows allowlisted changed-field names only; private before/after snapshots are excluded. Empty results are not a writer-health check.</span></li>
               <li><strong>Responder assignments</strong><span>Feed reader: integrated. Shows recorded assignment, release, and team-closure events; an empty result may simply mean none were recorded in the selected range.</span></li>
-              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
+              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Bounded metadata includes the verified Auth session ID when the action has a user JWT; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
+              <li><strong>Laravel API operations</strong><span>Feed reader: integrated for bridge-mediated requests. Records request correlation ID, provider request ID, and verified Auth session ID when available. This best-effort source does not cover direct Android/browser Supabase or Storage calls.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
@@ -338,7 +339,6 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
               <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
               <li><strong>Direct-client API and Storage activity</strong><span>Laravel telemetry does not cover direct Android or browser Supabase calls.</span></li>
-              <li><strong>Laravel API operation telemetry</strong><span>The server-side telemetry source is not included in this feed, is best-effort, and covers only Laravel-mediated requests—not direct Android/browser Supabase or Storage calls.</span></li>
               <li><strong>FCM delivery attempts</strong><span>The server-only delivery-attempt ledger is not included in this feed. Provider acceptance does not prove device receipt or user acknowledgement.</span></li>
               <li><strong>Retention and integrity policy</strong><span>A single reviewed retention schedule, export-control policy, and cross-source integrity/restore standard is not established for every audit source.</span></li>
             </ul>
@@ -400,7 +400,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
-          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events or details" aria-label="Search investigation history" />
+          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events, correlation IDs or session IDs" aria-label="Search investigation history" />
         </label>
         <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="operations">API operations</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -485,6 +485,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                         </dd>
                       </div>
                     )}
+                    {getTechnicalReference(event, "auth_session_id") && (
+                      <div>
+                        <dt>Auth session ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "auth_session_id")}</code>
+                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "auth_session_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events from this Auth session" title="Find session activity">Find related</button>
+                        </dd>
+                      </div>
+                    )}
                     {getTechnicalReference(event, "provider_request_id") && (
                       <div>
                         <dt>Provider request ID</dt>
@@ -516,7 +525,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || page + 1 >= pageCount}>Next <ChevronRight size={14} /></button>
         </div>
       </nav>
-      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, and metadata-only app-action records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, metadata-only app-action, and Laravel API-operation records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Auth session IDs are recorded only when the source has a verified JWT context; correlation IDs and provider request IDs remain distinct. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. Direct-client API/Storage activity, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }
