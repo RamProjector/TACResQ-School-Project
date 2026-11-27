@@ -141,6 +141,21 @@ BEGIN
     RAISE EXCEPTION 'Dedicated verifier role has incorrect private-schema privileges';
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+      FROM pg_proc AS p
+      JOIN pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'private'
+       AND has_function_privilege('tacresq_device_verifier', p.oid, 'EXECUTE')
+       AND p.oid NOT IN (
+         'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)'::regprocedure,
+         'private.device_verifier_get_challenge(uuid,uuid,uuid)'::regprocedure,
+         'private.device_verifier_complete_challenge(uuid,uuid,uuid,text,text,text,text,text)'::regprocedure
+       )
+  ) THEN
+    RAISE EXCEPTION 'Dedicated verifier role can execute an unapproved private function';
+  END IF;
+
   IF NOT has_function_privilege(
        'tacresq_device_verifier',
        'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
