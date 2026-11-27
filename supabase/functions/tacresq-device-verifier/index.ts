@@ -103,14 +103,6 @@ async function verifiedClaims(request: Request): Promise<{
   return { authUserId: claims.sub, authSessionId: claims.session_id };
 }
 
-async function callJsonFunction<T>(
-  name: string,
-  args: Record<string, unknown>,
-): Promise<T> {
-  const rows = await db`select private.${db(name)}(${db.json(args)}) as result`;
-  return rows[0]?.result as T;
-}
-
 // postgres.js cannot parameterize an identifier. Keep the function names
 // fixed in this allowlist; all values remain bound parameters.
 async function issue(
