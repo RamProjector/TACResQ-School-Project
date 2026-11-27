@@ -37,6 +37,7 @@ AS $function$
   SELECT jsonb_build_object(
     'actual_uid', auth.uid(),
     'actual_session_id', auth.jwt() ->> 'session_id',
+    'session_present', private.tacresq_current_auth_session_present_read(),
     'claimed_sub', p_claimed_sub,
     'claimed_session_id', p_claimed_session_id
   );
@@ -45,9 +46,27 @@ REVOKE ALL ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.__tacresq_session_valid_probe()
+RETURNS boolean
+LANGUAGE sql
+VOLATILE
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+  SELECT private.tacresq_current_auth_session_valid();
+$function$;
+REVOKE ALL ON FUNCTION public.__tacresq_session_valid_probe()
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.__tacresq_session_valid_probe()
+  TO authenticated;
 NOTIFY pgrst, 'reload schema';
 """
-DROP_SQL = "DROP FUNCTION IF EXISTS public.__tacresq_jwt_context_probe(uuid, uuid); NOTIFY pgrst, 'reload schema';"
+DROP_SQL = """
+DROP FUNCTION IF EXISTS public.__tacresq_session_valid_probe();
+DROP FUNCTION IF EXISTS public.__tacresq_jwt_context_probe(uuid, uuid);
+NOTIFY pgrst, 'reload schema';
+"""
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -102,23 +121,26 @@ def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def expired_signed_jwt(secret: str, valid_token: str) -> str:
-    import base64
+def signed_jwt(secret: str, claims: dict) -> str:
     import hashlib
     import hmac
 
-    segments = valid_token.split(".")
-    if len(segments) != 3:
-        raise AssertionError("Cannot derive expiry test from malformed Auth token")
-    claims = json.loads(base64.urlsafe_b64decode(segments[1] + "=" * (-len(segments[1]) % 4)))
-    now = int(time.time())
-    claims["iat"] = now - 7200
-    claims["exp"] = now - 3600
     header = b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     payload = b64url(json.dumps(claims, separators=(",", ":")).encode())
     unsigned = f"{header}.{payload}"
     signature = hmac.new(secret.encode(), unsigned.encode(), hashlib.sha256).digest()
     return f"{unsigned}.{b64url(signature)}"
+
+
+def expired_signed_jwt(secret: str, valid_token: str) -> str:
+    segments = valid_token.split(".")
+    if len(segments) != 3:
+        raise AssertionError("Cannot derive expiry test from malformed Auth token")
+    claims = json.loads(__import__("base64").urlsafe_b64decode(segments[1] + "=" * (-len(segments[1]) % 4)))
+    now = int(time.time())
+    claims["iat"] = now - 7200
+    claims["exp"] = now - 3600
+    return signed_jwt(secret, claims)
 
 def main() -> int:
     if len(sys.argv) != 2:
@@ -175,21 +197,33 @@ def main() -> int:
         psql(cfg["DB_URL"], PROBE_SQL)
         time.sleep(1)
         def probe(user: dict[str, str], claimed_user: str | None = None,
-                  claimed_session: str | None = None) -> dict:
+                  claimed_session: str | None = None, token: str | None = None) -> dict:
             status, body = request_json(
                 f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
-                headers={**auth_headers, "Authorization": f"Bearer {user['token']}"},
+                headers={**auth_headers, "Authorization": f"Bearer {token or user['token']}"},
                 payload={"p_claimed_sub": claimed_user, "p_claimed_session_id": claimed_session},
             )
             if status != 200 or not isinstance(body, dict):
                 raise AssertionError(f"Authenticated PostgREST probe failed (HTTP {status})")
             return body
 
+        def session_valid(user: dict[str, str], token: str | None = None) -> bool:
+            status, body = request_json(
+                f"{api}/rest/v1/rpc/__tacresq_session_valid_probe", method="POST",
+                headers={**auth_headers, "Authorization": f"Bearer {token or user['token']}"},
+                payload={},
+            )
+            if status != 200 or not isinstance(body, bool):
+                raise AssertionError(f"Session-validity RPC probe failed (HTTP {status})")
+            return body
+
         for user in users:
             result = probe(user)
             if result.get("actual_uid") != user["id"] or result.get("actual_session_id") != user["session_id"]:
                 raise AssertionError("PostgREST auth.uid()/session_id did not match the caller JWT")
-        print("PASS: each caller JWT preserved its own auth.uid() and session_id through PostgREST")
+            if result.get("session_present") is not True or not session_valid(user):
+                raise AssertionError("A current Auth session must pass both read-only and row-locking session predicates")
+        print("PASS: each caller JWT preserved its own auth.uid()/session_id and passed both session predicates")
 
         spoofed = probe(users[0], users[1]["id"], users[1]["session_id"])
         if spoofed.get("actual_uid") != users[0]["id"] or spoofed.get("actual_session_id") != users[0]["session_id"]:
@@ -197,6 +231,22 @@ def main() -> int:
         if spoofed.get("claimed_sub") != users[1]["id"] or spoofed.get("claimed_session_id") != users[1]["session_id"]:
             raise AssertionError("Spoofing fixture did not reach the probe as expected")
         print("PASS: forged body identity/session fields did not override JWT-derived identity")
+
+        # A correctly signed JWT with another user's session_id must not pass
+        # the database ownership check, even though PostgREST accepts its signature.
+        forged_claims = json.loads(
+            __import__("base64").urlsafe_b64decode(
+                users[0]["token"].split(".")[1] + "=" * (-len(users[0]["token"].split(".")[1]) % 4)
+            )
+        )
+        forged_claims["session_id"] = users[1]["session_id"]
+        forged_token = signed_jwt(cfg["JWT_SECRET"], forged_claims)
+        forged_result = probe(users[0], token=forged_token)
+        if forged_result.get("actual_uid") != users[0]["id"] or forged_result.get("session_present") is not False:
+            raise AssertionError("A session_id owned by another Auth user passed the read-only session predicate")
+        if session_valid(users[0], forged_token):
+            raise AssertionError("A session_id owned by another Auth user passed the row-locking session predicate")
+        print("PASS: a validly signed JWT with another user's session_id failed the database ownership check")
 
         def concurrent_check(index: int) -> bool:
             user = users[index % 2]
@@ -276,7 +326,9 @@ def main() -> int:
             )
         if stale_body.get("actual_uid") != revoked_user["id"] or stale_body.get("actual_session_id") != revoked_user["session_id"]:
             raise AssertionError("PostgREST did not preserve claims from the still-unexpired revoked-session JWT")
-        print("PASS: old access JWT remains accepted by stateless PostgREST after sign-out")
+        if stale_body.get("session_present") is not False or session_valid(revoked_user):
+            raise AssertionError("The revoked session must fail database session checks while its JWT remains accepted")
+        print("PASS: old access JWT remains accepted by PostgREST but fails both database session checks after sign-out")
 
         refresh_status, _ = request_json(
             f"{api}/auth/v1/token?grant_type=refresh_token", method="POST",
