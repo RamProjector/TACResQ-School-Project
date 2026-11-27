@@ -184,6 +184,15 @@ try {
   const alphaSigned = await signedRequest(alpha, alphaRegistration, alphaPair, alphaPublicKey);
   const badSignature = { ...alphaSigned.payload, signatureDerBase64Url: encodeBase64Url(new Uint8Array([1, 2, 3])) };
   assert.equal((await invoke(alpha, badSignature)).status, 400, "malformed signature must be rejected");
+  const wrongPair = await makeKeyPair();
+  const wrongKeyProof = await signedRequest(alpha, alphaRegistration, wrongPair, alphaPublicKey);
+  assert.equal((await invoke(alpha, wrongKeyProof.payload)).status, 400, "signature from a different private key must be rejected");
+  const alteredChallenge = {
+    ...alphaRegistration,
+    challenge: encodeBase64Url(webcrypto.getRandomValues(new Uint8Array(32))),
+  };
+  const alteredChallengeProof = await signedRequest(alpha, alteredChallenge, alphaPair, alphaPublicKey);
+  assert.equal((await invoke(alpha, alteredChallengeProof.payload)).status, 400, "a valid signature over a challenge not matching the stored hash must be rejected");
   const registered = await invoke(alpha, alphaSigned.payload);
   assert.equal(registered.status, 200, `valid registration proof failed: HTTP ${registered.status}`);
   assert.equal(registered.data.trust_status, "active");
