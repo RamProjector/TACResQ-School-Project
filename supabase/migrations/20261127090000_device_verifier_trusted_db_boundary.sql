@@ -143,7 +143,7 @@ BEGIN
       '+/', '-_'
     ),
     'purpose', p_purpose,
-    'profile_id', v_profile_id,
+    'profile_id', v_profile_id::text,
     'device_uid', coalesce(v_device_uid::text, '-'),
     'expires_at', v_expires_at
   );
@@ -174,7 +174,7 @@ BEGIN
   SELECT pg_catalog.jsonb_build_object(
     'challenge_id', c.id,
     'purpose', c.purpose,
-    'profile_id', c.profile_id,
+    'profile_id', c.profile_id::text,
     'auth_session_id', c.auth_session_id,
     'device_id', c.device_id,
     'device_uid', coalesce(d.device_uid::text, '-'),
