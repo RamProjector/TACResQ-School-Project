@@ -10,6 +10,7 @@ session_feed_migration = (ROOT / "supabase/migrations/20261127070000_admin_sessi
 trace_migration = (ROOT / "supabase/migrations/20261127080000_admin_trace_context_correlation.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+auth_runtime_test = (ROOT / "tools/test_admin_api_operation_investigation.sql").read_text()
 
 for marker in (
     'export interface AdminInvestigationPage { contract_version: "session_trace_v1";',
@@ -282,6 +283,24 @@ assert "'ip_address'" not in auth_projection
 assert "user_agent" not in auth_projection
 assert "to_jsonb(a)" not in auth_projection
 
+# The disposable PostgreSQL runtime contract proves that the protected reader
+# consumes a provider-owned Auth audit row without inventing session/trace
+# attribution or exposing sensitive provider metadata.
+for marker in (
+    "INSERT INTO auth.audit_log_entries (id, payload, created_at)",
+    "'action', 'login'",
+    "'user_id', '00000000-0000-4000-8000-000000000401'",
+    "'supabase_auth_audit_logs'",
+    "'authentication'",
+    "'provider_action' = 'login'",
+    "NOT (rows.event -> 'details' ? 'auth_session_id')",
+    "NOT (rows.event -> 'details' ? 'trace_id')",
+    "NOT (rows.event -> 'details' ? 'ip_address')",
+    "NOT (rows.event -> 'details' ? 'user_agent')",
+    "NOT (rows.event -> 'details' ? 'payload')",
+):
+    assert marker in auth_runtime_test, f"Missing native Auth audit runtime assertion: {marker}"
+
 # Requester edit history contains location and narrative snapshots. The
 # investigation feed may reveal changed-field names, never snapshot values.
 assert "'before_values'" not in migration
@@ -324,7 +343,10 @@ for marker in (
     "All sources",
     "Coverage boundaries",
     "Feed reader: integrated.",
-    "Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting",
+    "Feed reader: integrated for the optional Postgres mirror only.",
+    "Supabase provider Auth audit events are separately available in external log storage; this page does not query that external stream.",
+    "The project's Postgres-persistence setting is not observable here",
+    "This page reads only the optional Supabase Auth Audit Logs Postgres mirror, not the separate external provider log stream.",
     "A zero-row result means no matching records were returned, not that no activity occurred.",
     "database event writers: integrated",
     "date boundaries and displayed times use Asia/Manila",
