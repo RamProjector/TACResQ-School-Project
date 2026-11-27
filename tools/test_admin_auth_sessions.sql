@@ -196,9 +196,8 @@ DECLARE
   v_rejected boolean;
   v_visible_audit_rows bigint;
 BEGIN
-  IF NOT private.tacresq_current_auth_session_valid()
-     OR NOT private.tacresq_current_auth_session_present_read() THEN
-    RAISE EXCEPTION 'Current Admin session should pass both session predicates';
+  IF NOT private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'Current Admin session should pass the read-only session predicate';
   END IF;
   SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
   IF v_visible_audit_rows <> 1 THEN
@@ -211,9 +210,17 @@ BEGIN
     '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000301","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
-  IF private.tacresq_current_auth_session_valid()
-     OR private.tacresq_current_auth_session_present_read() THEN
+  IF private.tacresq_current_auth_session_present_read() THEN
     RAISE EXCEPTION 'A different user''s session UUID must not authenticate this Admin';
+  END IF;
+  v_rejected := false;
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'An Admin RPC must reject a session UUID owned by another user';
   END IF;
 
   -- Missing, malformed, and all-zero session claims fail closed without a cast error.
@@ -222,8 +229,16 @@ BEGIN
     '{"sub":"00000000-0000-4000-8000-000000000201","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
-  IF private.tacresq_current_auth_session_valid()
-     OR private.tacresq_current_auth_session_present_read() THEN
+  IF private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A missing session_id claim must fail closed';
+  END IF;
+  v_rejected := false;
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
     RAISE EXCEPTION 'A missing session_id claim must fail closed';
   END IF;
   PERFORM set_config(
@@ -231,8 +246,16 @@ BEGIN
     '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"not-a-uuid","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
-  IF private.tacresq_current_auth_session_valid()
-     OR private.tacresq_current_auth_session_present_read() THEN
+  IF private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A malformed session_id claim must fail closed';
+  END IF;
+  v_rejected := false;
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
     RAISE EXCEPTION 'A malformed session_id claim must fail closed';
   END IF;
   PERFORM set_config(
@@ -240,8 +263,16 @@ BEGIN
     '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-0000-0000-000000000000","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
-  IF private.tacresq_current_auth_session_valid()
-     OR private.tacresq_current_auth_session_present_read() THEN
+  IF private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'An all-zero session_id claim must fail closed';
+  END IF;
+  v_rejected := false;
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
     RAISE EXCEPTION 'An all-zero session_id claim must fail closed';
   END IF;
   PERFORM set_config(
@@ -424,9 +455,8 @@ DECLARE
   v_rejected boolean := false;
   v_visible_audit_rows bigint;
 BEGIN
-  IF private.tacresq_current_auth_session_valid()
-     OR private.tacresq_current_auth_session_present_read() THEN
-    RAISE EXCEPTION 'A deleted Auth session row must fail both session predicates';
+  IF private.tacresq_current_auth_session_present_read() THEN
+    RAISE EXCEPTION 'A deleted Auth session row must fail the read-only session predicate';
   END IF;
 
   SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
