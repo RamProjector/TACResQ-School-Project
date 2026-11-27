@@ -91,7 +91,7 @@ def request_json(url: str, *, method: str = "GET", headers: dict[str, str] | Non
 
 def psql(db_url: str, sql: str, *, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["psql", db_url, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", sql],
+        ["psql", db_url, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A", "-c", sql],
         check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         env={**os.environ, "PGOPTIONS": "-c client_min_messages=warning"},
     )
