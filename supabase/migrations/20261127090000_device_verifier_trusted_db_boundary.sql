@@ -287,7 +287,7 @@ BEGIN
   IF pg_catalog.octet_length(v_raw_challenge) <> 32
      OR pg_catalog.translate(
        pg_catalog.rtrim(
-         pg_catalog.replace(pg_catalog.encode(v_raw_challenge, 'base64'), E'\\n', ''),
+         pg_catalog.replace(pg_catalog.encode(v_raw_challenge, 'base64'), E'\n', ''),
          '='
        ),
        '+/', '-_'
