@@ -141,6 +141,12 @@ for marker in (
     'placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs"',
     'getTechnicalReference(event, "trace_id")',
     "W3C trace ID",
+    "function findRelatedEvents(reference: string)",
+    'findRelatedEvents(getTechnicalReference(event, "trace_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "correlation_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")',
+    "Correlation searches must cross source/category boundaries.",
 ):
     assert marker in page, f"Missing W3C trace Admin UI contract: {marker}"
 
