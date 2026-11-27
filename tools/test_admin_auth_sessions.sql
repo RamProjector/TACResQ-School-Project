@@ -88,6 +88,14 @@ INSERT INTO auth.sessions (
     '2026-11-27 03:25:00', 'aal2', NULL,
     'suspended-admin-session-fixture', '192.0.2.28',
     'sensitive-refresh-hmac-fixture', 98, 'sensitive-scope-fixture'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000309',
+    '00000000-0000-4000-8000-000000000201',
+    '2026-11-27 03:30:00+00', '2026-11-27 03:35:00+00',
+    '2026-11-27 03:35:00', 'aal2', NULL,
+    'revocation-test-session-fixture', '192.0.2.29',
+    'sensitive-refresh-hmac-fixture', 99, 'sensitive-scope-fixture'
   );
 
 INSERT INTO public.admin_audit_logs (
@@ -398,7 +406,7 @@ $session_reader_contract$;
 -- the same still-shaped AAL2/TOTP claims cannot read or invoke Admin surfaces.
 RESET ROLE;
 DELETE FROM auth.sessions
- WHERE id = '00000000-0000-4000-8000-000000000306';
+ WHERE id = '00000000-0000-4000-8000-000000000309';
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claim.sub',
@@ -407,7 +415,7 @@ SELECT set_config(
 );
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000306","aal":"aal2","amr":[{"method":"totp"}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000201","session_id":"00000000-0000-4000-8000-000000000309","aal":"aal2","amr":[{"method":"totp"}]}',
   true
 );
 
