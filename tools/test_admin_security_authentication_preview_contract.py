@@ -13,7 +13,7 @@ assert "getAdminInvestigationEventsPage(" in client
 assert 'api_admin_list_investigation_events' in client
 assert 'Recent authentication and device-security events' in console
 assert 'Latest five authentication and device-security events returned by the protected investigation feed' in console
-assert 'it is not a complete sign-in or session history' in console
+assert 'the preview is not a complete sign-in or session history' in console
 assert 'This does not prove that no sign-ins occurred.' in console
 assert '<th scope="col">Auth session</th>' in console
 assert 'event.details.auth_session_id' in console
