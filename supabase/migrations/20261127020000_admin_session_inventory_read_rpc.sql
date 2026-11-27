@@ -108,7 +108,7 @@ BEGIN
             'session_id', i.id,
             'created_at', i.created_at,
             'updated_at', i.updated_at,
-            'last_refreshed_at', i.refreshed_at,
+            'last_refreshed_at', i.refreshed_at AT TIME ZONE 'UTC',
             'aal', i.aal::text,
             'not_after', i.not_after,
             'record_status', 'record_present',
