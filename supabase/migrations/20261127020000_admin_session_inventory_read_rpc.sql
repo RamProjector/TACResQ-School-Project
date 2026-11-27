@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.api_admin_list_auth_sessions_page(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
