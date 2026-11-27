@@ -18,6 +18,8 @@ bridge_test = (ROOT / "backend/src/tests/Feature/SupabaseBridgeTest.php").read_t
 logger_test = (ROOT / "backend/src/tests/Feature/ApiOperationAuditLoggerTest.php").read_text()
 app_action_test = (ROOT / "tools/test_app_action_audit.sql").read_text()
 api_operation_test = (ROOT / "tools/test_admin_api_operation_investigation.sql").read_text()
+admin_console_source = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
+admin_console_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
 
 required = (
     "CREATE OR REPLACE FUNCTION public.api_admin_list_auth_sessions_page",
@@ -283,4 +285,17 @@ for marker in (
 assert "'severity', d.severity" in session_feed_migration
 assert "'trace_id', d.trace_id" in trace_migration
 
-print("PASS: Admin session inventory authorization, pagination, and privacy contracts are present.")
+# The Security preview must make session and trace/correlation references
+# actionable, not merely render identifiers that an Admin cannot follow.
+for marker in (
+    '<th scope="col">Auth session</th><th scope="col">Trace / correlation</th>',
+    "const traceId = typeof event.details.trace_id",
+    "const correlationId = typeof event.details.correlation_id",
+    'navigateToSection("audit", authSessionId)',
+    'navigateToSection("audit", relatedReference)',
+):
+    assert marker in admin_console_source, f"Security preview does not link related activity: {marker}"
+assert ".admin-security-event-reference" in admin_console_source
+assert ".admin-security-event-reference" in admin_console_css
+
+print("PASS: Admin session inventory authorization, pagination, privacy, and security-event navigation contracts are present.")
