@@ -51,6 +51,19 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 
 The existing sources should remain distinct. Do not manufacture cross-source joins from actor ID plus timestamp proximity.
 
+### 3.1 PostgREST event-writer inventory
+
+The current SQL writers were inspected before designing the parser migration:
+
+- `incident_status_logs`: `public.tacresq_log_incident_status()`, triggered by incident insert/status update.
+- `incident_claimability_logs`: `public.tacresq_log_claimability_status_transition()` on status progression and direct inserts in `public.api_set_incident_claimable()`.
+- `incident_request_edit_logs`: direct insert in `public.api_update_my_incident()`.
+- `incident_assignment_events`: `private.tacresq_log_assignment_membership_event()` on assignment insert/delete and `private.tacresq_log_incident_team_closure()` on incident closure.
+- `app_action_audit_logs`: `private.tacresq_record_app_action_audit()` triggers for incident-message sends, notification-read changes, and duty-status changes.
+- `admin_audit_logs`: direct insert in `public.api_admin_set_user_role()`; account lifecycle audit is written by its own trusted transition path.
+
+These SQL writers execute in the originating database transaction and can read PostgREST's transaction-scoped request headers. Each writer still needs to call the private parser; merely adding a column will not populate it. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and needs explicit trace propagation through the bridge. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer.
+
 ## 4. Supabase request correlation semantics
 
 ### 4.1 Provider request ID
