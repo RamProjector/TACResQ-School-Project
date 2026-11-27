@@ -43,7 +43,9 @@ assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
 assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
 
 # Results and metadata are invalidated immediately, before the debounced request.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
+query_effect_start = AUDIT_PAGE.index("// Invalidate the prior result as soon as filters/page change");
+query_effect_end = AUDIT_PAGE.index("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", query_effect_start)
+query_effect = AUDIT_PAGE[query_effect_start:query_effect_end]
 assert query_effect.index("setEvents([]);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setTotal(0);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setLoading(true);") < query_effect.index("window.setTimeout")
@@ -84,7 +86,9 @@ assert "text-align:left;" in ADMIN_CSS
 
 
 # Clipboard success/error feedback is scoped to the active audit query.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
+query_effect_start = AUDIT_PAGE.index("// Invalidate the prior result as soon as filters/page change");
+query_effect_end = AUDIT_PAGE.index("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", query_effect_start)
+query_effect = AUDIT_PAGE[query_effect_start:query_effect_end]
 assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError || idFilterError)")
 assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError || idFilterError)")
 
