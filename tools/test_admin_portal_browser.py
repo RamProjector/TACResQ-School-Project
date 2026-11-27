@@ -126,7 +126,22 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             return
 
         if "/rest/v1/rpc/api_admin_list_users_page" in url:
-            fulfill_json(route, {"users": [], "total_count": 0})
+            fulfill_json(route, {
+                "users": [{
+                    "id": 1002,
+                    "name": "Test Requester",
+                    "email": "requester@example.test",
+                    "role": "requester",
+                    "duty_status": None,
+                    "account_status": "active",
+                    "created_at": "2026-10-01T00:00:00.000Z",
+                }],
+                "total_count": 1,
+            })
+            return
+
+        if "/rest/v1/rpc/api_admin_list_account_lifecycle_events" in url:
+            fulfill_json(route, {"events": [], "total_count": 0})
             return
 
         if "/rest/v1/rpc/api_admin_list_investigation_events" in url:
@@ -269,6 +284,26 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_text("No events are recorded in the integrated investigation sources today.")).to_be_visible()
     expect(page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="User management")).to_be_visible()
     completed.append("verified AAL2 administrator reaches the live Admin console with mocked read-only dashboard data")
+
+    # Exercise the real user directory and role-change dialog without writing
+    # a role change. The reason and changed-role requirements must gate submit.
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="User management").click()
+    expect(page.get_by_role("heading", name="User management")).to_be_visible()
+    expect(page.get_by_role("table", name="Administrator account directory")).to_be_visible()
+    expect(page.get_by_text("Test Requester")).to_be_visible()
+    expect(page.get_by_text("requester@example.test")).to_be_visible()
+    page.get_by_role("button", name="Change role for Test Requester").click()
+    dialog = page.get_by_role("dialog", name="Change account role")
+    expect(dialog).to_be_visible()
+    confirm = dialog.get_by_role("button", name="Confirm role change")
+    expect(confirm).to_be_disabled()
+    dialog.get_by_label("New role").select_option("responder")
+    expect(confirm).to_be_disabled()
+    dialog.locator("#admin-change-reason").fill("Operational reassignment approved")
+    expect(confirm).to_be_enabled()
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(dialog).to_have_count(0)
+    completed.append("user directory renders protected records and role-change submission enforces reason validation without mutating data")
     page.close()
 
     # Check both responsive layouts on the real login screen.
