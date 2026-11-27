@@ -89,6 +89,7 @@ BEGIN
     FROM auth.sessions AS s
    WHERE s.id = p_auth_session_id
      AND s.user_id = p_auth_user_id
+     AND (s.not_after IS NULL OR s.not_after > clock_timestamp())
    FOR SHARE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Active Auth session required' USING ERRCODE = '42501';
@@ -214,6 +215,7 @@ BEGIN
     JOIN auth.sessions AS s
       ON s.id = p_auth_session_id
      AND s.user_id = p_auth_user_id
+     AND (s.not_after IS NULL OR s.not_after > clock_timestamp())
     LEFT JOIN public.user_devices AS d
       ON d.id = c.device_id
      AND d.profile_id = c.profile_id
@@ -359,6 +361,7 @@ BEGIN
     FROM auth.sessions AS s
    WHERE s.id = p_auth_session_id
      AND s.user_id = p_auth_user_id
+     AND (s.not_after IS NULL OR s.not_after > clock_timestamp())
    FOR SHARE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Active Auth session required' USING ERRCODE = '42501';
