@@ -294,6 +294,9 @@ export async function getAdminAuthSessionsPage(
     p_before_created_at: cursor?.created_at ?? null,
     p_before_session_id: cursor?.session_id ?? null,
   });
+  if (error?.code === "PGRST202") {
+    throw new Error("The Admin session inventory is not installed in this database schema yet. Apply the reviewed session-inventory migration and refresh the Admin portal.");
+  }
   throwAdminError(error);
 
   if (!data || typeof data !== "object") {
@@ -461,6 +464,9 @@ export async function getAdminInvestigationEventsPage(
     p_target_user_id: targetUserId,
     p_incident_id: incidentId,
   });
+  if (error?.code === "PGRST202") {
+    throw new Error("The Admin investigation reader is not available in this database schema yet. Apply the reviewed investigation-feed migration and refresh the Admin portal.");
+  }
   throwAdminError(error);
   if (!data || typeof data !== "object") {
     throw new Error("The investigation service returned an invalid page.");
