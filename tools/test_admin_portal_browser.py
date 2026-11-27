@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -23,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "backend" / "web"
 HOST = "127.0.0.1"
 PORT = 4173
-BASE_URL = f"http://{HOST}:{PORT}/"
+BASE_URL = f"http://{HOST}:{PORT}/admin/"
 SUPABASE_URL = "https://tacresq-browser-test.invalid"
 PUBLISHABLE_KEY = "sb_publishable_browser_test_only"
 
@@ -211,7 +210,7 @@ def main() -> int:
     env = os.environ.copy()
     env["VITE_SUPABASE_URL"] = SUPABASE_URL
     env["VITE_SUPABASE_PUBLISHABLE_KEY"] = PUBLISHABLE_KEY
-    env["VITE_BASE_PATH"] = "/"
+    env["VITE_BASE_PATH"] = "/admin/"
     process = subprocess.Popen(
         ["pnpm", "dev", "--", "--host", HOST, "--port", str(PORT), "--strictPort"],
         cwd=WEB,
