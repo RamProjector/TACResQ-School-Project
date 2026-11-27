@@ -95,6 +95,20 @@ assert "if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);" in
 assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 
 
+# Correlation and provider request references are searchable from the expanded
+# event details. The server-side query searches the JSON details payload, so
+# this action finds records sharing the exact reference without inventing links.
+for marker in (
+    'function getTechnicalReference(event: AdminInvestigationEvent, key: string): string | null',
+    'getTechnicalReference(event, "correlation_id")',
+    'getTechnicalReference(event, "provider_request_id")',
+    'aria-label="Find events with this correlation ID"',
+    'aria-label="Find events with this provider request ID"',
+    'setQuery(getTechnicalReference(event, "correlation_id") || "")',
+    'setQuery(getTechnicalReference(event, "provider_request_id") || "")',
+):
+    assert marker in AUDIT_PAGE, f"Missing searchable investigation reference behavior: {marker}"
+
 # The seventh, metadata-only app-action source must be described accurately in
 # the UI and operator guide without implying comprehensive activity tracking.
 assert 'app_action_audit_logs: "App actions"' in AUDIT_PAGE
