@@ -1,6 +1,6 @@
 # TACResQ Device Security & Identification — Research and Implementation Plan
 
-**Status:** Phase 1 private registry foundation and generic Laravel account-wide Sanctum token revocation are present in PR #335; CI validation pending; not deployed  
+**Status:** Phase 1 private registry foundation is present in PR #370; the latest PR head's six workflow groups pass; not deployed. No trusted challenge verifier, device-session binding, or sensitive-operation enforcement is implemented.  
 **Scope:** Android app, dispatcher/admin web clients, Supabase backend, and Render bridge where applicable  
 **Design principle:** Device recognition is a risk signal. Authentication and server-side authorization remain authoritative.
 
@@ -289,7 +289,7 @@ This is a deliberately conservative first rollout. If later threat modeling iden
 
 ## 14. Cryptographic runtime feasibility (repository-only review)
 
-The current migration baseline enables pgcrypto, but the repository search found no Supabase Edge Function source tree, no Supabase config.toml, and no Deno.serve implementation. This means there is currently no established Edge Function deployment/test convention to extend. Do not assume an Edge Function already exists or that adding a source file alone deploys it.
+The current migration baseline enables pgcrypto. The deployed `tacresq-notify` source has since been recovered into `supabase/functions/tacresq-notify/index.ts` (see Section 17), so a function source tree and `Deno.serve` precedent now exist. However, no `supabase/config.toml` or device-verifier function/test workflow is checked in. The recovered notification function is not a device verifier and its service-role query pattern does not preserve caller `auth.uid()`/`auth.jwt()` context. Do not treat that source recovery as proof that a new verifier can be safely deployed.
 
 pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but its presence does not establish a supported P-256/ES256 signature-verification primitive. Do not implement a home-grown ECDSA verifier in SQL or mistake digest/hash support for public-key signature verification.
 
@@ -309,7 +309,7 @@ pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but it
 A focused source review on this branch confirms the following implementation facts:
 
 - `tools/test_supabase_migration_replay.sh` creates minimal `auth.uid()` and `auth.jwt()` compatibility functions. The latter reads `request.jwt.claims`, but the replay fixtures do not currently set or assert a `session_id` claim, exercise missing/malformed session claims, or test device-session ownership. The script is a migration replay harness against a supplied PostgreSQL database; it is not a running Supabase Auth/PostgREST integration environment.
-- No `supabase/config.toml` exists on this branch, and repository search found no Edge Function source tree or `Deno.serve` implementation. The current repository therefore does not demonstrate a configured local Supabase function workflow or a deployed challenge-verifier convention.
+- No `supabase/config.toml` exists on this branch. The recovered `supabase/functions/tacresq-notify/index.ts` is a deployed notification-function mirror, not a challenge verifier; it does not demonstrate a configured local Supabase function workflow or a deployed device-verifier convention.
 - Android `app/build.gradle.kts` sets `minSdk = 26`. `app/src/main/java/com/tacresq/app/data/local/SessionStore.kt` creates one Android Keystore AES key (`tacresq_session_aes_gcm_v1`) for AES/GCM/NoPadding encryption. That key is symmetric and is used for local data encryption; it is not a signing key and must not be reused as the device identity key.
 - The reviewed Android session store does not implement a P-256 key pair, public-key export, `SHA256withECDSA` signing, signature encoding conversion, key invalidation handling, or device-key rotation. Existing Keystore use proves only the local AES-GCM storage path.
 - The migration replay harness's `auth.jwt()` stub is suitable for deterministic SQL claim tests by setting `request.jwt.claims` within a transaction, but that alone cannot prove that a real signed Supabase JWT's session claim survives an Edge Function/proxy/PostgREST hop.
