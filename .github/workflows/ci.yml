@@ -844,8 +844,8 @@ jobs:
           set -euo pipefail
           # No hosted project is linked and no remote flags are used. Redact
           # generated local JWTs and key lines from startup output.
-          if ! supabase start 2>&1 | sed -E \\
-            -e 's/(service_role key:|anon key:|JWT secret:).*/\\1 [REDACTED]/I' \\
+          if ! supabase start 2>&1 | sed -E \
+            -e 's/(service_role key:|anon key:|JWT secret:).*/\1 [REDACTED]/I' \
             -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g'; then
             echo "Local Supabase startup or migration application failed."
             exit 1
