@@ -30,13 +30,27 @@ LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog
-AS $function$
+AS $correlation$
 DECLARE
   v_correlation_id text;
 BEGIN
   v_correlation_id := current_setting('tacresq.audit_correlation_id', true);
   IF v_correlation_id ~*
-     '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+     '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    RETURN v_correlation_id::uuid;
+  END IF;
+
+  v_correlation_id := gen_random_uuid()::text;
+  PERFORM set_config('tacresq.audit_correlation_id', v_correlation_id, true);
+  RETURN v_correlation_id::uuid;
+END;
+$correlation$;
+
+REVOKE ALL ON FUNCTION private.tacresq_current_audit_correlation_id()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()
+RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog
@@ -224,12 +238,14 @@ BEGIN
       FROM public.profiles p WHERE p.id = v_actor_profile_id;
   END IF;
 
+  v_correlation_id := private.tacresq_current_audit_correlation_id();
+
   INSERT INTO public.app_action_audit_logs (
     actor_profile_id, actor_role, action, target_type, target_id,
-    target_user_id, incident_id, metadata, auth_session_id
+    target_user_id, incident_id, metadata, auth_session_id, correlation_id
   ) VALUES (
     v_actor_profile_id, v_actor_role, v_action, v_target_type, v_target_id,
-    v_target_user_id, v_incident_id, v_metadata, v_auth_session_id
+    v_target_user_id, v_incident_id, v_metadata, v_auth_session_id, v_correlation_id
   );
 
   RETURN NEW;
