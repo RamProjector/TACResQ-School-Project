@@ -221,11 +221,14 @@ Deno.serve(async (request: Request) => {
     return json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
+    const sqlState = error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
     // Do not echo SQL details, challenge material, signatures, tokens, or keys.
-    if (message.includes("53300") || message.toLowerCase().includes("rate limit")) {
+    if (sqlState === "53300" || message.toLowerCase().includes("rate limit")) {
       return json({ error: "Too many device challenges. Try again later." }, 429);
     }
-    if (message.includes("42501") || message.includes("23505")) {
+    if (["42501", "23505", "22023"].includes(sqlState)) {
       return json({ error: "Device proof is invalid or unavailable" }, 400);
     }
     return json({ error: "Device verification is temporarily unavailable" }, 503);
