@@ -204,6 +204,10 @@ BEGIN
      OR has_table_privilege('anon', 'public.api_operation_logs', 'SELECT') THEN
     RAISE EXCEPTION 'API operation telemetry must not be directly readable by client roles';
   END IF;
+  IF has_table_privilege('authenticated', 'auth.audit_log_entries', 'SELECT')
+     OR has_table_privilege('anon', 'auth.audit_log_entries', 'SELECT') THEN
+    RAISE EXCEPTION 'Provider-owned Auth audit rows must remain inaccessible to direct client table reads';
+  END IF;
 END;
 $privilege_contract$;
 
