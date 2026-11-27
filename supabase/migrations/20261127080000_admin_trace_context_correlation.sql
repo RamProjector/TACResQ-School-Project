@@ -547,6 +547,7 @@ BEGIN
       )
   )
   SELECT jsonb_build_object(
+    'contract_version', 'session_trace_v1',
     'events',
     coalesce(
       (
