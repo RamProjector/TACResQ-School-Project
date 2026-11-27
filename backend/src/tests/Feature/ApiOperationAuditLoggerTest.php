@@ -16,6 +16,7 @@ class ApiOperationAuditLoggerTest extends TestCase
             'tacru.supabase_secret_key' => 'synthetic-server-secret',
         ]);
         request()->attributes->set('auth_user_id', 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001');
+        request()->attributes->set('auth_session_id', '10000000-0000-4000-8000-000000000401');
         Http::fake(['*' => Http::response(null, 201)]);
 
         app(ApiOperationAuditLogger::class)->record(
@@ -40,6 +41,7 @@ class ApiOperationAuditLoggerTest extends TestCase
                 && ($payload['outcome'] ?? null) === 'success'
                 && ($payload['correlation_id'] ?? null) === 'd2d4c7e1-77bb-4d1a-8a5e-c8ed1d8b1010'
                 && ($payload['actor_auth_user_id'] ?? null) === 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001'
+                && ($payload['auth_session_id'] ?? null) === '10000000-0000-4000-8000-000000000401'
                 && !array_key_exists('access_token', $payload)
                 && !array_key_exists('request_body', $payload)
                 && !array_key_exists('latitude', $payload)
