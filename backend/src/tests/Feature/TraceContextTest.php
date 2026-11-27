@@ -1,9 +1,9 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use App\\TraceContext;
-use Tests\\TestCase;
+use App\TraceContext;
+use Tests\TestCase;
 
 class TraceContextTest extends TestCase
 {
