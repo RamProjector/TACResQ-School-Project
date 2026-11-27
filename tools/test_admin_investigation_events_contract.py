@@ -121,7 +121,55 @@ for forbidden in (
 # on trusted event writes, and exposed as a separate Admin technical reference.
 for marker in (
     "private.tacresq_current_trace_id()",
-    "v_traceparent !~ '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}
+    "NEW.trace_id := private.tacresq_current_trace_id()",
+    "ADD COLUMN IF NOT EXISTS trace_id text",
+    "'trace_id', a.trace_id",
+    "'trace_id', l.trace_id",
+    "'trace_id', s.trace_id",
+    "'trace_id', c.trace_id",
+    "'trace_id', r.trace_id",
+    "'trace_id', e.trace_id",
+    "'trace_id', d.trace_id",
+    "'trace_id', o.trace_id",
+    "e.details ->> 'trace_id' = v_query",
+):
+    assert marker in trace_migration, f"Missing W3C trace context migration contract: {marker}"
+assert "REFERENCES auth.sessions" not in trace_migration
+assert "auth.uid()" not in trace_migration
+
+trace_context = (ROOT / "backend/src/app/TraceContext.php").read_text()
+bridge = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
+audit_logger = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
+android_trace = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/W3CTraceContext.kt").read_text()
+android_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+android_trace_test = (ROOT / "app/src/test/java/com/tacresq/app/data/remote/W3CTraceContextTest.kt").read_text()
+assert "request()->header('traceparent')" in trace_context
+assert "preg_match(" in trace_context and "str_repeat('0', 32)" in trace_context
+assert "TraceContext::currentTraceparent()" in bridge
+assert "TraceContext::currentTraceparent()" in audit_logger
+assert "$headers['traceparent'] = $traceparent" in bridge
+assert "$additionalHeaders['traceparent'] = $traceparent" in audit_logger
+
+# Browser and Android shared transports emit fresh W3C context per request.
+for marker in (
+    "function createTraceparent(): string | null",
+    "globalThis.crypto.getRandomValues(bytes)",
+    'headers.set("traceparent", traceparent)',
+    "fetch: traceAwareFetch",
+):
+    assert marker in client, f"Missing browser trace propagation: {marker}"
+for marker in (
+    "object W3CTraceContext",
+    "SecureRandom()",
+    "class TraceparentInterceptor",
+    "W3CTraceContext.newTraceparent()",
+    "Optional telemetry must never prevent SOS or another API request.",
+):
+    assert marker in android_trace, f"Missing Android trace generation/interceptor: {marker}"
+assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
+assert "everyHttpRequestGetsFreshTraceContext" in android_trace_test
+assert "generatedTraceparentUsesVersionZeroAndNonZeroIdentifiers" in android_trace_test
+
 # share Auth session IDs with API-operation telemetry for cross-source search.
 device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
 assert "jsonb_build_object(" in device_projection
