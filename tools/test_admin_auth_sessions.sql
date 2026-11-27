@@ -199,9 +199,27 @@ BEGIN
   IF NOT private.tacresq_current_auth_session_present_read() THEN
     RAISE EXCEPTION 'Current Admin session should pass the read-only session predicate';
   END IF;
+  IF auth.uid() IS DISTINCT FROM '00000000-0000-4000-8000-000000000201'::uuid THEN
+    RAISE EXCEPTION 'Admin audit RLS fixture has unexpected auth.uid(): %', auth.uid();
+  END IF;
+  IF private.tacresq_actor_role() IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Admin audit RLS fixture did not resolve active Admin role: %', private.tacresq_actor_role();
+  END IF;
+  IF auth.jwt() ->> 'aal' IS DISTINCT FROM 'aal2' THEN
+    RAISE EXCEPTION 'Admin audit RLS fixture has unexpected AAL: %', auth.jwt() ->> 'aal';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) AS method(value)
+    WHERE method.value ->> 'method' = 'totp'
+  ) THEN
+    RAISE EXCEPTION 'Admin audit RLS fixture is missing TOTP AMR: %', auth.jwt() -> 'amr';
+  END IF;
   SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
   IF v_visible_audit_rows <> 1 THEN
-    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access';
+    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (uid %, role %, aal %, amr %, session_present %)',
+      auth.uid(), private.tacresq_actor_role(), auth.jwt() ->> 'aal',
+      auth.jwt() -> 'amr', private.tacresq_current_auth_session_present_read();
   END IF;
 
   -- A syntactically valid session UUID owned by another user must not pass.
