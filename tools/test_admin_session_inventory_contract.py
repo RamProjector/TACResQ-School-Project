@@ -10,6 +10,7 @@ integration_test = (ROOT / "tools/test_supabase_jwt_context.py").read_text()
 event_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
 investigation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
 session_feed_migration = (ROOT / "supabase/migrations/20261127070000_admin_session_activity_feed.sql").read_text()
+trace_migration = (ROOT / "supabase/migrations/20261127080000_admin_trace_context_correlation.sql").read_text()
 event_session_migration = (ROOT / "supabase/migrations/20261127060000_admin_event_session_context.sql").read_text()
 bridge_source = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
 logger_source = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
@@ -213,9 +214,7 @@ for marker in (
     "'auth_session_id', r.auth_session_id",
     "'auth_session_id', e.auth_session_id",
     "FROM public.device_security_events AS d",
-    "'severity', d.severity",
     "'auth_session_id', d.auth_session_id",
-    "'trace_id', d.trace_id",
 ):
     assert marker in session_feed_migration, f"Session activity feed omits a domain event source: {marker}"
 for marker in (
@@ -280,5 +279,8 @@ for marker in (
     "Requester session search did not find incident status and edit events",
 ):
     assert marker in api_operation_test, f"Missing API-operation session attribution regression: {marker}"
+
+assert "'severity', d.severity" in session_feed_migration
+assert "'trace_id', d.trace_id" in trace_migration
 
 print("PASS: Admin session inventory authorization, pagination, and privacy contracts are present.")
