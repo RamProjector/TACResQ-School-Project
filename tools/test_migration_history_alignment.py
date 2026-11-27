@@ -132,6 +132,8 @@ PENDING = {
     "20261127060000_admin_event_session_context.sql",
     "20261127070000_admin_session_activity_feed.sql",
     "20261127080000_admin_trace_context_correlation.sql",
+    # PR #370: private verifier foundation; requires an out-of-band login secret and is not deployed.
+    "20261127090000_device_verifier_trusted_db_boundary.sql",
 }
 # These two source files use new local timestamps, while the connected
 # project's migration ledger records the same logical migration names under
