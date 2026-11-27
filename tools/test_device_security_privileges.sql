@@ -218,12 +218,21 @@ BEGIN
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
     IF has_sequence_privilege('anon', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('authenticated', 'public.device_security_events_id_seq', privilege_name)
-       OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('tacresq_device_verifier', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('anon', 'public.device_integrity_checks_id_seq', privilege_name)
        OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name)
-       OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name) THEN
-      RAISE EXCEPTION 'Client or service role unexpectedly has % on device registry sequences', privilege_name;
+       OR has_sequence_privilege('tacresq_device_verifier', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Client or dedicated verifier unexpectedly has % on device registry sequences', privilege_name;
     END IF;
   END LOOP;
+
+  IF NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'SELECT')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Trusted service_role sequence grants must retain USAGE/SELECT but not UPDATE';
+  END IF;
 END;
 $device_registry_privilege_contract$;
