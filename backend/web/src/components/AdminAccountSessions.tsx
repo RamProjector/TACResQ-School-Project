@@ -93,7 +93,7 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
       setCopiedSessionId(sessionId);
       setCopyError(null);
     } catch {
-      setCopyError("Clipboard access is unavailable. Select the session ID from its title to copy it manually.");
+      setCopyError("Clipboard access is unavailable in this browser context.");
     }
   }
 
