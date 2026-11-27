@@ -96,6 +96,33 @@ interface RuntimeSupabaseConfig {
   supabasePublishableKey?: string | null;
 }
 
+function randomNonZeroHex(byteCount: number): string | null {
+  if (!globalThis.crypto?.getRandomValues) return null;
+  const bytes = new Uint8Array(byteCount);
+  do {
+    globalThis.crypto.getRandomValues(bytes);
+  } while (bytes.every((value) => value === 0));
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+// A new trace and span are generated for each Supabase HTTP request. This is
+// caller-side observability context only; it is never used for authorization.
+function createTraceparent(): string | null {
+  const traceId = randomNonZeroHex(16);
+  const spanId = randomNonZeroHex(8);
+  return traceId && spanId ? `00-${traceId}-${spanId}-01` : null;
+}
+
+const traceAwareFetch: typeof fetch = (input, init) => {
+  const traceparent = createTraceparent();
+  if (!traceparent) return globalThis.fetch(input, init);
+
+  const headers = new Headers(input instanceof Request ? input.headers : undefined);
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+  headers.set("traceparent", traceparent);
+  return globalThis.fetch(input, { ...init, headers });
+};
+
 let supabaseClient: SupabaseClient<TacruDatabase> | null = null;
 let supabaseHealthConfig: { url: string; publishableKey: string } | null = null;
 
@@ -123,6 +150,9 @@ export async function initializeSupabase(): Promise<boolean> {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       persistSession: true,
+    },
+    global: {
+      fetch: traceAwareFetch,
     },
   });
   return true;
