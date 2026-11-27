@@ -323,8 +323,10 @@ BEGIN
        OR pg_catalog.length(p_proposed_public_key_base64) > 4096
        OR p_device_name IS NULL
        OR pg_catalog.length(pg_catalog.btrim(p_device_name)) NOT BETWEEN 1 AND 80
-       OR (p_device_model IS NOT NULL AND pg_catalog.length(p_device_model) > 120)
-       OR (p_app_version IS NOT NULL AND pg_catalog.length(p_app_version) > 80) THEN
+       OR (p_device_model IS NOT NULL
+           AND pg_catalog.length(pg_catalog.btrim(p_device_model)) NOT BETWEEN 1 AND 120)
+       OR (p_app_version IS NOT NULL
+           AND pg_catalog.length(pg_catalog.btrim(p_app_version)) NOT BETWEEN 1 AND 80) THEN
       RAISE EXCEPTION 'Invalid device registration metadata' USING ERRCODE = '22023';
     END IF;
     IF EXISTS (
@@ -387,8 +389,8 @@ BEGIN
       v_profile_id,
       pg_catalog.btrim(p_device_name),
       'android',
-      p_device_model,
-      p_app_version,
+      NULLIF(pg_catalog.btrim(p_device_model), ''),
+      NULLIF(pg_catalog.btrim(p_app_version), ''),
       p_proposed_public_key_base64,
       'ES256',
       'active',
