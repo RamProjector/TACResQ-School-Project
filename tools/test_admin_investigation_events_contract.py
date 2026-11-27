@@ -298,6 +298,8 @@ for marker in (
     "NOT (rows.event -> 'details' ? 'ip_address')",
     "NOT (rows.event -> 'details' ? 'user_agent')",
     "NOT (rows.event -> 'details' ? 'payload')",
+    "has_table_privilege('authenticated', 'auth.audit_log_entries', 'SELECT')",
+    "has_table_privilege('anon', 'auth.audit_log_entries', 'SELECT')",
 ):
     assert marker in auth_runtime_test, f"Missing native Auth audit runtime assertion: {marker}"
 
