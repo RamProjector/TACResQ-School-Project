@@ -11,6 +11,12 @@ trace_migration = (ROOT / "supabase/migrations/20261127080000_admin_trace_contex
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
+for marker in (
+    'if (error?.code === "PGRST202")',
+    "The Admin investigation reader is not available in this database schema yet.",
+):
+    assert marker in client, f"Missing actionable investigation migration readiness error: {marker}"
+
 required_sql = (
     "CREATE INDEX IF NOT EXISTS incident_status_logs_created_idx",
     "CREATE INDEX IF NOT EXISTS incident_assignment_events_created_idx",
@@ -138,8 +144,6 @@ assert "REFERENCES auth.sessions" not in trace_migration
 assert "auth.uid()" not in trace_migration
 for marker in (
     "W3C trace IDs, Laravel correlation IDs, Auth session IDs, and provider request IDs remain distinct",
-    'if (error?.code === "PGRST202")',
-    "The Admin investigation reader is not available in this database schema yet.",
     'placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs"',
     'getTechnicalReference(event, "trace_id")',
     "W3C trace ID",
