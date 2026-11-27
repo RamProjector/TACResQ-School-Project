@@ -345,7 +345,7 @@ for marker in (
     "Feed reader: integrated.",
     "Feed reader: integrated for the optional Postgres mirror only.",
     "Supabase provider Auth audit events are separately available in external log storage; this page does not query that external stream.",
-    "The project's Postgres-persistence setting is not observable here",
+    "The project’s Postgres-persistence setting is not observable here",
     "This page reads only the optional Supabase Auth Audit Logs Postgres mirror, not the separate external provider log stream.",
     "A zero-row result means no matching records were returned, not that no activity occurred.",
     "database event writers: integrated",
