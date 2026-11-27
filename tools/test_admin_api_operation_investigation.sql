@@ -52,21 +52,23 @@ SELECT set_config('request.headers', '{"traceparent":"00-aaaaaaaaaaaaaaaaaaaaaaa
 
 INSERT INTO public.api_operation_logs (
   correlation_id, actor_auth_user_id, auth_session_id, provider, operation, source, outcome,
-  http_status, duration_ms, provider_request_id, error_code
+  http_status, duration_ms, provider_request_id, error_code, trace_id
 ) VALUES
   (
     '00000000-0000-4000-8000-000000000410',
     '00000000-0000-4000-8000-000000000401',
     '10000000-0000-4000-8000-000000000401',
     'supabase', 'auth.get_user', 'render_api', 'success',
-    200, 18, 'sb-auth-request-fixture-410', NULL
+    200, 18, 'sb-auth-request-fixture-410', NULL,
+    'ffffffffffffffffffffffffffffffff'
   ),
   (
     '00000000-0000-4000-8000-000000000410',
     '00000000-0000-4000-8000-000000000401',
     '10000000-0000-4000-8000-000000000401',
     'supabase', 'rpc.api_units', 'render_api', 'failure',
-    503, 241, 'sb-rpc-request-fixture-410', 'upstream_unavailable'
+    503, 241, 'sb-rpc-request-fixture-410', 'upstream_unavailable',
+    'ffffffffffffffffffffffffffffffff'
   );
 
 INSERT INTO auth.users (id, email, raw_user_meta_data)
@@ -303,6 +305,14 @@ BEGIN
   );
   IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
     RAISE EXCEPTION 'Trace-ID search must find both bridge audit writes: %', v_by_correlation;
+  END IF;
+
+  v_by_correlation := public.api_admin_list_investigation_events(
+    25, 0, 'cccccccccccccccccccccccccccccccc',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
+    RAISE EXCEPTION 'Requester trace-ID search must find both requester event rows: %', v_by_correlation;
   END IF;
 
   -- The requester session must also find its incident status and edit events,
