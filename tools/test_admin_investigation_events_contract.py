@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql").read_text()
-action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()
+action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()\noperation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -37,6 +37,35 @@ required_sql = (
 )
 for marker in required_sql:
     assert marker in migration, f"Missing investigation SQL contract: {marker}"
+
+# Laravel API telemetry joins the Admin feed through both independently
+# generated request identifiers; expose only bounded operational metadata.
+for marker in (
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_investigation_events",
+    "'operations'",
+    "'api_operation_logs'",
+    "FROM public.api_operation_logs AS o",
+    "'correlation_id', o.correlation_id",
+    "'provider_request_id', o.provider_request_id",
+    "'provider', o.provider",
+    "'operation', o.operation",
+    "'outcome', o.outcome",
+    "'http_status', o.http_status",
+    "'duration_ms', o.duration_ms",
+    "'error_code', o.error_code",
+    "ON actor.auth_user_id = o.actor_auth_user_id",
+    "PERFORM private.tacresq_require_admin_mfa()",
+    "SECURITY DEFINER",
+    "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
+):
+    assert marker in operation_migration, f"Missing API operation correlation contract: {marker}"
+for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
+    assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
+assert "api_operation_logs" in client
+assert 'api_operation_logs: "Laravel API operations"' in page
+assert 'operations: "API operations"' in page
+assert '<option value="operations">API operations</option>' in page
 
 # New committed app-action sources must be server-written and metadata-only.
 for marker in (
