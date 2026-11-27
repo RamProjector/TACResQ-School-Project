@@ -536,8 +536,9 @@ BEGIN
         OR strpos(coalesce(e.incident_id::text, ''), v_query) > 0
         OR strpos(lower(e.details::text), v_query) > 0
         OR (
-          v_query ~ '^[0-9a-f]{32}
-      )
+          v_query ~ '^[0-9a-f]{32}$'
+          AND e.details ->> 'trace_id' = v_query
+        )
   )
   SELECT jsonb_build_object(
     'events',
