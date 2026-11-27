@@ -12,6 +12,7 @@ DECLARE
   expected_signatures text[] := ARRAY[
     'public.api_admin_analytics_summary(timestamp with time zone,timestamp with time zone)',
     'public.api_admin_list_account_lifecycle_events(integer,integer)',
+    'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)',
     'public.api_admin_list_audit_logs(integer)',
     'public.api_admin_list_audit_logs_page(integer,integer,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint)',
     'public.api_admin_list_investigation_events(integer,integer,text,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint,bigint)',
@@ -150,8 +151,30 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 24 OR cardinality(expected_invoker_signatures) <> 11 THEN
-    RAISE EXCEPTION 'Inventory contract must contain exactly 24 classified signatures; found %',
+  -- The Admin session inventory is a new callable definer. Its own body
+  -- must reuse the current active-Admin/AAL2/TOTP guard and expose only the
+  -- provider-owned Auth session reader behind that boundary.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_proc AS p
+    JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE p.oid = to_regprocedure(
+      'public.api_admin_list_auth_sessions_page(bigint,integer,timestamp with time zone,uuid)'
+    )
+      AND n.nspname = 'public'
+      AND p.prosecdef
+      AND p.provolatile = 'v'
+      AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+      AND p.prosrc LIKE '%private.tacresq_require_admin_mfa()%'
+      AND p.prosrc LIKE '%FROM auth.sessions AS s%'
+      AND p.prosrc LIKE '%FROM public.profiles AS p%'
+      AND p.prosrc LIKE '%p.auth_user_id%'
+  ) THEN
+    RAISE EXCEPTION 'Admin session reader must be a volatile, pinned SECURITY DEFINER wrapper guarded by the active Admin MFA helper and canonical profile mapping';
+  END IF;
+
+  IF cardinality(expected_signatures) <> 25 OR cardinality(expected_invoker_signatures) <> 11 THEN
+    RAISE EXCEPTION 'Inventory contract must contain exactly 25 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
 
@@ -171,10 +194,10 @@ BEGIN
      OR api_definer_count <> 24
      OR api_invoker_count <> 11 THEN
     RAISE EXCEPTION
-      'Application API callable baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 35/24/11',
+      'Application API callable baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 36/25/11',
       api_callable_count, api_definer_count, api_invoker_count;
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 24 public API SECURITY DEFINER and 11 public API SECURITY INVOKER signatures remain inventoried; legacy requester-create invokers are tested separately.'
+\echo 'PASS: all 25 public API SECURITY DEFINER and 11 public API SECURITY INVOKER signatures remain inventoried; legacy requester-create invokers are tested separately.'
