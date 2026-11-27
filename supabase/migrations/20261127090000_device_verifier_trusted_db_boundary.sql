@@ -476,8 +476,6 @@ GRANT EXECUTE ON FUNCTION private.device_verifier_get_challenge(uuid, uuid, uuid
 GRANT EXECUTE ON FUNCTION private.device_verifier_complete_challenge(uuid, uuid, uuid, text, text, text, text, text)
   TO tacresq_device_verifier;
 
-COMMENT ON ROLE tacresq_device_verifier IS
-  'Dedicated non-superuser database login for the TACResQ device-verifier Edge Function. Provision LOGIN/password out-of-band; grant no direct table access.';
 COMMENT ON FUNCTION private.device_verifier_issue_challenge(uuid, uuid, text, uuid) IS
   'Trusted Edge-verifier-only challenge issuance. Derives profile ownership, validates live Auth session, persists only a SHA-256 hash, and enforces per-profile/session issuance limits.';
 COMMENT ON FUNCTION private.device_verifier_get_challenge(uuid, uuid, uuid) IS
