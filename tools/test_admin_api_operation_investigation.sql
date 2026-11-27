@@ -74,9 +74,9 @@ BEGIN
       now()
     );
   ELSIF v_id_type = 'bigint' THEN
-    INSERT INTO auth.audit_log_entries (id, payload, created_at)
+    -- The pinned replay schema uses GENERATED ALWAYS AS IDENTITY here.
+    INSERT INTO auth.audit_log_entries (payload, created_at)
     VALUES (
-      200000000000000401::bigint,
       json_build_object(
         'action', 'login',
         'user_id', '00000000-0000-4000-8000-000000000401'
