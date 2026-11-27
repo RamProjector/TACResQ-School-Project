@@ -2246,6 +2246,9 @@ END;
 $legacy_incident_sequence_privilege_contract$;
 SQL
 
+# Verify the backend-only device registry and dedicated verifier execution boundary.
+psql -v ON_ERROR_STOP=1 -f tools/test_device_security_privileges.sql
+
 # Verify the service-role Admin audit boundary and preserve authenticated Admin RPC grants.
 psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
 
