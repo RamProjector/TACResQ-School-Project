@@ -333,6 +333,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Bounded metadata includes the verified Auth session ID when the action has a user JWT; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
               <li><strong>Device security events</strong><span>Feed reader: integrated. Sanitized event type, severity, and verified Auth session ID are searchable alongside API operations. No trusted server-side event writer is implemented yet, so an empty result is not a device-health signal.</span></li>
               <li><strong>Laravel API operations</strong><span>Feed reader: integrated for bridge-mediated requests. Records request correlation ID, provider request ID, and verified Auth session ID when available. This best-effort source does not cover direct Android/browser Supabase or Storage calls.</span></li>
+              <li><strong>Device-security events</strong><span>Feed reader: integrated for sanitized event type, severity, and Auth session ID. No trusted server-side writer currently creates these rows, and the live source is empty; an empty result is not evidence that devices are safe.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
