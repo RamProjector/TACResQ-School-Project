@@ -107,11 +107,11 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 ## 6. Recommended implementation sequence
 
 1. **Prove PostgREST header delivery (local integration proof completed 2026-11-27).** The disposable local Supabase stack now sends a valid `traceparent` through the local API gateway and verifies the exact value from SQL via `current_setting('request.headers', true)`. The test also sends 24 concurrent requests with distinct traceparent values and confirms each request receives its own value alongside its own verified `auth.uid()` and `session_id`. This proves the local gateway/PostgREST path only; it does not prove hosted-project behavior or that Android/web clients currently emit trace context.
-2. **Add a private parser.** Create a narrow private helper that safely parses only version-00 `traceparent`, validates trace/span IDs, and returns the trace ID or NULL. Missing or malformed context must never fail the business operation.
-3. **Persist trace IDs on event writers.** Add nullable `trace_id` fields to the event tables that are written during PostgREST requests. Populate only inside trusted SQL functions/triggers. Preserve event row IDs and existing row-local correlation semantics.
-4. **Expose bounded Admin search.** Add trace ID to minimized investigation details and support exact trace-ID search. Label it as a tracing reference, not a security verdict.
+2. **Add a private parser — implemented in PR #370 migration `20261127080000`.** The helper parses only version-00 `traceparent`, validates the trace/span IDs, and returns the lowercase 32-hex trace ID or NULL. Missing, malformed, unsupported-version, all-zero, or malformed-header context fails open.
+3. **Persist trace IDs on event writers — implemented in PR #370 migration `20261127080000`.** A private BEFORE INSERT trigger stamps nullable trace IDs on the nine trusted event tables already carrying session attribution. It overwrites supplied column values from `request.headers`; no event ID or existing correlation field is repurposed.
+4. **Expose bounded Admin search — implemented in PR #370 migration `20261127080000`.** The protected investigation feed exposes trace IDs in minimized details and supports exact 32-hex trace-ID search. The UI labels them as tracing references, not security verdicts.
 5. **Propagate from direct clients.** Enable supported W3C propagation for the browser Supabase client and add an OkHttp interceptor for Android. Generate a fresh trace per request or an active trace per logical user action; do not accidentally reuse one static trace ID for the entire app lifetime.
-6. **Connect the Laravel bridge.** Propagate trace context from the server-generated Laravel request context to upstream Supabase calls and store trace ID separately from `correlation_id` and `provider_request_id`.
+6. **Connect the Laravel bridge — initial propagation implemented in PR #370.** Laravel validates caller-supplied inbound `traceparent` syntax and forwards valid values to Auth, allowlisted RPCs, and the metadata-only API-operation audit sink. This does not generate a server trace root. The trace ID remains separate from `correlation_id`, `auth_session_id`, and `provider_request_id`.
 7. **Preserve emergency availability.** All telemetry remains bounded/fail-open. Tracing or audit failures must not block SOS creation, incident assignment, field status progress, or emergency chat.
 
 ## 7. Required tests
@@ -136,3 +136,15 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/)
 
 No trace propagation, database migration, RLS/grant, Auth setting, credential, Render configuration, or production data was changed by this research.
+
+
+## 9. Repository implementation checkpoint — 2026-11-27
+
+PR #370 now contains the first database/Admin/Laravel trace-context implementation:
+- Private version-00 parser and fail-open event trigger.
+- Nullable, indexed 32-hex `trace_id` columns on Admin, account-lifecycle, incident status, claimability, requester-edit, assignment, app-action, device-security, and Laravel API-operation event tables.
+- Protected feed projections and exact trace-ID search.
+- Laravel validation/propagation to Supabase Auth, RPC, and API-operation audit writes.
+- PHP and SQL runtime/static contracts for invalid input, event stamping, search, and propagation.
+
+This remains partial tracing coverage. Android and browser direct Supabase/Storage requests are not configured to generate/propagate W3C context; device-security events still lack a trusted writer; provider-managed Auth audit entries are not trace-stamped. No hosted migration, service deployment, paid exporter, or telemetry vendor was added. The current change does not alter authorization or infer security alerts from trace IDs.
