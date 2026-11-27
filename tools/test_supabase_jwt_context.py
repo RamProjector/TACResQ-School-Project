@@ -207,6 +207,15 @@ def main() -> int:
 
         status, _ = request_json(
             f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
+            headers={**auth_headers, "Authorization": f"Bearer {anon}"},
+            payload={"p_claimed_sub": None, "p_claimed_session_id": None},
+        )
+        if status not in (401, 403):
+            raise AssertionError(f"Anon-role JWT unexpectedly reached authenticated probe (HTTP {status})")
+        print("PASS: anon-role JWT was rejected by the authenticated-only probe")
+
+        status, _ = request_json(
+            f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
             headers={**auth_headers, "Authorization": "Bearer not-a-jwt"},
             payload={"p_claimed_sub": None, "p_claimed_session_id": None},
         )
