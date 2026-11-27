@@ -169,8 +169,20 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("heading", name="Administrator sign in")).to_have_count(0)
     page.get_by_role("button", name="Sign out").click()
     expect(page.get_by_role("heading", name="Administrator sign in")).to_be_visible(timeout=10000)
-    completed.append("authenticated non-admin is denied; sign-out returns to login")
+    completed.append("authenticated dispatcher is denied; sign-out returns to login")
     page.close()
+
+    # Requester/responder accounts must not enter the Admin workspace either.
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    mock_supabase(page, login="valid", role="requester")
+    page.goto(BASE_URL, wait_until="domcontentloaded")
+    page.get_by_label("Email address").fill("admin@example.test")
+    page.get_by_label("Password").fill("fixture-password")
+    page.get_by_role("button", name="Open admin portal").click()
+    expect(page.get_by_role("heading", name="Administrator access is required.")).to_be_visible(timeout=10000)
+    expect(page.locator(".admin-sidebar")).to_have_count(0)
+    page.close()
+    completed.append("requester role cannot enter the Admin workspace")
 
     # Admin credentials alone must not bypass the verified TOTP gate.
     page = browser.new_page(viewport={"width": 1440, "height": 900})
