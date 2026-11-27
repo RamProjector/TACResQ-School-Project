@@ -229,7 +229,9 @@ for marker in (
     "'auth_session_id' = '10000000-0000-4000-8000-000000000170'",
     "Session-ID search should return only the requester session actions",
     "correlation_count <> 1",
-    "Transaction correlation search should return all three related app actions",
+    "Cross-source correlation search should return three app actions and their API operation",
+    "Auth-session search should correlate app, device-security, and API operation events",
+    "Device security feed exposed arbitrary event details",
 ):
     assert marker in app_action_test, f"Missing app-action session attribution regression: {marker}"
 
