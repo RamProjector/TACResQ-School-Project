@@ -177,7 +177,7 @@ for marker in (
 assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
 assert "everyHttpRequestGetsFreshTraceContext" in android_trace_test
 assert "generatedTraceparentUsesVersionZeroAndNonZeroIdentifiers" in android_trace_test
-assert "private.tacresq_current_trace_id()" in supabase_jwt_test
+assert "'trace_id', private.tacresq_current_trace_id()" in supabase_jwt_test
 assert '"trace_id", private.tacresq_current_trace_id()' in supabase_jwt_test
 assert "database parser did not extract the PostgREST traceparent header" in supabase_jwt_test
 
