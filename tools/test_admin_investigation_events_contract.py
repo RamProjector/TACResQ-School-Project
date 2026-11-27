@@ -45,6 +45,10 @@ for marker in required_sql:
 for marker in (
     "CREATE OR REPLACE FUNCTION public.api_admin_list_investigation_events",
     "'operations'",
+    "'device_security_events'",
+    "FROM public.device_security_events AS d",
+    "'auth_session_id', d.auth_session_id",
+    "'severity', d.severity",
     "'api_operation_logs'",
     "FROM public.api_operation_logs AS o",
     "'correlation_id', o.correlation_id",
@@ -74,11 +78,21 @@ for marker in (
     assert marker in operation_session_migration, f"Missing API session correlation migration contract: {marker}"
 assert "REFERENCES auth.sessions" not in operation_session_migration
 
+# Device security rows are projected without arbitrary JSON details and
+# share Auth session IDs with API-operation telemetry for cross-source search.
+device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
+assert "jsonb_build_object(" in device_projection
+assert "'auth_session_id', d.auth_session_id" in device_projection
+assert "'severity', d.severity" in device_projection
+assert "d.details" not in device_projection
+assert "'device_security_events'" in operation_migration
+
 for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
     assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
 assert "api_operation_logs" in client
 assert 'new Set(["administrative", "authentication", "operations", "incident", "assignment"])' in client
 assert 'api_operation_logs: "Laravel API operations"' in page
+assert 'device_security_events: "Device security events"' in page
 assert 'operations: "API operations"' in page
 assert '<option value="operations">API operations</option>' in page
 
@@ -186,6 +200,7 @@ for marker in (
     "database event writers: integrated",
     "date boundaries and displayed times use Asia/Manila",
     "Laravel API operations",
+    "Device-security rows are included when present but have no trusted server-side writer yet",
     "This best-effort source does not cover direct Android/browser Supabase or Storage calls.",
     "FCM delivery attempts",
     "Provider acceptance does not prove device receipt or user acknowledgement.",
