@@ -9,7 +9,7 @@ type AuditLogsPageProps = { profile: TacruProfile };
 const PAGE_SIZE = 25;
 const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string> = {
   administrative: "Administrative",
-  authentication: "Authentication",
+  authentication: "Authentication",\n  operations: "API operations",
   incident: "Incident",
   assignment: "Assignment",
 };
@@ -20,7 +20,7 @@ const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   incident_claimability_logs: "Incident claiming",
   incident_request_edit_logs: "Requester edits",
   incident_assignment_events: "Responder assignments",
-  app_action_audit_logs: "App actions",
+  app_action_audit_logs: "App actions",\n  api_operation_logs: "Laravel API operations",
 };
 
 function formatDate(value: string | null | undefined) {
@@ -395,7 +395,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <Search size={16} />
           <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events or details" aria-label="Search investigation history" />
         </label>
-        <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
+        <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="operations">API operations</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
