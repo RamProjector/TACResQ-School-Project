@@ -13,8 +13,21 @@ BEGIN
 END;
 $role$;
 
-ALTER ROLE tacresq_device_verifier
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+DO $role_guard$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles
+     WHERE rolname = 'tacresq_device_verifier'
+       AND (
+         rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole
+         OR rolreplication OR rolbypassrls OR rolinherit
+       )
+  ) THEN
+    RAISE EXCEPTION
+      'Existing tacresq_device_verifier role is not least-privileged; remediate it manually before applying this migration';
+  END IF;
+END;
+$role_guard$;
 
 REVOKE CREATE ON SCHEMA private
   FROM PUBLIC, anon, authenticated, service_role, tacresq_device_verifier;
