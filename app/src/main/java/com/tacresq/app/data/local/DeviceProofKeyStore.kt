@@ -27,11 +27,15 @@ import javax.crypto.SecretKeyFactory
 class DeviceProofKeyStore {
     @Synchronized
     fun getOrCreatePublicKey(): DeviceProofPublicKey {
-        val pair = loadOrCreateKeyPair()
-        return DeviceProofPublicKey(
-            spkiBase64 = Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP),
-            securityLevel = readSecurityLevel(pair.private),
-        )
+        try {
+            val pair = loadOrCreateKeyPair()
+            return DeviceProofPublicKey(
+                spkiBase64 = Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP),
+                securityLevel = readSecurityLevel(pair.private),
+            )
+        } catch (invalidated: KeyPermanentlyInvalidatedException) {
+            throw DeviceProofKeyInvalidatedException(invalidated)
+        }
     }
 
     /**
@@ -44,8 +48,8 @@ class DeviceProofKeyStore {
         require(message.isNotEmpty() && message.size <= MAX_MESSAGE_BYTES) {
             "Device proof message must contain 1 to $MAX_MESSAGE_BYTES bytes."
         }
-        val pair = loadExistingKeyPair()
         try {
+            val pair = loadExistingKeyPair()
             val signer = Signature.getInstance(SIGNATURE_ALGORITHM)
             signer.initSign(pair.private)
             signer.update(message)
@@ -60,7 +64,7 @@ class DeviceProofKeyStore {
      * association; this method never rotates or replaces a registered key.
      */
     @Synchronized
-    fun deleteForRecovery() {
+    internal fun deleteForRecovery() {
         keyStore().deleteEntry(KEY_ALIAS)
     }
 
@@ -109,6 +113,7 @@ class DeviceProofKeyStore {
                 KeyProperties.SECURITY_LEVEL_STRONGBOX -> DeviceProofKeySecurityLevel.STRONGBOX
                 KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> DeviceProofKeySecurityLevel.TRUSTED_ENVIRONMENT
                 KeyProperties.SECURITY_LEVEL_SOFTWARE -> DeviceProofKeySecurityLevel.SOFTWARE
+                KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE -> DeviceProofKeySecurityLevel.UNKNOWN_SECURE
                 else -> DeviceProofKeySecurityLevel.UNKNOWN
             }
         }
@@ -170,6 +175,7 @@ enum class DeviceProofKeySecurityLevel {
     STRONGBOX,
     TRUSTED_ENVIRONMENT,
     SOFTWARE,
+    UNKNOWN_SECURE,
     UNKNOWN,
 }
 
