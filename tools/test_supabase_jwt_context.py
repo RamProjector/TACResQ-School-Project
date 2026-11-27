@@ -247,6 +247,8 @@ def main() -> int:
             result = probe(user)
             if result.get("actual_uid") != user["id"] or result.get("actual_session_id") != user["session_id"]:
                 raise AssertionError("PostgREST auth.uid()/session_id did not match the caller JWT")
+            if result.get("trace_id") is not None:
+                raise AssertionError("Missing traceparent must leave the database trace ID NULL")
             if result.get("session_present") is not True or not session_valid(user):
                 raise AssertionError("A current Auth session must pass both read-only and row-locking session predicates")
             read_only_result = probe_read_only(user)
