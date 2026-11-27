@@ -304,6 +304,12 @@ def run_browser_tests(browser: Browser) -> list[str]:
     dialog.get_by_role("button", name="Cancel").click()
     expect(dialog).to_have_count(0)
     completed.append("user directory renders protected records and role-change submission enforces reason validation without mutating data")
+
+    # The same verified Admin session can open the unified read-only audit feed.
+    page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Activity log").click()
+    expect(page.get_by_role("heading", name="Audit history")).to_be_visible()
+    expect(page.get_by_text("No matching activity")).to_be_visible(timeout=10000)
+    completed.append("activity log loads the protected investigation feed and renders its truthful empty state")
     page.close()
 
     # Check both responsive layouts on the real login screen.
