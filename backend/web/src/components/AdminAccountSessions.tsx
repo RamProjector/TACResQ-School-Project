@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import {
   getAdminAuthSessionsPage,
@@ -28,6 +28,10 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
+
+  useEffect(() => () => {
+    requestVersion.current += 1;
+  }, []);
 
   const loadPage = useCallback(async (cursor: AdminAuthSessionCursor | null) => {
     const requestId = ++requestVersion.current;
