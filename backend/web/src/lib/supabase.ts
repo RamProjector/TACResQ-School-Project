@@ -20,7 +20,7 @@ export interface AdminInvestigationEvent {
   summary: string;
   details: Record<string, unknown>;
 }
-export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
+export interface AdminInvestigationPage { contract_version: "session_trace_v1"; events: AdminInvestigationEvent[]; total_count: number; }
 export interface AdminAccountLifecycleEvent { id: number; actor_profile_id: number; actor_identity: string; target_profile_id: number; target_name: string; action: "account_suspended" | "account_reactivated"; previous_status: "active" | "suspended"; new_status: "active" | "suspended"; reason: string; created_at: string; }
 export interface AdminAccountLifecyclePage { events: AdminAccountLifecycleEvent[]; total_count: number; }
 export interface AdminAuthSession { session_id: string; created_at: string | null; updated_at: string | null; last_refreshed_at: string | null; aal: string | null; not_after: string | null; record_status: "record_present"; validity_assessment: "not_evaluated"; }
@@ -472,6 +472,9 @@ export async function getAdminInvestigationEventsPage(
     throw new Error("The investigation service returned an invalid page.");
   }
   const page = data as unknown as AdminInvestigationPage;
+  if (page.contract_version !== "session_trace_v1") {
+    throw new Error("This database's Admin investigation feed does not include the reviewed session and trace correlation contract. Apply migration 20261127080000 and refresh the Admin portal before relying on cross-source searches.");
+  }
   if (
     !Array.isArray(page.events)
     || !Number.isSafeInteger(page.total_count)
