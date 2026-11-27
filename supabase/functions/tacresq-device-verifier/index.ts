@@ -202,19 +202,24 @@ Deno.serve(async (request: Request) => {
       return json({ error: "Invalid device proof" }, 400);
     }
 
-    const message = buildDeviceProofMessage({
-      challengeId: context.challenge_id,
-      purpose: context.purpose,
-      profileId: String(context.profile_id),
-      sessionId: context.auth_session_id,
-      deviceUid: context.device_uid,
-      challenge: payload.challenge,
-    });
-    const valid = await verifyP256DeviceSignature({
-      publicKeySpkiBase64: proposedKey,
-      signatureDerBase64Url: payload.signatureDerBase64Url,
-      message,
-    });
+    let valid = false;
+    try {
+      const message = buildDeviceProofMessage({
+        challengeId: context.challenge_id,
+        purpose: context.purpose,
+        profileId: String(context.profile_id),
+        sessionId: context.auth_session_id,
+        deviceUid: context.device_uid,
+        challenge: payload.challenge,
+      });
+      valid = await verifyP256DeviceSignature({
+        publicKeySpkiBase64: proposedKey,
+        signatureDerBase64Url: payload.signatureDerBase64Url,
+        message,
+      });
+    } catch {
+      return json({ error: "Device proof could not be verified" }, 400);
+    }
     if (!valid) return json({ error: "Device proof could not be verified" }, 400);
 
     const result = await complete(auth.authUserId, auth.authSessionId, payload);
