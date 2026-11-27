@@ -101,6 +101,9 @@ assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 for marker in (
     'function getTechnicalReference(event: AdminInvestigationEvent, key: string): string | null',
     'getTechnicalReference(event, "correlation_id")',
+    'getTechnicalReference(event, "auth_session_id")',
+    'aria-label="Find events from this Auth session"',
+    'setQuery(getTechnicalReference(event, "auth_session_id") || "")',
     'getTechnicalReference(event, "provider_request_id")',
     'aria-label="Find events with this correlation ID"',
     'aria-label="Find events with this provider request ID"',
