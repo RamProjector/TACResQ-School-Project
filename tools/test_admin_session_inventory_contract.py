@@ -29,7 +29,7 @@ required = (
     "items AS MATERIALIZED",
     "page_state AS",
     "next_cursor AS",
-    "ORDER BY created_at ASC NULLS FIRST, id ASC",
+    "ORDER BY created_at DESC NULLS LAST, id DESC",
     "'session_id', i.id",
     "'last_refreshed_at', i.refreshed_at AT TIME ZONE 'UTC'",
     "'record_status', 'record_present'",
