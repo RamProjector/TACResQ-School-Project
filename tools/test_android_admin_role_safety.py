@@ -15,6 +15,12 @@ blocked_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AdminMob
 login_gate_start = root.index("if (loggedInState.session.user.role == Role.ADMIN)")
 login_gate_end = root.index("container.pushTokenCoordinator.sync", login_gate_start)
 login_gate = root[login_gate_start:login_gate_end]
+resume_start = root.index("LifecycleEventEffect(Lifecycle.Event.ON_RESUME)")
+resume_end = root.index("LaunchedEffect(sessionState)", resume_start)
+resume_flow = root[resume_start:resume_end]
+permission_start = root.index("val notificationPermissionLauncher")
+permission_end = root.index("val logout: () -> Unit", permission_start)
+permission_flow = root[permission_start:permission_end]
 logout_start = root.index("val logout: () -> Unit")
 logout_end = root.index("LaunchedEffect(sessionState)", logout_start)
 logout_flow = root[logout_start:logout_end]
@@ -54,6 +60,16 @@ checks = {
         "logout()" in login_gate
         and "return@LaunchedEffect" in login_gate
         and "RequestPermission()" in root
+    ),
+    "Admin app-resume path never syncs push tokens": (
+        "loggedInState.session.user.role != Role.ADMIN" in resume_flow
+        and "pushTokenCoordinator.sync" in resume_flow
+        and resume_flow.index("role != Role.ADMIN") < resume_flow.index("pushTokenCoordinator.sync")
+    ),
+    "Admin permission callback never syncs push tokens": (
+        "loggedInState.session.user.role != Role.ADMIN" in permission_flow
+        and "pushTokenCoordinator.sync" in permission_flow
+        and permission_flow.index("role != Role.ADMIN") < permission_flow.index("pushTokenCoordinator.sync")
     ),
     "RoleApp independently denies Admin before navigation": "if (role == Role.ADMIN) return" in root,
     "RoleSectionScreen independently returns without Admin content": "if (user.role == Role.ADMIN) return" in root,
