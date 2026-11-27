@@ -540,6 +540,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       url.searchParams.set("adminSettings", page);
       url.searchParams.delete("auditFrom");
       url.searchParams.delete("auditTo");
+      url.searchParams.delete("auditQuery");
       window.history.pushState({}, "", url.toString());
     }
   }
@@ -554,10 +555,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     url.searchParams.delete("adminSettings");
     url.searchParams.delete("auditFrom");
     url.searchParams.delete("auditTo");
+    url.searchParams.delete("auditQuery");
     window.history.pushState({}, "", url.toString());
   }
 
-  function navigateToSection(section: AdminSection) {
+  function navigateToSection(section: AdminSection, auditQuery?: string) {
     if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
     closeMobileSidebar(true);
     setActiveSection(section);
@@ -573,6 +575,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     if (section !== "audit") {
       url.searchParams.delete("auditFrom");
       url.searchParams.delete("auditTo");
+      url.searchParams.delete("auditQuery");
+    } else if (auditQuery !== undefined) {
+      url.searchParams.set("auditQuery", auditQuery);
     }
     if (url.toString() !== window.location.href) {
       window.history.pushState({}, "", url.toString());
@@ -588,6 +593,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     url.searchParams.set("adminPage", "audit-logs");
     url.searchParams.set("auditFrom", range.date);
     url.searchParams.set("auditTo", range.date);
+    url.searchParams.delete("auditQuery");
     url.searchParams.delete("adminSettings");
     window.history.pushState({}, "", url.toString());
   }
@@ -1396,7 +1402,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                                   </div>
                                 )}
                               </div>
-                              <AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} />
+                              <AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} onFindSessionActivity={(sessionId) => navigateToSection("audit", sessionId)} />
                             </section>
                           </td>
                         </tr>
