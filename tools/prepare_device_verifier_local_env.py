@@ -66,9 +66,10 @@ def main() -> int:
     verifier_url = urlunsplit((parsed.scheme, authority, parsed.path, parsed.query, parsed.fragment))
     target = Path(sys.argv[2])
     target.parent.mkdir(parents=True, exist_ok=True)
+    # Let Supabase CLI inject its internal Docker-network SUPABASE_URL.
+    # API_URL is the host-side URL and would resolve to the Edge container itself.
     target.write_text(
-        "SUPABASE_URL=" + api_url + "\n"
-        + "SUPABASE_ANON_KEY=" + anon_key + "\n"
+        "SUPABASE_ANON_KEY=" + anon_key + "\n"
         + "TACRESQ_DEVICE_VERIFIER_DATABASE_URL=" + verifier_url + "\n",
         encoding="utf-8",
     )
