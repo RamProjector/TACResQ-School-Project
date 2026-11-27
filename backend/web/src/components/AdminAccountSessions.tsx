@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import {
   getAdminAuthSessionsPage,
   type AdminAuthSessionCursor,
@@ -7,7 +7,7 @@ import {
 } from "@/lib/supabase";
 import "./AdminAccountSessions.css";
 
-type Props = { profileId: number; accountName: string };
+type Props = { profileId: number; accountName: string; onFindSessionActivity: (sessionId: string) => void };
 
 function formatManilaDateTime(value: string | null) {
   if (!value) return "Not recorded";
@@ -20,7 +20,7 @@ function formatManilaDateTime(value: string | null) {
   }).format(date);
 }
 
-export default function AdminAccountSessions({ profileId, accountName }: Props) {
+export default function AdminAccountSessions({ profileId, accountName, onFindSessionActivity }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [page, setPage] = useState<AdminAuthSessionPage | null>(null);
   const [cursors, setCursors] = useState<(AdminAuthSessionCursor | null)[]>([null]);
@@ -150,6 +150,15 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
                           >
                             <Copy size={13} /> {copiedSessionId === session.session_id ? "Copied" : "Copy ID"}
                           </button>
+                          <button
+                            className="admin-account-details"
+                            type="button"
+                            onClick={() => onFindSessionActivity(session.session_id)}
+                            aria-label={`Find activity for Auth session ${session.session_id}`}
+                            title="Search linked activity"
+                          >
+                            <Search size={13} /> Find activity
+                          </button>
                           <span>Record present</span>
                         </div>
                         <dl>
@@ -173,7 +182,7 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
                 </div>
               </div>
               {copyError && <p className="admin-account-sessions__message" role="status">{copyError}</p>}
-              <p className="admin-account-sessions__footnote"><Clock3 size={13} /> Read-only inventory; it does not revoke sessions or evaluate each listed session's timeout validity. An already-issued access JWT may remain accepted by ordinary endpoints until expiry after sign-out, while protected TACResQ Admin operations and selected sensitive RLS reads also require the current Auth session record. Copy a session ID to search for linked events in Audit history.</p>
+              <p className="admin-account-sessions__footnote"><Clock3 size={13} /> Read-only inventory; it does not revoke sessions or evaluate each listed session's timeout validity. An already-issued access JWT may remain accepted by ordinary endpoints until expiry after sign-out, while protected TACResQ Admin operations and selected sensitive RLS reads also require the current Auth session record. Use Find activity to open the Audit history filtered to this session, or copy the ID for external correlation.</p>
             </>
           ) : (
             <p className="admin-account-sessions__message">Session records have not been loaded.</p>
