@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql").read_text()
 action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()
 operation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
+operation_session_migration = (ROOT / "supabase/migrations/20261127050000_api_operation_auth_session_correlation.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -47,6 +48,7 @@ for marker in (
     "'api_operation_logs'",
     "FROM public.api_operation_logs AS o",
     "'correlation_id', o.correlation_id",
+    "'auth_session_id', o.auth_session_id",
     "'provider_request_id', o.provider_request_id",
     "'provider', o.provider",
     "'operation', o.operation",
@@ -61,6 +63,17 @@ for marker in (
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
 ):
     assert marker in operation_migration, f"Missing API operation correlation contract: {marker}"
+# The writer's verified Auth session field must exist in the database,
+# remain historical after sign-out (no FK to auth.sessions), and be indexed.
+for marker in (
+    "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
+    "ON public.api_operation_logs (auth_session_id, created_at DESC, id DESC)",
+    "WHERE auth_session_id IS NOT NULL",
+    "retained as historical metadata after session revocation",
+):
+    assert marker in operation_session_migration, f"Missing API session correlation migration contract: {marker}"
+assert "REFERENCES auth.sessions" not in operation_session_migration
+
 for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
     assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
 assert "api_operation_logs" in client
