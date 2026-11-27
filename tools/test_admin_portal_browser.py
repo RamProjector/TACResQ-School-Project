@@ -62,7 +62,7 @@ def fulfill_json(route: Route, payload: Any, *, status: int = 200) -> None:
     route.fulfill(
         status=status,
         content_type="application/json",
-        headers={"Access-Control-Allow-Origin": "*"},
+        headers={"Access-Control-Allow-Origin": "http://127.0.0.1:4173"},
         body=json.dumps(payload),
     )
 
@@ -76,7 +76,7 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
             route.fulfill(
                 status=204,
                 headers={
-                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Origin": "http://127.0.0.1:4173",
                     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
                     "Access-Control-Allow-Headers": "apikey,authorization,content-type,x-client-info,traceparent",
                 },
