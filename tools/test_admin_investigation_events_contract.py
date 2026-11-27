@@ -467,6 +467,7 @@ for marker in (
     'headers.set("traceparent", traceparent)',
     "global: {",
     "fetch: traceAwareFetch",
+    "Tracing is optional; an unavailable random source must not block an API call.",
 ):
     assert marker in client, f"Missing browser trace propagation: {marker}"
 for marker in (
@@ -474,7 +475,8 @@ for marker in (
     "SecureRandom()",
     '"00-",
     "class TraceparentInterceptor",
-    '.header("traceparent", W3CTraceContext.newTraceparent())',
+    'builder.header("traceparent", W3CTraceContext.newTraceparent())',
+    "Optional telemetry must never prevent SOS or another API request.",
 ):
     assert marker in android_trace, f"Missing Android trace generation/interceptor: {marker}"
 assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
