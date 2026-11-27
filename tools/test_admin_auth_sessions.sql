@@ -5,11 +5,16 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000201', 'session-inventory-admin@example.test',
     '{"name":"Session Inventory Admin","phone":"+63917000021"}'::jsonb),
   ('00000000-0000-4000-8000-000000000202', 'session-inventory-target@example.test',
-    '{"name":"Session Inventory Target","phone":"+63917000022"}'::jsonb);
+    '{"name":"Session Inventory Target","phone":"+63917000022"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000203', 'session-inventory-suspended@example.test',
+    '{"name":"Session Inventory Suspended Admin","phone":"+63917000023"}'::jsonb);
 
 UPDATE public.profiles
    SET role = 'admin', account_status = 'active'
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000201';
+UPDATE public.profiles
+   SET role = 'admin', account_status = 'suspended'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000203';
 
 INSERT INTO auth.sessions (
   id, user_id, created_at, updated_at, refreshed_at, aal, not_after,
@@ -43,6 +48,12 @@ SELECT set_config(
   'test.session_inventory_admin_id',
   (SELECT id::text FROM public.profiles
     WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'),
+  true
+);
+SELECT set_config(
+  'test.session_inventory_suspended_admin_id',
+  (SELECT id::text FROM public.profiles
+    WHERE auth_user_id = '00000000-0000-4000-8000-000000000203'),
   true
 );
 SELECT set_config(
@@ -96,6 +107,7 @@ DO $session_reader_contract$
 DECLARE
   v_target_profile_id bigint := current_setting('test.session_inventory_target_id')::bigint;
   v_admin_profile_id bigint := current_setting('test.session_inventory_admin_id')::bigint;
+  v_suspended_admin_id bigint := current_setting('test.session_inventory_suspended_admin_id')::bigint;
   v_page_one jsonb;
   v_page_two jsonb;
   v_cursor_created_at timestamptz;
@@ -195,14 +207,12 @@ BEGIN
     RAISE EXCEPTION 'AAL2 without TOTP session inventory request must be denied';
   END IF;
 
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000203', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000201","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000203","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
-  UPDATE public.profiles
-     SET account_status = 'suspended'
-   WHERE id = v_admin_profile_id;
   v_rejected := false;
   BEGIN
     PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 2, NULL, NULL);
