@@ -826,8 +826,12 @@ jobs:
         run: |
           set -euo pipefail
           unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF || true
-          test ! -e supabase/config.toml -o ! -e supabase/config.jsonc
-          if [ ! -e supabase/config.toml ] && [ ! -e supabase/config.jsonc ] && [ ! -e supabase/config.json ]; then
+          config_count="$(find supabase -maxdepth 1 -type f \\( -name 'config.toml' -o -name 'config.jsonc' -o -name 'config.json' \\) | wc -l)"
+          if [ "$config_count" -gt 1 ]; then
+            echo "Multiple Supabase config files found; refusing ambiguous local configuration."
+            exit 1
+          fi
+          if [ "$config_count" -eq 0 ]; then
             supabase init
           fi
           test ! -e supabase/.temp/project-ref
