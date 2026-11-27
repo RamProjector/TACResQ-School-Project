@@ -26,7 +26,7 @@ if (!supabaseUrl || !publishableKey || !databaseUrl) {
 const authClient = createClient(supabaseUrl, publishableKey, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
-const localDatabase = /(?:127\\.0\\.0\\.1|localhost|host\\.docker\\.internal)/i.test(databaseUrl);
+const localDatabase = /(?:127\.0\.0\.1|localhost|host\.docker\.internal)/i.test(databaseUrl);
 const db = postgres(databaseUrl, {
   max: 1,
   prepare: false,
