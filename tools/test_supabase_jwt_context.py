@@ -17,6 +17,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 import uuid
 from pathlib import Path
 
@@ -65,8 +66,9 @@ def load_env(path: Path) -> dict[str, str]:
     api = values["API_URL"].rstrip("/")
     if not api.startswith(("http://127.0.0.1:", "http://localhost:")):
         raise RuntimeError("Refusing to test against a non-loopback Supabase API URL")
-    if not values["DB_URL"].startswith(("postgresql://postgres:", "postgres://postgres:")):
-        raise RuntimeError("Refusing to test against a non-local database URL")
+    db = urlparse(values["DB_URL"])
+    if db.scheme not in ("postgres", "postgresql") or db.username != "postgres" or db.hostname not in ("127.0.0.1", "localhost"):
+        raise RuntimeError("Refusing to test against a non-loopback database URL")
     return values
 
 
