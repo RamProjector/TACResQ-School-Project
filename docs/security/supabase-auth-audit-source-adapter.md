@@ -50,6 +50,10 @@ The confirmed structured keys include `auth_audit_event.action`, `actor_id`, `re
 
 The external stream observation proves that provider events exist independently of the empty Postgres table. It does **not** prove the project's Postgres-persistence toggle is on or off. The current Supabase connector does not expose a read-only inspection action for that Auth-specific setting.
 
+### Provider row-ID compatibility
+
+The connected hosted project reports `auth.audit_log_entries.id` as a non-null UUID with no default, while the repository's pinned clean PostgreSQL migration-replay fixture exposes the same provider relation with a BIGINT primary key. The Admin reader does not assume either representation: it prefixes the source and casts the provider row ID to text. The disposable runtime fixture now checks the relation's actual `id` type and inserts a UUID or BIGINT fixture accordingly. This is test compatibility only; it does not alter or normalize the provider-owned Auth schema.
+
 ## Implemented in PR #370
 
 ### 1. Native source adapter remains read-only
