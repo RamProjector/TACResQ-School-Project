@@ -288,7 +288,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     # Exercise the real user directory and role-change dialog without writing
     # a role change. The reason and changed-role requirements must gate submit.
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="User management").click()
-    expect(page.get_by_role("heading", name="User management")).to_be_visible()
+    expect(page.get_by_role("heading", name="User management").first).to_be_visible()
     expect(page.get_by_role("table", name="Administrator account directory")).to_be_visible()
     expect(page.get_by_text("Test Requester")).to_be_visible()
     expect(page.get_by_text("requester@example.test")).to_be_visible()
