@@ -62,9 +62,12 @@ final class ApiOperationAuditLogger
         ];
 
         try {
-            $headers = SupabaseServerHeaders::forSecretKey($secret, [
-                'Prefer' => 'return=minimal',
-            ]);
+            $additionalHeaders = ['Prefer' => 'return=minimal'];
+            $traceparent = TraceContext::currentTraceparent();
+            if ($traceparent !== null) {
+                $additionalHeaders['traceparent'] = $traceparent;
+            }
+            $headers = SupabaseServerHeaders::forSecretKey($secret, $additionalHeaders);
 
             $response = Http::acceptJson()
                 ->asJson()
