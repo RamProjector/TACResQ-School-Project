@@ -12,9 +12,17 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
 UPDATE public.profiles
    SET role = 'admin', account_status = 'active'
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000201';
-UPDATE public.profiles
-   SET role = 'admin', account_status = 'suspended'
- WHERE auth_user_id = '00000000-0000-4000-8000-000000000203';
+UPDATE public.profiles AS suspended_admin
+   SET role = 'admin',
+       account_status = 'suspended',
+       suspended_at = statement_timestamp(),
+       suspended_by = (
+         SELECT actor.id
+           FROM public.profiles AS actor
+          WHERE actor.auth_user_id = '00000000-0000-4000-8000-000000000201'
+       ),
+       suspension_reason = 'Disposable session inventory authorization test'
+ WHERE suspended_admin.auth_user_id = '00000000-0000-4000-8000-000000000203';
 
 INSERT INTO auth.sessions (
   id, user_id, created_at, updated_at, refreshed_at, aal, not_after,
