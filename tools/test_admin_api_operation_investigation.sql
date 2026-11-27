@@ -12,6 +12,12 @@ UPDATE public.profiles
    SET role = 'admin', account_status = 'active'
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000401';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000401',
+  '00000000-0000-4000-8000-000000000401'
+);
+
 INSERT INTO public.api_operation_logs (
   correlation_id, actor_auth_user_id, provider, operation, source, outcome,
   http_status, duration_ms, provider_request_id, error_code
@@ -60,7 +66,7 @@ SELECT set_config(
 );
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000401","aal":"aal2","amr":[{"method":"totp"}]}'::text,
+  '{"sub":"00000000-0000-4000-8000-000000000401","session_id":"10000000-0000-4000-8000-000000000401","aal":"aal2","amr":[{"method":"totp"}]}'::text,
   true
 );
 
@@ -115,7 +121,7 @@ BEGIN
   -- The same RPC must still reject an Admin token without AAL2/TOTP.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000401","aal":"aal1","amr":[{"method":"password"}]}'::text,
+    '{"sub":"00000000-0000-4000-8000-000000000401","session_id":"10000000-0000-4000-8000-000000000401","aal":"aal1","amr":[{"method":"password"}]}'::text,
     true
   );
   BEGIN

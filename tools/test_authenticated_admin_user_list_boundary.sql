@@ -20,6 +20,12 @@ UPDATE public.profiles
 SET role = 'admin', duty_status = NULL
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000145',
+  '00000000-0000-4000-8000-000000000145'
+);
+
 INSERT INTO public.admin_audit_logs (
   actor_user_id, actor_identity, target_user_id, action,
   old_role, new_role, reason
@@ -48,7 +54,7 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+  '{"session_id":"10000000-0000-4000-8000-000000000145","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
   false
 );
 

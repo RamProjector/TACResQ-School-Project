@@ -47,7 +47,7 @@ assert "api_admin_set_account_status" in crosswalk
 assert "not client-callable" in crosswalk
 assert "api_admin_list_account_lifecycle_events(integer,integer)" in crosswalk
 assert "api_admin_list_auth_sessions_page(bigint,integer,timestamptz,uuid)" in crosswalk
-assert "13 authenticated-callable private security definer helpers" in crosswalk
+assert "14 authenticated-callable private security definer helpers" in crosswalk
 assert "14 authenticated-callable application api invoker functions" in crosswalk
 assert "11 authenticated-callable application api invoker functions after the legacy requester-create execute revocation" in crosswalk
 assert "38 authenticated-callable public api functions" in crosswalk

@@ -36,6 +36,12 @@ BEGIN
   -- below we separately assert the authenticated responder's own transition.
   UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
 
+  INSERT INTO auth.sessions (id, user_id)
+  VALUES (
+    '10000000-0000-4000-8000-000000000172',
+    '00000000-0000-4000-8000-000000000172'
+  );
+
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
     location_recorded_at, location_source
@@ -171,7 +177,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000172', false);
   PERFORM set_config('request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000172","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000172","session_id":"10000000-0000-4000-8000-000000000172","aal":"aal2","amr":[{"method":"totp"}]}',
     false);
   feed := public.api_admin_list_investigation_events(
     100, 0, '', 'all', 'app_action_audit_logs',

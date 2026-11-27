@@ -560,10 +560,16 @@ UPDATE public.profiles
        suspension_reason = 'Synthetic suspended Admin fixture'
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000992',
+  '00000000-0000-4000-8000-000000000992'
+);
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000992', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000992","aal":"aal2","amr":[{"method":"totp"}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000992","session_id":"10000000-0000-4000-8000-000000000992","aal":"aal2","amr":[{"method":"totp"}]}',
   false
 );
 SET ROLE authenticated;
@@ -640,6 +646,12 @@ UPDATE public.profiles
    SET role = 'admin', duty_status = NULL
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000995',
+  '00000000-0000-4000-8000-000000000995'
+);
+
 -- Reuse a valid responder JWT to prove the invoker duty-status RPC still has
 -- its narrow column grants while direct lifecycle-field mutation is denied.
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000993', false);
@@ -669,7 +681,7 @@ RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000995', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000995","aal":"aal2","amr":[{"method":"totp"}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000995","session_id":"10000000-0000-4000-8000-000000000995","aal":"aal2","amr":[{"method":"totp"}]}',
   false
 );
 

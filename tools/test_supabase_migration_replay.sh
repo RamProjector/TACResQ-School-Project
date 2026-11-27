@@ -1045,6 +1045,12 @@ BEGIN
 END;
 $admin_provision_fixture$;
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000128',
+  '00000000-0000-4000-8000-000000000128'
+);
+
 DO $admin_authorization_test$
 DECLARE
   admin_profile_id bigint;
@@ -1083,7 +1089,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
     true
   );
   -- Function EXECUTE grants are asserted above. Direct audit-table RLS is
@@ -1160,7 +1166,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
     true
   );
 
@@ -1310,7 +1316,7 @@ BEGIN
   -- A password-only AAL1 session must not see audit rows, even for an Admin.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1321,7 +1327,7 @@ BEGIN
   -- AAL2 without a TOTP method must also be denied.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1332,7 +1338,7 @@ BEGIN
   -- The verified TOTP session must retain the intended Admin read access.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1343,7 +1349,7 @@ BEGIN
   -- RFC-8176 string-form AMR claims are also accepted by the MFA policy.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":["password","totp"]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":["password","totp"]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;

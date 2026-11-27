@@ -307,6 +307,7 @@ echo "PASS: deterministic two-dispatcher race; exactly one assignment committed.
 # commits with SQLSTATE 55006. No simulated profile writes or test-only locks
 # stand in for either production path.
 suspension_admin_uuid="00000000-0000-4000-8000-000000000962"
+suspension_admin_session_id="10000000-0000-4000-8000-000000000962"
 assignment_first_responder_uuid="00000000-0000-4000-8000-000000000963"
 suspension_first_responder_uuid="00000000-0000-4000-8000-000000000964"
 assignment_first_requester_uuid="00000000-0000-4000-8000-000000000960"
@@ -323,6 +324,11 @@ VALUES
 
 UPDATE public.profiles SET role = 'admin', duty_status = NULL
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000962';
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000962',
+  '00000000-0000-4000-8000-000000000962'
+);
 UPDATE public.profiles SET role = 'responder', duty_status = 'available'
 WHERE auth_user_id IN (
   '00000000-0000-4000-8000-000000000963',
@@ -435,7 +441,7 @@ run_admin_suspension_and_hold() {
 \set VERBOSITY verbose
 SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$suspension_admin_uuid', false);
-SELECT set_config('request.jwt.claims', '{"aal":"aal2","amr":[{"method":"totp"}]}', false);
+SELECT set_config('request.jwt.claims', '{"session_id":"$suspension_admin_session_id","aal":"aal2","amr":[{"method":"totp"}]}', false);
 BEGIN;
 SELECT public.api_admin_set_account_status($target_profile_id, 'active', 'suspended', 'Disposable concurrency regression');
 SELECT pg_sleep(4);
@@ -452,7 +458,7 @@ run_admin_suspension_once() {
 \set VERBOSITY verbose
 SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$suspension_admin_uuid', false);
-SELECT set_config('request.jwt.claims', '{"aal":"aal2","amr":[{"method":"totp"}]}', false);
+SELECT set_config('request.jwt.claims', '{"session_id":"$suspension_admin_session_id","aal":"aal2","amr":[{"method":"totp"}]}', false);
 BEGIN;
 SELECT public.api_admin_set_account_status($target_profile_id, 'active', 'suspended', 'Disposable concurrency regression');
 COMMIT;
