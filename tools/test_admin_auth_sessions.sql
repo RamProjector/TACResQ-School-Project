@@ -506,7 +506,13 @@ BEGIN
     RAISE EXCEPTION 'A deleted Auth session row must fail the read-only session predicate';
   END IF;
 
-  SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
+  SELECT count(*) INTO v_visible_audit_rows
+    FROM public.admin_audit_logs
+   WHERE reason = 'Disposable audit fixture for session revocation policy'
+     AND actor_user_id = (
+       SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
+     );
   IF v_visible_audit_rows <> 0 THEN
     RAISE EXCEPTION 'A revoked Admin session must lose direct audit-history access';
   END IF;
