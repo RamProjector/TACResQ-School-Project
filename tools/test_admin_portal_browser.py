@@ -225,7 +225,7 @@ def main() -> int:
     env["VITE_SUPABASE_PUBLISHABLE_KEY"] = PUBLISHABLE_KEY
     env["VITE_BASE_PATH"] = "/admin/"
     process = subprocess.Popen(
-        ["pnpm", "dev", "--", "--host", HOST, "--port", str(PORT), "--strictPort"],
+        ["pnpm", "dev", "--host", HOST, "--port", str(PORT), "--strictPort"],
         cwd=WEB,
         env=env,
         stdout=subprocess.PIPE,
@@ -259,7 +259,7 @@ def main() -> int:
             process.wait(timeout=5)
         if process.stdout:
             output = process.stdout.read()
-            if process.returncode not in (0, -15, 143) and output:
+            if output:
                 print(output, file=sys.stderr)
 
 
