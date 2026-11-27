@@ -35,6 +35,8 @@ FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE INDEX IF NOT EXISTS device_challenges_profile_session_created_idx
   ON public.device_challenges (profile_id, auth_session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS device_challenges_profile_created_idx
+  ON public.device_challenges (profile_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION private.device_verifier_issue_challenge(
   p_auth_user_id uuid,
@@ -54,7 +56,8 @@ DECLARE
   v_raw_challenge bytea;
   v_challenge_id uuid;
   v_expires_at timestamptz;
-  v_recent_count integer;
+  v_session_recent_count integer;
+  v_profile_recent_count integer;
 BEGIN
   IF session_user <> 'tacresq_device_verifier' THEN
     RAISE EXCEPTION 'Trusted device verifier connection required' USING ERRCODE = '42501';
@@ -80,7 +83,7 @@ BEGIN
   END IF;
 
   PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(v_profile_id::text || ':' || p_auth_session_id::text, 0)
+    pg_catalog.hashtextextended(v_profile_id::text, 0)
   );
 
   -- Hold a lock on the real Auth session row. This serializes issuance with
@@ -132,13 +135,14 @@ BEGIN
     END IF;
   END IF;
 
-  SELECT count(*)::integer
-    INTO v_recent_count
+  SELECT
+    count(*) FILTER (WHERE c.auth_session_id = p_auth_session_id)::integer,
+    count(*)::integer
+    INTO v_session_recent_count, v_profile_recent_count
     FROM public.device_challenges AS c
    WHERE c.profile_id = v_profile_id
-     AND c.auth_session_id = p_auth_session_id
      AND c.created_at >= clock_timestamp() - interval '15 minutes';
-  IF v_recent_count >= 5 THEN
+  IF v_session_recent_count >= 5 OR v_profile_recent_count >= 20 THEN
     RAISE EXCEPTION 'Device challenge rate limit exceeded' USING ERRCODE = '53300';
   END IF;
 
