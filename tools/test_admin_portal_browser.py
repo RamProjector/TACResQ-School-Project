@@ -274,17 +274,6 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             })
             return
 
-        if "/auth/v1/factors" in url:
-            factors = [{
-                "id": "22222222-2222-4222-8222-222222222222",
-                "friendly_name": "TACResQ Authenticator",
-                "factor_type": "totp",
-                "status": "verified",
-                "created_at": datetime.now().astimezone().isoformat(),
-            }]
-            fulfill_json(route, {"all": factors, "totp": factors, "phone": []})
-            return
-
         # Unanticipated calls should not be silently converted into fake success.
         route.continue_()
 
@@ -483,7 +472,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("heading", name="Recent authentication and device-security events")).to_be_visible()
     expect(page.get_by_role("heading", name="Admin access review")).to_be_visible()
     expect(page.get_by_text("Elevated (AAL2)")).to_be_visible(timeout=10000)
-    expect(page.get_by_text("TACResQ Authenticator")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Test authenticator")).to_be_visible(timeout=10000)
     completed.append("Security workspace renders verified TOTP/AAL2 state and authentication/access-review sections")
 
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Settings").click()
