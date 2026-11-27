@@ -6,6 +6,7 @@ No production credentials, database writes, or live user data are used.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import signal
@@ -29,14 +30,29 @@ PUBLISHABLE_KEY = "sb_publishable_browser_test_only"
 
 def fixture_session() -> dict[str, Any]:
     now = int(time.time())
+    user_id = "00000000-0000-4000-8000-000000000001"
+    header = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').rstrip(b"=").decode()
+    claims = {
+        "aud": "authenticated",
+        "exp": now + 3600,
+        "iat": now,
+        "sub": user_id,
+        "role": "authenticated",
+        "aal": "aal1",
+        "amr": [{"method": "password", "timestamp": now}],
+    }
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    # Supabase's client decodes the JWT claims locally; no signature is trusted
+    # or sent to a live Auth service in these intercepted browser tests.
+    access_token = f"{header}.{payload}.dGVzdC1zaWduYXR1cmU"
     return {
-        "access_token": "browser-test-access-token",
+        "access_token": access_token,
         "token_type": "bearer",
         "expires_in": 3600,
         "expires_at": now + 3600,
         "refresh_token": "browser-test-refresh-token",
         "user": {
-            "id": "00000000-0000-4000-8000-000000000001",
+            "id": user_id,
             "aud": "authenticated",
             "role": "authenticated",
             "email": "admin@example.test",
