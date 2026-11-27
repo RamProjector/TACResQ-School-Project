@@ -7,6 +7,14 @@ session_guard = (ROOT / "supabase/migrations/20261127040000_admin_sensitive_sess
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 runtime_test = (ROOT / "tools/test_admin_auth_sessions.sql").read_text()
 integration_test = (ROOT / "tools/test_supabase_jwt_context.py").read_text()
+event_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
+investigation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
+bridge_source = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
+logger_source = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
+bridge_test = (ROOT / "backend/src/tests/Feature/SupabaseBridgeTest.php").read_text()
+logger_test = (ROOT / "backend/src/tests/Feature/ApiOperationAuditLoggerTest.php").read_text()
+app_action_test = (ROOT / "tools/test_app_action_audit.sql").read_text()
+api_operation_test = (ROOT / "tools/test_admin_api_operation_investigation.sql").read_text()
 
 required = (
     "CREATE OR REPLACE FUNCTION public.api_admin_list_auth_sessions_page",
@@ -169,5 +177,62 @@ for marker in (
     "The revoked session must fail database session checks while its JWT remains accepted",
 ):
     assert marker in integration_test, f"Missing local Auth/PostgREST session-revocation proof: {marker}"
+
+# Auth-session attribution is captured only after Auth validates the bearer token,
+# then carried into durable event rows and the protected investigation feed.
+for marker in (
+    "ALTER TABLE public.api_operation_logs",
+    "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
+    "ALTER TABLE public.app_action_audit_logs",
+    "CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()",
+    "(SELECT auth.jwt()) ->> 'session_id'",
+    "target_user_id, incident_id, metadata, auth_session_id",
+    "api_operation_logs_auth_session_created_idx",
+    "app_action_audit_logs_auth_session_created_idx",
+):
+    assert marker in event_migration, f"Missing durable event session-attribution migration: {marker}"
+
+for marker in (
+    "'auth_session_id', a.auth_session_id",
+    "'auth_session_id', o.auth_session_id",
+    "details::text",
+):
+    assert marker in investigation_migration, f"Investigation feed does not expose/search session attribution: {marker}"
+
+for marker in (
+    "sessionIdFromVerifiedToken($accessToken, $user['id'])",
+    "private function sessionIdFromVerifiedToken",
+    "hash_equals($verifiedUserId, $claims['sub'])",
+    "Str::isUuid($sessionId)",
+    "/auth/v1/user",
+):
+    assert marker in bridge_source, f"Bridge session attribution is not tied to verified Auth user: {marker}"
+
+assert "request()->attributes->set(" in bridge_source and "'auth_session_id'" in bridge_source
+assert "'auth_session_id' => $authSessionId" in logger_source
+
+for marker in (
+    "test_session_claim_is_not_attributed_when_auth_user_does_not_match_jwt_subject",
+    "test_session_claim_is_not_attributed_when_auth_rejects_the_bearer_token",
+    "array_column($auditPayloads, 'auth_session_id')",
+    "syntheticJwt",
+):
+    assert marker in bridge_test, f"Missing bridge session attribution regression: {marker}"
+
+assert "auth_session_id" in logger_test
+for marker in (
+    "auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid",
+    "auth_session_id = '10000000-0000-4000-8000-000000000171'::uuid",
+    "'auth_session_id' = '10000000-0000-4000-8000-000000000170'",
+    "Session-ID search should return only the requester session actions",
+):
+    assert marker in app_action_test, f"Missing app-action session attribution regression: {marker}"
+
+for marker in (
+    "correlation_id, actor_auth_user_id, auth_session_id",
+    "'auth_session_id'",
+    "Searching the Auth session ID must return both bridge events",
+):
+    assert marker in api_operation_test, f"Missing API-operation session attribution regression: {marker}"
 
 print("PASS: Admin session inventory authorization, pagination, and privacy contracts are present.")
