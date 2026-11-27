@@ -69,6 +69,11 @@ BEGIN
   UPDATE public.profiles SET role = 'requester', duty_status = NULL
     WHERE id IN (requester_id, arrival_requester_id, legacy_requester_id);
   UPDATE public.profiles SET role = 'admin', duty_status = NULL WHERE id = admin_id;
+  INSERT INTO auth.sessions (id, user_id)
+  VALUES (
+    '10000000-0000-4000-8000-000000000158',
+    '00000000-0000-4000-8000-000000000158'
+  );
 
   SELECT id INTO actor_id FROM public.profiles WHERE auth_user_id = dispatcher_auth_id;
   IF actor_id IS NULL THEN
@@ -370,7 +375,7 @@ $release_history_requester_hidden$;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000158', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000158","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000158","session_id":"10000000-0000-4000-8000-000000000158","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
   false
 );
 DO $release_history_admin_read$
