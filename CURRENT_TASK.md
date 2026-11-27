@@ -1,3 +1,16 @@
+## Admin protected session inventory — 2026-11-27
+
+- **Research/spec:** `docs/security/admin-session-inventory-and-event-correlation-implementation-spec.md` (commit `0dadf6b`). It records live schema/ACL evidence, Supabase session timeout semantics, the active Admin MFA guard, identifier boundaries, and the supported session-revocation limits.
+- **Implementation:** added `supabase/migrations/20261127020000_admin_session_inventory_read_rpc.sql` (commit `da8cc5a`) with a read-only SECURITY DEFINER, keyset-paginated session reader. It calls `private.tacresq_require_admin_mfa()`, resolves the target Auth UUID from `profiles.auth_user_id`, and returns only session ID, created/updated/refreshed timestamps, AAL, and not-after metadata. It does not return IP, user-agent, factor ID, OAuth metadata, token counters, refresh-token HMAC, scopes, or raw Auth records. Rows are labeled `record_present` / `not_evaluated`, not active.
+- **Web client:** added typed RPC contract and response validation in `backend/web/src/lib/supabase.ts` (commit `a6ac32e`, UUID validation refinement `c52cf6c`).
+- **UI:** added `AdminAccountSessions.tsx` and responsive CSS; exposed the read-only inventory in expanded Admin account details (commits `a058964`, `600d28f`, `960eaab`). Added stale-request cancellation on unmount (`f940e0d`).
+- **Tests:** added `tools/test_admin_session_inventory_contract.py` and `tools/test_admin_session_inventory_ui_contract.py` (commits `3cd9e05`, `5ec27d7`, `bc51ea5`, `1715547`).
+- **Design limits:** no selective session revocation is exposed. Supabase Admin sign-out requires a valid target-user JWT; an Auth session row ID is not that JWT. Do not delete `auth.sessions` rows or substitute account-wide global sign-out for a selected session. The UI explicitly remains read-only.
+- **Deployment:** no live migration, Auth setting, RLS/grant, data, Render config, or deployment changed. The SQL migration is staged in the PR branch only.
+- **Validation:** exact-head workflow runs were queued at earlier intermediate commits. Recheck the latest branch head after this task update; clean PostgreSQL replay, web build, and static contract results are not yet confirmed.
+
+---
+
 ## Admin session and security-event correlation investigation — 2026-11-27
 
 - **User-reported issue:** Admin Sessions and Security Alerts do not correlate and appear nonfunctional; requested error-log inspection.
