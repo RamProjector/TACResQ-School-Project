@@ -20,6 +20,9 @@ server_contract = server_admin_migration + "\n" + server_pagination_migration
 resume_start = root.index("LifecycleEventEffect(Lifecycle.Event.ON_RESUME)")
 resume_end = root.index("LaunchedEffect(sessionState)", resume_start)
 resume_flow = root[resume_start:resume_end]
+permission_start = root.index("val notificationPermissionLauncher")
+permission_end = root.index("val logout: () -> Unit", permission_start)
+permission_flow = root[permission_start:permission_end]
 
 checks = {
     "Android has no privileged Admin API interface or DTOs": all(
@@ -53,6 +56,11 @@ checks = {
         "sessionState.session.user.role != Role.ADMIN" in resume_flow
         and "pushTokenCoordinator.sync" in resume_flow
         and resume_flow.index("role != Role.ADMIN") < resume_flow.index("pushTokenCoordinator.sync")
+    ),
+    "Admin cannot register an FCM token after the notification permission callback": (
+        "sessionState.session.user.role != Role.ADMIN" in permission_flow
+        and "pushTokenCoordinator.sync" in permission_flow
+        and permission_flow.index("role != Role.ADMIN") < permission_flow.index("pushTokenCoordinator.sync")
     ),
     "Server-side Admin RPCs remain in Supabase migrations": all(
         f"create or replace function public.{name}" in server_contract
