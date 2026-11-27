@@ -396,11 +396,13 @@ The following repository-only changes now exist on PR #370:
 - The local Auth/PostgREST integration harness now probes both predicates with real Auth-issued tokens, a correctly signed cross-user session_id token, and the old access JWT after local sign-out.
 - Migration-history alignment classifies the new migration as an unapplied forward migration. It is not present in the connected project's migration ledger.
 
-**Validation checkpoint (2026-11-27, commit `e37393440637ed65b25b197cb2cbb8b763568842`):**
-- Static source checks passed.
-- The disposable local Supabase Auth/PostgREST integration assertions passed, including two real Auth-issued user JWTs, `auth.uid()`/`session_id` propagation, session ownership, forged body identity rejection, cross-user session rejection, 24 concurrent identity/header-isolation requests, valid `traceparent` delivery through the local gateway into `request.headers`, sign-out session-row deletion, stale access-JWT database denial, and revoked refresh-token rejection.
-- The local Supabase job was still completing its container/volume cleanup when this checkpoint was recorded; its actual test command had returned all PASS assertions.
-- RPC grant contract, QA prototype capture/stress checks, Frontend Review, read-only profile verification, repository security guardrails, and CodeQL web/Actions had passed. Android builds, Android CodeQL, PostgreSQL 16/17 clean replay, and Laravel/dashboard integration were still running.
-- The local Supabase lane is advisory and must be reported separately from required CI. The local traceparent proof does not establish hosted Supabase behavior or current Android/web client propagation.
+**Validation checkpoint (2026-11-27, code commit `94abb9f5251eabfd2f7f722557c6007b6c14671d`; documentation follow-up `46b2be2a15119256ef52e7d4d20524c16c939cff)):**
+- Static source checks, Python contracts, TypeScript/Admin web build, Android debug/release builds, JVM tests, instrumentation-test compilation, and Android Lint passed.
+- PostgreSQL 17 RPC grant contract passed, including the expanded SQL runtime test that searches separate Admin and requester sessions across role, lifecycle, claimability, assignment, incident-status, and requester-edit sources.
+- Clean PostgreSQL migration replay passed with both new forward migrations.
+- The disposable local Supabase stack replayed migrations successfully after CI excluded the unused Mailpit container. The Auth/PostgREST JWT context and traceparent test passed, including concurrent request/header isolation, sign-out session-row deletion, stale access-JWT database denial, and revoked refresh-token rejection.
+- Laravel/dashboard integration, QA prototype capture/stress checks, Frontend Review, read-only profile verification, repository security guardrails, CodeQL for Android/web/Actions, and automated code review passed.
+- The local Supabase lane remains advisory and is reported separately from required CI. Local traceparent delivery does not establish hosted Supabase behavior or current Android/web client propagation.
+- Session activity coverage now includes the signed Auth session claim on trusted incident, claimability, requester-edit, assignment, Admin role, and account-lifecycle events. The unified investigation feed exposes these fields and includes account lifecycle rows. The separate Laravel Sanctum lifecycle ledger remains isolated. `device_security_events` still has no trusted writer, and Supabase Auth audit payloads are not assumed to contain a session ID.
 
-No hosted migration, ACL update, Auth-session mutation, Render configuration change, production deployment, or merge was performed. Keep PR #370 open and unmerged until all required checks pass on one exact head.
+No hosted migration, ACL update, Auth-session mutation, Render configuration change, production deployment, or merge was performed. PR #370 remains open and unmerged. The current PR head is documentation-only follow-up to the fully green code commit above; its checks are being rerun.
