@@ -110,5 +110,7 @@ assert 'aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="tru
 # transition RPC grant, same-token coverage, deployment, and session behavior
 # have been independently verified.
 assert "The database transition function is staged but EXECUTE remains revoked from client roles." in SECURITY
-assert "Remaining same-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete." in SECURITY
+assert "Remaining same-JWT authorization coverage, migration/deployment verification, and the Admin workflow are not complete." in SECURITY
+assert "Current-session enforcement is implemented for protected Admin RPCs and selected sensitive RLS reads" in SECURITY
+assert "ordinary unguarded PostgREST paths may still accept an unexpired access JWT" in SECURITY
 assert "No suspend/reactivate action is exposed here." in SECURITY
