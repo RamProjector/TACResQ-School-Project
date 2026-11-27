@@ -295,7 +295,7 @@ for marker in (
     'navigateToSection("audit", relatedReference)',
 ):
     assert marker in admin_console_source, f"Security preview does not link related activity: {marker}"
-assert ".admin-security-event-reference" in admin_console_source
+assert 'className="admin-security-event-reference"' in admin_console_source
 assert ".admin-security-event-reference" in admin_console_css
 
 print("PASS: Admin session inventory authorization, pagination, privacy, and security-event navigation contracts are present.")
