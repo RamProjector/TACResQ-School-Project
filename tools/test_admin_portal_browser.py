@@ -479,7 +479,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("heading", name="General & appearance")).to_be_visible()
     page.get_by_label("Layout density").select_option("compact")
     page.get_by_role("button", name="Save preferences").click()
-    expect(page.get_by_role("status")).to_contain_text("Your Admin display preferences were saved on this device.")
+    expect(page.locator(".admin-banner--success")).to_contain_text("Your Admin display preferences were saved on this device.")
     page.get_by_role("navigation", name="Settings pages").get_by_role("button", name="Accessibility").click()
     expect(page.get_by_role("heading", name="Accessibility")).to_be_visible()
     page.get_by_label("Reduce motion").check()
