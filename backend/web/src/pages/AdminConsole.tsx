@@ -1669,7 +1669,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <AdminSecurityStatus />
             <section className="admin-panel admin-security-events" aria-labelledby="admin-security-events-title" aria-busy={authenticationEventsLoading}>
               <div className="admin-panel__heading">
-                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the existing protected investigation feed. It includes only events currently collected by the connected authentication source; it is not a complete sign-in or session history." /></div>
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication and device-security events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the protected investigation feed. It can include Supabase Auth and recorded device-security events, but the device-security writer is not implemented and the preview is not a complete sign-in or session history." /></div>
                 <div className="admin-analytics-controls">
                   <span className="admin-data-freshness" data-state={authenticationEventsError ? "error" : authenticationEventsLoading ? "loading" : authenticationEventsLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{authenticationEventsError ? "Unavailable" : authenticationEventsLoading ? "Refreshing…" : authenticationEventsLoadedAt ? "Updated " + formatManilaDateTime(authenticationEventsLoadedAt) + " · Asia/Manila" : "Not yet retrieved"}</span>
                   <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> {authenticationEventsError ? "Retry" : "Refresh"}</button>
@@ -1684,21 +1684,25 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               ) : (
                 <div className="admin-table-wrap">
                   <table className="admin-table">
-                    <caption className="admin-table-caption">Latest five authentication events returned by the protected investigation feed</caption>
-                    <thead><tr><th scope="col">Event</th><th scope="col">Account / actor</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
-                    <tbody>{recentAuthenticationEvents.map((event) => (
-                      <tr key={event.event_id}>
-                        <td>{event.summary}</td>
-                        <td>{event.actor_label}</td>
-                        <td className="admin-date">{formatDate(event.occurred_at)}</td>
-                        <td><code>{event.source}</code></td>
-                      </tr>
-                    ))}</tbody>
+                    <caption className="admin-table-caption">Latest five authentication and device-security events returned by the protected investigation feed</caption>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Account / actor</th><th scope="col">Auth session</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
+                    <tbody>{recentAuthenticationEvents.map((event) => {
+                      const authSessionId = typeof event.details.auth_session_id === "string" ? event.details.auth_session_id : null;
+                      return (
+                        <tr key={event.event_id}>
+                          <td>{event.summary}</td>
+                          <td>{event.actor_label}</td>
+                          <td>{authSessionId ? <code title={authSessionId}>Session · {authSessionId.slice(-8)}</code> : "Not recorded"}</td>
+                          <td className="admin-date">{formatDate(event.occurred_at)}</td>
+                          <td><code>{event.source}</code></td>
+                        </tr>
+                      );
+                    })}</tbody>
                   </table>
                 </div>
               )}
               <div className="admin-settings-actions">
-                <span className="admin-panel__footnote">Preview only · five most recent returned records · source coverage may be incomplete.</span>
+                <span className="admin-panel__footnote">Preview only · five most recent returned records. Session IDs are shown only when the source records one; use Activity log to search linked events.</span>
                 <button className="admin-filter-reset" type="button" onClick={() => navigateToSection("audit")}>Open activity log</button>
               </div>
             </section>
