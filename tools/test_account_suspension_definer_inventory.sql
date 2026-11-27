@@ -190,8 +190,8 @@ BEGIN
     AND left(p.proname, 4) = 'api_'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
-  IF api_callable_count <> 35
-     OR api_definer_count <> 24
+  IF api_callable_count <> 36
+     OR api_definer_count <> 25
      OR api_invoker_count <> 11 THEN
     RAISE EXCEPTION
       'Application API callable baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 36/25/11',
