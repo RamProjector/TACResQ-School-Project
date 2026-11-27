@@ -473,3 +473,60 @@ This slice deliberately does not issue or consume database challenges, register 
 7. Keep requester SOS, location reporting, chat, responder claim, dispatch assignment, and Admin TOTP/AAL2 behavior unchanged until a separate operation-specific enforcement review is approved.
 
 **Decision:** the cryptographic primitive is ready for isolated reuse and CI regression coverage; the server trust boundary is not ready. Do not deploy or expose device registration/proof until all remaining gates pass.
+
+
+## 20. Trusted verifier-to-database boundary — implementation slice
+
+**Implemented in the repository on 2026-11-27; local disposable integration validation is now wired into the advisory Supabase CI lane. It has not been deployed or provisioned in the hosted project.**
+
+### Selected trust boundary
+
+The verifier uses a dedicated PostgreSQL login named `tacresq_device_verifier`, not the Supabase `service_role` and not a client-callable PostgREST RPC.
+
+- The migration creates the role as `NOLOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOREPLICATION`, and `NOBYPASSRLS`. A password is deliberately not stored in migration source.
+- The Edge Function verifies the incoming bearer token with Supabase Auth `getClaims`, reads the verified `sub` and `session_id`, and uses a dedicated server-only database connection string.
+- Three functions in the non-exposed `private` schema check `session_user = 'tacresq_device_verifier'`. They are `SECURITY DEFINER` with a fixed `pg_catalog` search path, owned by the migration owner, and executable only by that dedicated login. The login has no direct table privileges.
+- The database functions independently map the verified Auth UUID through `profiles.auth_user_id`, resolve the bigint profile ID, and verify that the supplied Auth session row exists and belongs to that Auth user. A stale but cryptographically valid access JWT after sign-out therefore cannot issue or complete a device proof.
+- The Edge Function verifies P-256 signatures before calling the atomic completion function. The dedicated database credential is the attestation that the caller is the trusted verifier; ordinary authenticated users, anon, and `service_role` cannot call the private functions or bypass signature verification through PostgREST.
+- The completion function consumes the challenge, creates/updates the device, binds the Auth session, and appends the security event in one transaction. A failed write rolls the entire transaction back.
+
+This replaces the earlier HMAC-attestation proposal. It avoids keeping a matching HMAC key in both Edge secrets and Vault, and avoids returning a database-held signing secret to the Edge runtime. The security property now depends on protecting one dedicated database credential and limiting that role to the three private function grants.
+
+### Implemented endpoint contract
+
+`supabase/functions/tacresq-device-verifier/index.ts` currently supports only Android P-256:
+
+1. `POST action=issue` with `registration` or `session_proof`. The database generates 32 CSPRNG bytes, stores only SHA-256, returns the raw base64url challenge once, and applies a persistent limit of five issuances per profile/Auth-session in 15 minutes. Challenges expire after two minutes.
+2. `POST action=verify` with challenge ID, raw challenge, DER-encoded ECDSA signature (base64url), and a proposed SPKI public key for registration. For session proof, the server loads the already registered public key; clients cannot replace it through this route.
+3. The Edge Function reconstructs the exact v1 signed message using database-returned challenge context and the verified Auth claims. It validates the P-256 SPKI and DER signature using the shared crypto module.
+4. Only after successful verification does it call the database completion function. Registration creates the device and binds the current Auth session; session proof refreshes an existing same-device binding. A live Auth session cannot be rebound to a different device.
+
+Malformed signatures, wrong keys, altered challenge bytes, cross-profile/session requests, expired/replayed challenges, and rate-limit exhaustion are rejected with bounded responses. Tokens, raw challenges, signatures, and keys are not written to application logs or event details.
+
+### Local integration coverage added
+
+- `tools/prepare_device_verifier_local_env.py` provisions a random password only for the disposable local database role and writes a mode-0600 Edge environment file. It refuses non-loopback Supabase and PostgreSQL URLs.
+- `tools/test_device_verifier_local.mjs` exercises the real Edge Function against local Supabase Auth and PostgreSQL: valid registration, same-user cross-session denial, cross-user/cross-device denial, malformed and wrong-key signatures, altered challenge bytes, successful replay denial, two concurrent submissions with exactly one winner, expired challenge rejection, persistent rate limiting, stale JWT after sign-out, PostgREST direct-RPC bypass denial, and transaction rollback when the event insert is forced to fail.
+- `tools/test_device_security_privileges.sql` now asserts the dedicated role has only the required private function execution grants, no direct registry-table privileges, and no client/service-role execution grants. The clean PostgreSQL migration replay runs this contract.
+- The advisory local Supabase CI job now provisions the disposable login, serves the Edge Function, runs the HTTP integration suite, and removes temporary credentials and containers.
+
+### Operational and release gates that remain
+
+- The hosted role remains `NOLOGIN`; no password or Edge secret was provisioned in the connected project. No hosted deployment, migration, or database setting was changed.
+- Before a controlled deployment, provision a strong role password out-of-band and configure `TACRESQ_DEVICE_VERIFIER_DATABASE_URL` as an Edge Function secret using the project-provided shared transaction-pooler connection string. Supabase recommends transaction pooling for short-lived Edge Function database connections; confirm that `session_user` is preserved through the selected pooler before enabling the endpoint. Never put the password in Git, migration SQL, logs, or the Android/web bundle.
+- The local test currently uses a loopback direct database URL, not the hosted pooler. Pooler identity behavior and TLS must be validated in a separate controlled environment before production deployment.
+- Persistent per-profile/session issuance throttling is implemented. A trusted per-IP rate limit is not yet implemented; do not infer a trusted client IP from an arbitrary request header.
+- Android Keystore key generation, key invalidation/rotation, device UI, user self-service revocation, Admin device console, Play Integrity, WebAuthn, and operation-level device enforcement are not implemented.
+- `step_up` is intentionally not exposed yet. Admin TOTP/AAL2 remains independent and authoritative. Requester SOS, emergency location submission, dispatch, responder claims, chat, and existing operations are unchanged.
+- No production migrations, Edge Function deployment, Vault changes, database role password, service-role key, or Render settings were modified.
+
+### Current decision
+
+The trust boundary is now concrete in source: a dedicated login, private function-only grants, verified JWT claims, live Auth-session checks, and atomic database completion. It is eligible for isolated CI validation only. Do not expose it to clients or deploy it until the disposable Edge Function integration suite passes consistently, the pooler preserves the dedicated login identity, and the implementation receives independent security review.
+
+Research references rechecked 2026-11-27:
+- Supabase, [Integrating with Postgres from Edge Functions](https://supabase.com/docs/guides/functions/connect-to-postgres): Edge Functions can use a Postgres client directly; short-lived serverless connections should use the shared transaction pooler.
+- Supabase, [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth): user JWT verification and caller authentication modes; keep JWT verification enabled.
+- Supabase, [JavaScript auth.getClaims](https://supabase.com/docs/reference/javascript/auth-getclaims): verifies JWT claims using the project's signing keys.
+- Supabase, [Auth sessions](https://supabase.com/docs/guides/auth/sessions): the signed access JWT includes a `session_id` corresponding to `auth.sessions`.
+- Supabase, [Database connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres): shared transaction pooling is intended for short-lived serverless/Edge connections.
