@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Application API baseline (live read-only catalog, 2026-11-26):** 38 authenticated-callable public API functions: 24 SECURITY DEFINER and 14 SECURITY INVOKER. There are 13 authenticated-callable private SECURITY DEFINER helpers. The branch-only legacy requester-create grant reduction targets 35 authenticated-callable public API functions after removing three invoker entry points (24 definers and 11 invokers); the connected live count remains 38 until deployment. The connected project also has one public trigger-only function with default client EXECUTE grants; see the live-catalog reconciliation below. The older 75/24/51 aggregate was extension-schema-dependent and is not an application API count.
+**Application API baseline (live read-only catalog, 2026-11-26):** 38 authenticated-callable public API functions: 24 SECURITY DEFINER and 14 SECURITY INVOKER. There are 13 authenticated-callable private SECURITY DEFINER helpers. PR #370 adds a protected Admin Auth-session reader, so the branch target is now 36 authenticated-callable public API functions (25 definers and 11 invokers) after the three legacy requester-create invoker grants are removed; the connected live count remains 38 until deployment. The connected project also has one public trigger-only function with default client EXECUTE grants; see the live-catalog reconciliation below. The older 75/24/51 aggregate was extension-schema-dependent and is not an application API count.
 
 ## Public SECURITY DEFINER entry points
 
@@ -31,7 +31,7 @@
 | 21 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
 | 22 | `api_admin_list_account_lifecycle_events(integer,integer)` | Batch 2 — lifecycle audit reader | Require active Admin with AAL2/TOTP before bounded history reads; keep direct ledger table grants revoked |
 | 23 | `api_unregister_fcm_token(text)` | Batch 4 — profile/notifications/FCM | Authenticated-only SECURITY DEFINER cleanup RPC; pinned search path; delete only caller's own token; transaction-local exception is limited to public.fcm_tokens DELETE and cleared before return; direct table DELETE remains revoked |
-| 24 | `api_admin_set_account_status(bigint,text,text,text)` | Website Admin lifecycle | Authenticated-only SECURITY DEFINER RPC; requires active AAL2/TOTP Admin; rejects self-change and Admin targets; locks and compares target state; writes immutable audit event transactionally |
+| 24 | `api_admin_set_account_status(bigint,text,text,text)` | Website Admin lifecycle | Authenticated-only SECURITY DEFINER RPC; requires active AAL2/TOTP Admin; rejects self-change and Admin targets; locks and compares target state; writes immutable audit event transactionally |\n| 25 | `api_admin_list_auth_sessions_page(bigint,integer,timestamptz,uuid)` | PR #370 — Admin session inventory | Shared active-Admin AAL2/TOTP helper; resolves Auth ownership from canonical profile mapping; bounded read-only projection; no direct Auth table grants or session-validity overclaim |
 
 ## Website Admin transition (client-callable)
 
@@ -54,7 +54,7 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The live connected project snapshot has 14 authenticated-callable application API SECURITY INVOKER functions. The branch-only forward migration removes three legacy incident-create invoker grants; the expected post-migration application inventory is 11 authenticated-callable invokers. Their access can still expose or mutate data through RLS, policies, and helper calls. The pre-migration 14 signatures are enumerated in the live-catalog reconciliation below. Extension-provided routines must be inventoried separately by extension schema.
 
-A complete release matrix must include the pre-migration live baseline of 38 authenticated-callable public API functions (24 definers and 14 invokers), and the expected branch target of 35 (24 definers and 11 invokers) after the three legacy incident-create grants are revoked, plus the 13 authenticated-callable private definer helpers, the trigger-only functions, direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must include the pre-migration live baseline of 38 authenticated-callable public API functions (24 definers and 14 invokers), and the expected branch target of 36 (25 definers and 11 invokers) after the three legacy incident-create grants are revoked, plus the 13 authenticated-callable private definer helpers, the trigger-only functions, direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
@@ -62,7 +62,7 @@ A complete release matrix must include the pre-migration live baseline of 38 aut
 
 ## Current coverage and remaining gap
 
-This crosswalk connects the 24 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
+This crosswalk connects the 25 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
 1. Finish exact coverage for all 14 pre-migration application API invokers (11 expected after the legacy requester-create grant reduction), all 13 authenticated-callable private definers, and every internal helper reached transitively.
@@ -311,7 +311,7 @@ The live migration ledger's latest observed entry is 20261125030354. It contains
 The live inventory is a catalog snapshot only. It does not prove behavior under real user JWTs, Storage HTTP, Edge Function provider calls, or concurrent suspension and operational writes. The trigger-function revoke migration and exact invoker contract changes must pass clean replay before merge; any production application requires the normal approved migration process.
 
 
-**Extension-schema-independent application inventory:** the exact pre-migration live baseline is 38 authenticated-callable public API functions, including 24 authenticated-callable public SECURITY DEFINER functions and 14 authenticated-callable application API invoker functions. The branch-only legacy incident-create grant reduction targets 35 authenticated-callable public API functions after migration: 24 definers and 11 invokers. This is 35 authenticated-callable public API functions after the legacy requester-create EXECUTE revocation, with 11 authenticated-callable application API invoker functions after the legacy requester-create EXECUTE revocation. The 13 authenticated-callable private SECURITY DEFINER helpers are separate. The inventory contract is extension-schema-independent because it counts only explicit api_ application signatures; extension functions are tracked by their installed extension schema. The public incident-location trigger is tracked separately as trigger-only, not as an RPC.
+**Extension-schema-independent application inventory:** the exact pre-migration live baseline is 38 authenticated-callable public API functions, including 24 authenticated-callable public SECURITY DEFINER functions and 14 authenticated-callable application API invoker functions. The branch-only legacy incident-create grant reduction targets 36 authenticated-callable public API functions after migration: 25 definers and 11 invokers. This is 36 authenticated-callable public API functions after the legacy requester-create EXECUTE revocation, with 11 authenticated-callable application API invoker functions after the legacy requester-create EXECUTE revocation. The 13 authenticated-callable private SECURITY DEFINER helpers are separate. The inventory contract is extension-schema-independent because it counts only explicit api_ application signatures; extension functions are tracked by their installed extension schema. The public incident-location trigger is tracked separately as trigger-only, not as an RPC.
 
 
 ## Private callable-helper dependency audit — live catalog, 2026-11-26
