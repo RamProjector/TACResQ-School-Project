@@ -99,25 +99,23 @@ def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def expired_signed_jwt(secret: str, user_id: str, session_id: str) -> str:
+def expired_signed_jwt(secret: str, valid_token: str) -> str:
     import base64
     import hashlib
     import hmac
 
+    segments = valid_token.split(".")
+    if len(segments) != 3:
+        raise AssertionError("Cannot derive expiry test from malformed Auth token")
+    claims = json.loads(base64.urlsafe_b64decode(segments[1] + "=" * (-len(segments[1]) % 4)))
     now = int(time.time())
+    claims["iat"] = now - 7200
+    claims["exp"] = now - 3600
     header = b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
-    claims = {
-        "iss": "supabase", "aud": "authenticated", "role": "authenticated",
-        "sub": user_id, "session_id": session_id, "iat": now - 7200,
-        "exp": now - 3600, "aal": "aal1", "is_anonymous": False,
-        "app_metadata": {"provider": "email", "providers": ["email"]},
-        "user_metadata": {}, "email": "expired-local-test@example.invalid",
-    }
     payload = b64url(json.dumps(claims, separators=(",", ":")).encode())
     unsigned = f"{header}.{payload}"
     signature = hmac.new(secret.encode(), unsigned.encode(), hashlib.sha256).digest()
     return f"{unsigned}.{b64url(signature)}"
-
 
 def main() -> int:
     if len(sys.argv) != 2:
@@ -160,6 +158,14 @@ def main() -> int:
             if claims.get("sub") != user_id or not claims.get("session_id"):
                 raise AssertionError("Access token is missing the expected sub/session_id claims")
             users[-1].update({"token": token, "session_id": str(claims["session_id"])})
+            session_id = str(claims["session_id"])
+            session_sql = (
+                "SELECT EXISTS (SELECT 1 FROM auth.sessions WHERE id = '"
+                + session_id + "'::uuid AND user_id = '" + user_id
+                + "'::uuid AND revoked_at IS NULL);"
+            )
+            if psql(cfg["DB_URL"], session_sql).stdout.strip() != "t":
+                raise AssertionError("Issued JWT session_id has no matching live auth.sessions row")
             print(f"PASS: local Auth issued a session JWT for synthetic user {label}")
 
         psql(cfg["DB_URL"], PROBE_SQL)
@@ -223,7 +229,7 @@ def main() -> int:
             raise AssertionError(f"Malformed JWT was not rejected with HTTP 401 (got {status})")
         print("PASS: malformed bearer JWT was rejected")
 
-        expired = expired_signed_jwt(cfg["JWT_SECRET"], users[0]["id"], users[0]["session_id"])
+        expired = expired_signed_jwt(cfg["JWT_SECRET"], users[0]["token"])
         status, _ = request_json(
             f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
             headers={**auth_headers, "Authorization": f"Bearer {expired}"},
