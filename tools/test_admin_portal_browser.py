@@ -446,8 +446,8 @@ def run_browser_tests(browser: Browser) -> list[str]:
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Activity log").click()
     expect(page.get_by_role("heading", name="Audit history")).to_be_visible()
     expect(page.get_by_text("No matching activity")).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Temporary account suspension")).to_be_visible()
-    expect(page.get_by_text("Account access reinstated")).to_be_visible()
+    expect(page.locator(".audit-event-card__details").get_by_text("Temporary account suspension")).to_be_visible()
+    expect(page.locator(".audit-event-card__details").get_by_text("Account access reinstated")).to_be_visible()
     completed.append("activity log loads investigation activity and displays both validated account lifecycle records")
 
     # Aggregate analytics and CSV export use validated reporting data only.
