@@ -388,3 +388,41 @@ The repository's Laravel `FcmNotificationDispatcher` claims bounded delivery wor
 
 **Release gate:** the active Edge Function and the Laravel queue worker must not both deliver the same event family. Establish the actual production caller/scheduler topology before enabling, disabling, or changing either path.
 
+
+
+## 18. Verified Supabase JWT context: local integration proof (required before device writes)
+
+Current Supabase Edge Function guidance explicitly supports forwarding the caller's Authorization header into a publishable-key Supabase client so PostgREST evaluates the request under the original user's JWT and RLS context. The current official guide also documents the newer @supabase/server withSupabase({ auth: 'user' }) pattern, which provides a caller-scoped ctx.supabase and verified ctx.jwtClaims. The current TACResQ function is a legacy supabase-js@2 implementation, so use the compatible, documented caller-scoped client pattern for the first isolated proof rather than silently changing runtime dependencies.
+
+References (rechecked 2026-11-27):
+- Supabase, [Integrating With Supabase Auth](https://supabase.com/docs/guides/functions/auth-legacy-jwt) — forward the request Authorization header into a publishable/anon-key client; queries then execute in the caller's RLS context.
+- Supabase, [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth) — authenticated user mode, verify_jwt = true, caller-scoped ctx.supabase, and verified ctx.jwtClaims.
+- Supabase, [JWT Claims Reference](https://supabase.com/docs/guides/auth/jwt-fields) — the signed Auth JWT includes sub and session_id claims.
+
+### Isolated test topology
+
+Do not run this proof against the hosted TACResQ project and do not create a production test RPC. Use a disposable Supabase local stack with synthetic users and a temporary probe RPC that is created only inside the disposable database and is not included in production migrations.
+
+1. Add and pin the Supabase CLI/local stack configuration only after the existing migration replay has been proven compatible with the local Auth, PostgREST, and Functions services. The current repository has no supabase/config.toml; the existing PostgreSQL replay workflow alone does not prove Auth or Edge Function JWT propagation.
+2. Start local Supabase in an isolated CI job; assert the resolved API URL is loopback/local before creating users or issuing any request. Fail closed if the URL contains the hosted TACResQ project ref or is not a local address.
+3. Create two disposable Auth users through the local Auth admin API using only the local service-role secret in the CI process. Sign each user in through the local Auth API using the publishable key and obtain real access JWTs. Keep all credentials in process memory; never print or upload them.
+4. Create a temporary SQL probe function in the local database only. It must return auth.uid(), auth.jwt() ->> 'session_id', and auth.jwt() ->> 'role'; grant execute only to authenticated. The probe must not exist in the migration directory or any deployed schema.
+5. Run a temporary test Edge Function with JWT verification enabled. In its request handler, construct a user-scoped client using the local publishable key and the incoming Authorization header, then call the probe RPC. Do not instantiate or use a service-role client for this call.
+6. Invoke the function with User A's real access JWT and assert the SQL-returned subject equals User A's Auth UUID, the SQL-returned session ID equals the session_id claim from the actual signed JWT, and the SQL role is authenticated.
+7. Repeat for User B and assert there is no cross-user/session contamination when requests execute concurrently.
+8. Negative cases: no Authorization header, malformed token, expired token, anonymous/publishable key without a user JWT, and a body containing forged profile_id/session_id values must never produce an authenticated probe result. The database-returned claims must remain unchanged when the body/header contains spoofed IDs.
+9. Verify the Edge Function's configured JWT gateway rejects invalid JWTs; do not disable JWT verification for this function. Ensure all test users, local containers, temporary probe functions, and volumes are destroyed even after failure.
+
+### Device challenge verifier acceptance tests after context proof
+
+- Verify the user JWT is forwarded to PostgREST exactly as received; only the publishable key is supplied as apikey.
+- The database function derives the owner from auth.uid() and the session from auth.jwt()->>'session_id'; no caller-provided profile/session field can override either.
+- Check that the session ID exists in auth.sessions and is not revoked/expired according to the selected session-validity policy before binding it.
+- Use one short-lived purpose-bound challenge. Challenge consumption, signature-verification result recording, device/session binding, and append-only event insertion must be atomic. Two concurrent submissions of the same challenge must result in exactly one success.
+- Negative tests cover wrong user, wrong session, wrong device key, wrong purpose, expired challenge, malformed SPKI, unsupported curve/algorithm, malformed DER signature, invalid signature, replay, revoked device, and revoked Auth session.
+- Test that a failure rolls back all state changes and creates only the explicitly defined rejection event (if policy calls for one); it must never leave a partially bound device session.
+- Keep Admin TOTP/AAL2 requirements independent of device proof. Device recognition never grants a role and never blocks requester SOS submission.
+
+### Explicit implementation decision
+
+The JWT-context proof is now a well-supported implementation path, but it has **not yet been executed**. Documentation and official examples establish the correct pattern; only the disposable runtime test above can prove the exact TACResQ function-to-PostgREST path. Do not treat documentation, a mocked Laravel HTTP test, a decoded JWT payload, or the existing PostgreSQL-only CI workflow as runtime proof.
