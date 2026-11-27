@@ -442,3 +442,34 @@ References:
 - [Local development workflow](https://supabase.com/docs/guides/local-development/cli-workflows)
 
 The current CI's RPC grant contract uses a standalone PostgreSQL 17 service and the repository's custom migration replay script. That is useful database coverage but it does not start Supabase Auth, PostgREST, or the Edge Runtime. Add the full local-stack job as a separate advisory lane first; do not replace or weaken the existing fast source and database gates. Promote it to required only after repeatable startup, runtime, and cleanup are demonstrated.
+
+
+## 19. First cryptographic implementation slice — P-256 proof primitives
+
+**Implemented in repository on 2026-11-27; not an endpoint and not enabled in any client flow.**
+
+The first Android device-key algorithm is now explicitly P-256 / ES256. The reusable runtime-neutral module at supabase/functions/_shared/device_proof_crypto.mjs provides:
+
+- CSPRNG generation of exactly 32 challenge bytes and a lowercase SHA-256 challenge hash. The caller receives the base64url challenge once; only the hash is intended for database persistence.
+- Construction of the exact newline-delimited TACRESQ-DEVICE-PROOF v1 message from server-issued challenge, purpose, profile, Auth session, and device identifiers.
+- Strict ASN.1 DER ECDSA signature parsing and conversion to the 64-byte P1363 representation expected by WebCrypto. It rejects negative/non-minimal integers, malformed lengths, trailing bytes, zero/out-of-range scalars, and oversized signatures.
+- SPKI P-256 public-key import and SHA-256 ECDSA signature verification using the runtime WebCrypto API.
+- Canonical base64/base64url validation; no private-key import or export API exists in this module.
+
+tools/test_device_proof_crypto.mjs uses ephemeral WebCrypto-generated P-256 key pairs and covers valid proof verification, altered-message rejection, wrong-key rejection, DER parser negative cases, exact signed-message construction, purpose/device mismatch, random challenge uniqueness, SHA-256 hash agreement, and canonical base64url handling. The test is wired into the Node 22 source-check job and runs without a third-party dependency or external service.
+
+### Security boundary retained
+
+This slice deliberately does not issue or consume database challenges, register public keys, create device/session rows, or accept client requests. It is not yet called by tacresq-notify or any other deployed function. The device registry remains private and unused. No new Supabase function, supabase/config.toml, Vault secret, database migration, client key, Android API, or Admin control was added. No production resource was changed.
+
+### Remaining gates before a verifier endpoint
+
+1. Implement and test the database transaction contract for issuance, proof acceptance, conditional single-use consumption, device/session association, and event insertion. The verifier must not expose a direct authenticated RPC that can be called without cryptographic verification.
+2. Establish a trusted verifier-to-database attestation boundary. A caller-scoped JWT preserves auth.uid() and auth.jwt(), but an ordinary authenticated RPC cannot distinguish a request forwarded by the Edge verifier from a direct client call. A service-role request loses caller JWT context. Do not bridge this gap by trusting a boolean or caller-supplied profile/session ID.
+3. Use an explicit, server-held verifier proof (for example, a narrowly scoped HMAC attestation checked by a private SQL function with a separately provisioned secret) or a transaction design that independently verifies the original JWT and session inside the trusted boundary. Secret provisioning must be documented and tested locally; never put the secret in migrations or client bundles.
+4. Add persistent per-account/session issuance throttles and a trusted per-IP rate-limit strategy. Do not use in-memory Edge instance counters as a security control.
+5. Add a disposable local Supabase Edge Function integration test proving original JWT identity/session preservation, direct-RPC bypass resistance, concurrent one-winner consumption, rollback on event failure, wrong-user/session/purpose/device rejection, expiry, replay, and revoked-session rejection.
+6. Implement a separate Android P-256 Keystore key alias and test real SHA256withECDSA DER output, SPKI serialization, key invalidation, and key rotation on supported Android versions. Do not reuse the existing AES-GCM session-encryption key.
+7. Keep requester SOS, location reporting, chat, responder claim, dispatch assignment, and Admin TOTP/AAL2 behavior unchanged until a separate operation-specific enforcement review is approved.
+
+**Decision:** the cryptographic primitive is ready for isolated reuse and CI regression coverage; the server trust boundary is not ready. Do not deploy or expose device registration/proof until all remaining gates pass.
