@@ -525,6 +525,7 @@ for required in (
     "private.tacresq_assign_incident_team(bigint,bigint[])",
     "private.tacresq_can_access_incident_chat(bigint,bigint)",
     "private.tacresq_record_location_v2_internal",
+    "private.tacresq_current_auth_session_valid()",
     "private.tacresq_release_incident_assignment_internal",
     "internal private implementation must remain non-client-executable",
 ):
