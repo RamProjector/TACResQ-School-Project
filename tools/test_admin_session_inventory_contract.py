@@ -6,6 +6,7 @@ admin_guard = (ROOT / "supabase/migrations/20261125020826_account_lifecycle_admi
 session_guard = (ROOT / "supabase/migrations/20261127040000_admin_sensitive_session_revocation_guard.sql").read_text()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 runtime_test = (ROOT / "tools/test_admin_auth_sessions.sql").read_text()
+integration_test = (ROOT / "tools/test_supabase_jwt_context.py").read_text()
 
 required = (
     "CREATE OR REPLACE FUNCTION public.api_admin_list_auth_sessions_page",
@@ -147,5 +148,16 @@ for marker in (
     "Empty session source must return an available, empty page",
 ):
     assert marker in runtime_test, f"Missing runtime session security test: {marker}"
+
+for marker in (
+    "private.tacresq_current_auth_session_present_read()",
+    "private.tacresq_current_auth_session_valid()",
+    "'session_present'",
+    "__tacresq_session_valid_probe",
+    "A current Auth session must pass both read-only and row-locking session predicates",
+    "A validly signed JWT with another user's session_id failed the database ownership check",
+    "The revoked session must fail database session checks while its JWT remains accepted",
+):
+    assert marker in integration_test, f"Missing local Auth/PostgREST session-revocation proof: {marker}"
 
 print("PASS: Admin session inventory authorization, pagination, and privacy contracts are present.")
