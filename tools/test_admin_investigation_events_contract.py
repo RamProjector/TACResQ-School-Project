@@ -12,6 +12,13 @@ page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
 for marker in (
+    'export interface AdminInvestigationPage { contract_version: "session_trace_v1";',
+    'page.contract_version !== "session_trace_v1"',
+    "This database's Admin investigation feed does not include the reviewed session and trace correlation contract.",
+):
+    assert marker in client, f"Missing versioned Admin correlation client contract: {marker}"
+
+for marker in (
     'if (error?.code === "PGRST202")',
     "The Admin investigation reader is not available in this database schema yet.",
 ):
@@ -74,9 +81,6 @@ for marker in (
     "SECURITY DEFINER",
     "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
-    'export interface AdminInvestigationPage { contract_version: "session_trace_v1";',
-    'page.contract_version !== "session_trace_v1"',
-    "This database's Admin investigation feed does not include the reviewed session and trace correlation contract.",
 ):
     assert marker in operation_migration, f"Missing API operation correlation contract: {marker}"
 # The writer's verified Auth session field must exist in the database,
