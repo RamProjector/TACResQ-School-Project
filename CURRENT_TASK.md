@@ -2236,3 +2236,6 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 
 
 - **Fixture refinement:** The repository's clean migration-replay schema defines its BIGINT Auth audit primary key as `GENERATED ALWAYS AS IDENTITY`. The BIGINT branch now omits the ID and lets PostgreSQL generate it; the hosted UUID branch still supplies a UUID. The fixture remains isolated and adapts to both observed shapes without changing the provider table.
+
+
+- **Second static-copy assertion correction:** The Admin TOTP contract was still failing because its new assertion used a curly apostrophe while the footnote uses a straight apostrophe. Corrected the assertion to match the exact rendered copy. The separate investigation-source contract already passed on the previous run; the final exact-head source checks must still complete successfully.
