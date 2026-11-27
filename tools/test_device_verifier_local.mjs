@@ -65,9 +65,19 @@ async function createUser(label) {
   const claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
   assert.equal(claims.sub, created.data.id);
   assert.ok(claims.session_id);
-  const user = { id: created.data.id, token, sessionId: claims.session_id, refreshToken: signedIn.data.refresh_token };
+  const user = { id: created.data.id, email, password, token, sessionId: claims.session_id, refreshToken: signedIn.data.refresh_token };
   createdUsers.push(user);
   return user;
+}
+async function createAdditionalSession(user) {
+  const signedIn = await request(`${api}/auth/v1/token?grant_type=password`, {
+    method: "POST", headers: authHeaders, body: { email: user.email, password: user.password },
+  });
+  assert.equal(signedIn.status, 200, "additional synthetic Auth sign-in failed");
+  const claims = JSON.parse(Buffer.from(signedIn.data.access_token.split(".")[1], "base64url").toString("utf8"));
+  assert.equal(claims.sub, user.id);
+  assert.notEqual(claims.session_id, user.sessionId);
+  return { ...user, token: signedIn.data.access_token, sessionId: claims.session_id, refreshToken: signedIn.data.refresh_token };
 }
 async function invoke(user, body) {
   return request(endpoint, {
@@ -179,7 +189,15 @@ try {
     publicKeySpkiBase64: alphaPublicKey,
   });
   assert.equal(crossUser.status, 400, "another Auth user must not retrieve or consume this challenge");
-  console.log("PASS: cross-user challenge lookup is rejected");
+  const alphaSecondSession = await createAdditionalSession(alpha);
+  assert.equal((await invoke(alphaSecondSession, {
+    action: "verify",
+    challengeId: alphaRegistration.challenge_id,
+    challenge: alphaRegistration.challenge,
+    signatureDerBase64Url: "AA",
+    publicKeySpkiBase64: alphaPublicKey,
+  })).status, 400, "another session belonging to the same Auth user must not retrieve this challenge");
+  console.log("PASS: cross-user and cross-session challenge lookups are rejected");
 
   const alphaSigned = await signedRequest(alpha, alphaRegistration, alphaPair, alphaPublicKey);
   const badSignature = { ...alphaSigned.payload, signatureDerBase64Url: encodeBase64Url(new Uint8Array([1, 2, 3])) };
@@ -198,7 +216,13 @@ try {
   assert.equal(registered.data.trust_status, "active");
   const alphaDeviceId = registered.data.device_id;
   const alphaDeviceUid = registered.data.device_uid;
-  console.log("PASS: P-256 registration proof created one active device and bound the Auth session");
+  assert.equal((await invoke(bravo, {
+    action: "issue", purpose: "session_proof", deviceId: alphaDeviceId,
+  })).status, 400, "a different profile must not issue a challenge for this device");
+  assert.equal((await invoke(alphaSecondSession, {
+    action: "issue", purpose: "session_proof", deviceId: alphaDeviceId,
+  })).status, 200, "a new session for the same profile may request a proof for its registered device");
+  console.log("PASS: P-256 registration proof created one active device; foreign profiles cannot claim it");
 
   const replay = await invoke(alpha, alphaSigned.payload);
   assert.equal(replay.status, 400, "a consumed registration challenge must not be replayable");
