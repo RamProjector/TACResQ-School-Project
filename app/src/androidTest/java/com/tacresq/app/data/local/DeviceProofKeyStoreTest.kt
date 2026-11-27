@@ -1,6 +1,5 @@
 package com.tacresq.app.data.local
 
-import android.security.keystore.KeyStoreException
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.security.KeyFactory
@@ -8,7 +7,6 @@ import java.security.KeyStore
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
 import org.junit.After
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -42,7 +40,7 @@ class DeviceProofKeyStoreTest {
 
         assertEquals("EC", publicKey.algorithm)
         assertEquals(256, (publicKey as java.security.interfaces.ECKey).params.curve.field.fieldSize)
-        assertTrue(first.securityLevel in DeviceProofKeySecurityLevel.entries)
+        assertTrue(DeviceProofKeySecurityLevel.values().contains(first.securityLevel))
     }
 
     @Test
