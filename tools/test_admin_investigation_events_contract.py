@@ -442,6 +442,21 @@ for marker in (
 ):
     assert marker in page, f"Missing W3C trace Admin UI contract: {marker}"
 
+trace_context = (ROOT / "backend/src/app/TraceContext.php").read_text()
+bridge = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
+audit_logger = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
+for marker in (
+    "request()->header('traceparent')",
+    "'\\\\A00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})\\\\z/iD'",
+    "str_repeat('0', 32)",
+    "str_repeat('0', 16)",
+):
+    assert marker in trace_context, f"Missing Laravel trace-context validation: {marker}"
+assert "TraceContext::currentTraceparent()" in bridge
+assert "TraceContext::currentTraceparent()" in audit_logger
+assert "$headers['traceparent'] = $traceparent" in bridge
+assert "$additionalHeaders['traceparent'] = $traceparent" in audit_logger
+
 # Device security rows are projected without arbitrary JSON details and
 # share Auth session IDs with API-operation telemetry for cross-source search.
 device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
