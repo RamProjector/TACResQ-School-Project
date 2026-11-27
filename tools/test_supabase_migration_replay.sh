@@ -2245,3 +2245,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
 
 # Exercise protected Auth session pagination, MFA authorization, and field minimization.
 psql -v ON_ERROR_STOP=1 -f tools/test_admin_auth_sessions.sql
+
+# Exercise Admin API-operation source filters, provider IDs, shared correlation search, and MFA denial.
+psql -v ON_ERROR_STOP=1 -f tools/test_admin_api_operation_investigation.sql
