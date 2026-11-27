@@ -288,6 +288,9 @@ assert "to_jsonb(a)" not in auth_projection
 # attribution or exposing sensitive provider metadata.
 for marker in (
     "INSERT INTO auth.audit_log_entries (id, payload, created_at)",
+    "v_id_type = 'uuid'",
+    "v_id_type = 'bigint'",
+    "Unsupported auth.audit_log_entries.id type",
     "'action', 'login'",
     "'user_id', '00000000-0000-4000-8000-000000000401'",
     "'supabase_auth_audit_logs'",
