@@ -277,7 +277,7 @@ export async function getAdminAuthSessionsPage(
     || (page.next_cursor !== null && (
       !page.next_cursor
       || typeof page.next_cursor.session_id !== "string"
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(page.next_cursor.session_id)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(page.next_cursor.session_id)
       || (page.next_cursor.created_at !== null && (
         typeof page.next_cursor.created_at !== "string"
         || !Number.isFinite(Date.parse(page.next_cursor.created_at))
@@ -294,7 +294,7 @@ export async function getAdminAuthSessionsPage(
     if (
       !item || typeof item !== "object"
       || typeof item.session_id !== "string"
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.session_id)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.session_id)
       || !["record_present"].includes(item.record_status)
       || item.validity_assessment !== "not_evaluated"
       || (item.aal !== null && !["aal1", "aal2"].includes(item.aal))
