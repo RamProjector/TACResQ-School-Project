@@ -29,8 +29,10 @@ class DeviceProofKeyStore {
     fun getOrCreatePublicKey(): DeviceProofPublicKey {
         try {
             val pair = loadOrCreateKeyPair()
+            val encodedPublicKey = pair.public.encoded
+                ?: throw DeviceProofKeyStoreException("Android Keystore did not return an encoded public key.")
             return DeviceProofPublicKey(
-                spkiBase64 = Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP),
+                spkiBase64 = Base64.encodeToString(encodedPublicKey, Base64.NO_WRAP),
                 securityLevel = readSecurityLevel(pair.private),
             )
         } catch (invalidated: KeyPermanentlyInvalidatedException) {
@@ -58,6 +60,10 @@ class DeviceProofKeyStore {
             throw DeviceProofKeyInvalidatedException(invalidated)
         }
     }
+
+    /** Returns whether the versioned signing-key alias exists without exporting key material. */
+    @Synchronized
+    fun hasKey(): Boolean = keyStore().containsAlias(KEY_ALIAS)
 
     /**
      * Explicit recovery hook. Callers must first revoke the server-side device
@@ -99,10 +105,21 @@ class DeviceProofKeyStore {
 
     private fun readKeyPair(store: KeyStore): KeyPair {
         val privateKey = store.getKey(KEY_ALIAS, null) as? PrivateKey
-            ?: throw IllegalStateException("Device proof private key is unavailable; explicit recovery is required.")
+            ?: throw DeviceProofKeyStoreException("The registered device signing key is unavailable.")
         val publicKey = store.getCertificate(KEY_ALIAS)?.publicKey
-            ?: throw IllegalStateException("Device proof public key is unavailable; explicit recovery is required.")
+            ?: throw DeviceProofKeyStoreException("The registered device public key is unavailable.")
+        validatePublicKey(publicKey)
         return KeyPair(publicKey, privateKey)
+    }
+
+    private fun validatePublicKey(publicKey: java.security.PublicKey) {
+        val ecPublicKey = publicKey as? java.security.interfaces.ECPublicKey
+            ?: throw DeviceProofKeyStoreException("The stored device key is not an EC public key.")
+        if (ecPublicKey.params.curve.field.fieldSize != P256_FIELD_SIZE
+            || ecPublicKey.params.order.bitLength() != P256_FIELD_SIZE
+        ) {
+            throw DeviceProofKeyStoreException("The stored device key is not a P-256 key.")
+        }
     }
 
     private fun readSecurityLevel(privateKey: PrivateKey): DeviceProofKeySecurityLevel {
@@ -158,6 +175,7 @@ class DeviceProofKeyStore {
         internal const val KEY_ALIAS = "tacresq_device_proof_p256_v1"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val CURVE_NAME = "secp256r1"
+        private const val P256_FIELD_SIZE = 256
         private const val SIGNATURE_ALGORITHM = "SHA256withECDSA"
         private const val MAX_MESSAGE_BYTES = 2048
         private const val MIN_DER_SIGNATURE_BYTES = 8
@@ -178,6 +196,9 @@ enum class DeviceProofKeySecurityLevel {
     UNKNOWN_SECURE,
     UNKNOWN,
 }
+
+class DeviceProofKeyStoreException(message: String, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
 
 class DeviceProofKeyInvalidatedException(cause: Throwable) :
     IllegalStateException("The device proof key was invalidated. Revoke the registered device before recovery.", cause)
