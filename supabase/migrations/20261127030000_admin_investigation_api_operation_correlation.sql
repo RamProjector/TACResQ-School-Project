@@ -286,7 +286,7 @@ BEGIN
     UNION ALL
 
     -- Device events are read through this Admin-only projection. Raw details
-    -- are intentionally excluded; the verified Auth session UUID is the
+    -- are intentionally excluded; the recorded Auth session UUID is the
     -- cross-source join key shared with Laravel API-operation telemetry.
     SELECT
       'device-security:' || d.id::text,
