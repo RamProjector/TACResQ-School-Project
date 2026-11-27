@@ -22,6 +22,8 @@ assert 'setError(dateRangeError || idFilterError || "Invalid audit filter.")' in
 assert "Boolean(dateRangeError || idFilterError)" in AUDIT_PAGE
 assert "getAdminInvestigationEventsPage(" in AUDIT_PAGE
 assert 'new URLSearchParams(window.location.search).get("auditQuery")' in AUDIT_PAGE
+assert 'url.searchParams.delete("auditQuery")' in AUDIT_PAGE
+assert 'window.history.replaceState(window.history.state, "", url.toString())' in AUDIT_PAGE
 
 # Keyboard focus and reduced-motion preferences must be explicitly respected.
 assert ":focus-visible" in ADMIN_CSS
