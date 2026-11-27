@@ -18,6 +18,7 @@ DECLARE
     'private.tacresq_auth_profile_id_for_token_cleanup()',
     'private.tacresq_current_account_active()',
     'private.tacresq_current_account_active_read()',
+    'private.tacresq_current_auth_session_present_read()',
     'private.tacresq_dispatch_update_incident_status(bigint,text)',
     'private.tacresq_is_incident_assignee(bigint)',
     'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)',
@@ -80,8 +81,8 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 13 THEN
-    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 13 signatures; found %',
+  IF cardinality(expected_signatures) <> 14 THEN
+    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 14 signatures; found %',
       cardinality(expected_signatures);
   END IF;
 
