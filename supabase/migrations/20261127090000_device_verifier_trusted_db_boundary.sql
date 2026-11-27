@@ -106,6 +106,14 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Active owned device required' USING ERRCODE = '42501';
     END IF;
+    IF EXISTS (
+      SELECT 1 FROM public.device_sessions AS ds
+       WHERE ds.auth_session_id = p_auth_session_id
+         AND ds.revoked_at IS NULL
+         AND ds.device_id <> p_device_id
+    ) THEN
+      RAISE EXCEPTION 'Auth session is already associated with another device' USING ERRCODE = '23505';
+    END IF;
   END IF;
 
   SELECT count(*)::integer
@@ -157,7 +165,7 @@ CREATE OR REPLACE FUNCTION private.device_verifier_get_challenge(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
