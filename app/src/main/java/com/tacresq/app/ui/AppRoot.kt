@@ -107,7 +107,11 @@ fun AppRoot(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted && sessionState is SessionState.LoggedIn) {
+        if (
+            granted &&
+            sessionState is SessionState.LoggedIn &&
+            sessionState.session.user.role != Role.ADMIN
+        ) {
             scope.launch { container.pushTokenCoordinator.sync(container.repository) }
         }
     }
