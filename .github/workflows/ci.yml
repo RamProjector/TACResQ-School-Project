@@ -423,6 +423,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: backend/web/pnpm-lock.yaml
 
+      - name: Validate device verifier test tooling
+        run: |
+          python3 -m py_compile tools/prepare_device_verifier_local_env.py
+          node --check tools/test_device_verifier_local.mjs
+
       - name: Test P-256 device proof cryptography contract
         run: node --test tools/test_device_proof_crypto.mjs
 
