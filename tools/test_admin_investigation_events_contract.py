@@ -5,6 +5,8 @@ migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_even
 action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()
 operation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
 operation_session_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
+event_session_migration = (ROOT / "supabase/migrations/20261127060000_admin_event_session_context.sql").read_text()
+session_feed_migration = (ROOT / "supabase/migrations/20261127070000_admin_session_activity_feed.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -78,6 +80,42 @@ for marker in (
     assert marker in operation_session_migration, f"Missing API session correlation migration contract: {marker}"
 assert "REFERENCES auth.sessions" not in operation_session_migration
 
+# Trusted event-table writers stamp signed Auth session claims without an FK
+# to the live Auth session table.
+for marker in (
+    "private.tacresq_current_auth_session_id()",
+    "private.tacresq_stamp_auth_session_id()",
+    "BEFORE INSERT ON public.%I",
+    "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
+    "ON public.admin_audit_logs (auth_session_id)",
+    "ON public.account_lifecycle_audit_logs (auth_session_id)",
+):
+    assert marker in event_session_migration, f"Missing event session-context contract: {marker}"
+assert "REFERENCES auth.sessions" not in event_session_migration
+
+# The unified feed projects session IDs from every trusted source and includes
+# account lifecycle transitions so a session search can find them.
+for marker in (
+    "'account_lifecycle_audit_logs'",
+    "FROM public.account_lifecycle_audit_logs AS l",
+    "'auth_session_id', a.auth_session_id",
+    "'auth_session_id', l.auth_session_id",
+    "'auth_session_id', s.auth_session_id",
+    "'auth_session_id', c.auth_session_id",
+    "'auth_session_id', r.auth_session_id",
+    "'auth_session_id', e.auth_session_id",
+    "PERFORM private.tacresq_require_admin_mfa()",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
+):
+    assert marker in session_feed_migration, f"Missing session-aware feed contract: {marker}"
+for forbidden in (
+    "INSERT INTO public.admin_audit_logs",
+    "INSERT INTO public.account_lifecycle_audit_logs",
+    "INSERT INTO public.incident_status_logs",
+    "INSERT INTO public.incident_assignment_events",
+):
+    assert forbidden not in session_feed_migration, f"Feed migration must remain read-only: {forbidden}"
+
 # Device security rows are projected without arbitrary JSON details and
 # share Auth session IDs with API-operation telemetry for cross-source search.
 device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
@@ -92,6 +130,7 @@ for forbidden in ("request_body", "response_body", "access_token", "refresh_toke
 assert "api_operation_logs" in client
 assert 'new Set(["administrative", "authentication", "operations", "incident", "assignment"])' in client
 assert 'api_operation_logs: "Laravel API operations"' in page
+assert 'account_lifecycle_audit_logs: "Account lifecycle"' in page
 assert 'device_security_events: "Device security events"' in page
 assert 'operations: "API operations"' in page
 assert '<option value="operations">API operations</option>' in page
