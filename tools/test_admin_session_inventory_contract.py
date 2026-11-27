@@ -165,7 +165,7 @@ for marker in (
     'method="GET"',
     "A current Auth session must pass both read-only and row-locking session predicates",
     "STABLE predicate in a read-only GET transaction",
-    "A validly signed JWT with another user's session_id failed the database ownership check",
+    "a validly signed JWT with another user's session_id failed the database ownership check",
     "The revoked session must fail database session checks while its JWT remains accepted",
 ):
     assert marker in integration_test, f"Missing local Auth/PostgREST session-revocation proof: {marker}"
