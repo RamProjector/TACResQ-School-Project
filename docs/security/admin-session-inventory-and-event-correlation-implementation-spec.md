@@ -319,8 +319,10 @@ For **sensitive Admin RPCs** that already call private.tacresq_require_admin_mfa
 1. Reads the session_id claim from the verified PostgREST JWT context.
 2. Rejects a missing, empty, malformed, or all-zero session UUID without attempting an unsafe cast.
 3. Requires a row in auth.sessions where id = session_id and user_id = auth.uid().
-4. Takes a transaction-scoped FOR SHARE row lock on the matching session while the privileged RPC runs, in addition to the existing active-profile lock.
+4. Uses a VOLATILE, SECURITY DEFINER write-capable helper that takes a transaction-scoped FOR SHARE row lock on the matching session while the privileged RPC runs, in addition to the existing active-profile lock.
 5. Fails closed for these privileged Admin operations if the session record cannot be verified; it must not silently fall back to AAL2/TOTP-only authorization.
+
+Direct-table SELECT policies run in read-only PostgREST transactions, so they must not call the row-locking helper. Add a separate STABLE, read-only session-presence predicate for restrictive RLS policies. It validates the same session_id/user_id relationship without taking a row lock. This preserves read-only GET behavior; it also means an already-running SELECT can complete if it observed the session before logout commits, while subsequent SELECTs are denied.
 
 The ownership predicate is essential: a session UUID alone must not be treated as proof that it belongs to the caller. The check belongs inside Postgres, in the same transaction as the protected RPC, because Admin web calls Supabase directly and bypasses Laravel middleware. A Laravel-only check would leave that direct path open.
 
@@ -333,7 +335,7 @@ Do not add a session lookup to every ordinary requester SOS read/write or every 
 | Surface | Current evidence | Required handling |
 |---|---|---|
 | Admin web direct Supabase RPCs | Protected wrappers call the shared Admin MFA helper | Database helper is the authoritative enforcement point; browser route guards are only UX |
-| Admin direct table reads protected by RLS | Some Admin-readable tables use AAL2/TOTP predicates or restrictive policies | Inventory every policy and direct grant; a helper-only change does not automatically update independent RLS predicates |
+| Admin direct table reads protected by RLS | Admin audit history and assignment history have restrictive AAL2/TOTP policies | Add the STABLE read-only session-presence predicate to those restrictive Admin branches; do not use a row-locking helper in a SELECT policy |
 | Laravel Supabase bridge | SupabaseBridge::getUser() validates a token by calling Auth /auth/v1/user; callRpc() forwards the same caller JWT to PostgREST | The database guard still applies to the forwarded RPC. Do not treat Laravel's Auth validation as a substitute for the transaction-local session check |
 | Laravel legacy auth:sanctum routes | Sanctum tokens belong to a separate Laravel identity/token domain | Do not compare Sanctum token IDs to Supabase session_id; define a separate policy if these legacy routes remain supported |
 | Android direct Supabase RPCs | Direct calls bypass Laravel | Database-side enforcement is required wherever the operation is in the Admin-sensitive scope |
