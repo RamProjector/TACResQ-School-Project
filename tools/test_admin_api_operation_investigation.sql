@@ -48,17 +48,46 @@ VALUES (
   '00000000-0000-4000-8000-000000000401'
 );
 
--- Synthetic provider-owned Auth audit fixture. This validates the read-only
--- adapter without pretending the provider audit row has a session or trace ID.
-INSERT INTO auth.audit_log_entries (id, payload, created_at)
-VALUES (
-  '20000000-0000-4000-8000-000000000401',
-  json_build_object(
-    'action', 'login',
-    'user_id', '00000000-0000-4000-8000-000000000401'
-  ),
-  now()
-);
+-- Synthetic provider-owned Auth audit fixture. Hosted and pinned local
+-- Supabase Auth schemas currently use different primary-key types; the reader
+-- treats the provider row ID as an opaque source reference and casts it to text.
+-- This test adapts the fixture to the actual disposable schema without changing
+-- the provider-owned table definition.
+DO $auth_audit_fixture$
+DECLARE
+  v_id_type text;
+BEGIN
+  SELECT data_type INTO v_id_type
+    FROM information_schema.columns
+   WHERE table_schema = 'auth'
+     AND table_name = 'audit_log_entries'
+     AND column_name = 'id';
+
+  IF v_id_type = 'uuid' THEN
+    INSERT INTO auth.audit_log_entries (id, payload, created_at)
+    VALUES (
+      '20000000-0000-4000-8000-000000000401'::uuid,
+      json_build_object(
+        'action', 'login',
+        'user_id', '00000000-0000-4000-8000-000000000401'
+      ),
+      now()
+    );
+  ELSIF v_id_type = 'bigint' THEN
+    INSERT INTO auth.audit_log_entries (id, payload, created_at)
+    VALUES (
+      200000000000000401::bigint,
+      json_build_object(
+        'action', 'login',
+        'user_id', '00000000-0000-4000-8000-000000000401'
+      ),
+      now()
+    );
+  ELSE
+    RAISE EXCEPTION 'Unsupported auth.audit_log_entries.id type: %', v_id_type;
+  END IF;
+END;
+$auth_audit_fixture$;
 
 SELECT set_config('request.headers', '{"traceparent":"00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"}', true);
 
