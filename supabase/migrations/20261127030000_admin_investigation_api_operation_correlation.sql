@@ -271,6 +271,7 @@ BEGIN
       END,
       jsonb_build_object(
         'correlation_id', a.correlation_id,
+        'auth_session_id', a.auth_session_id,
         'actor_role', a.actor_role,
         'target_type', a.target_type,
         'target_id', a.target_id,
@@ -300,6 +301,7 @@ BEGIN
       'API operation ' || o.operation || ' (' || o.outcome || ')',
       jsonb_build_object(
         'correlation_id', o.correlation_id,
+        'auth_session_id', o.auth_session_id,
         'provider_request_id', o.provider_request_id,
         'provider', o.provider,
         'operation', o.operation,
