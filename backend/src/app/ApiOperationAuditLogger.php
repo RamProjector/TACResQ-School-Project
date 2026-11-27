@@ -42,9 +42,15 @@ final class ApiOperationAuditLogger
             $actorAuthUserId = null;
         }
 
+        $authSessionId = request()->attributes->get('auth_session_id');
+        if (!is_string($authSessionId) || !Str::isUuid($authSessionId)) {
+            $authSessionId = null;
+        }
+
         $payload = [
             'correlation_id' => $correlationId,
             'actor_auth_user_id' => $actorAuthUserId,
+            'auth_session_id' => $authSessionId,
             'provider' => $provider,
             'operation' => $operation,
             'source' => 'render_api',
