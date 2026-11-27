@@ -87,7 +87,7 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 
 ## 6. Recommended implementation sequence
 
-1. **Prove PostgREST header delivery.** In a disposable PostgREST environment, send a valid `traceparent` and verify SQL can read it from `request.headers`. SQL-only `set_config` tests are necessary but not sufficient.
+1. **Prove PostgREST header delivery (local integration proof completed 2026-11-27).** The disposable local Supabase stack now sends a valid `traceparent` through the local API gateway and verifies the exact value from SQL via `current_setting('request.headers', true)`. The test also sends 24 concurrent requests with distinct traceparent values and confirms each request receives its own value alongside its own verified `auth.uid()` and `session_id`. This proves the local gateway/PostgREST path only; it does not prove hosted-project behavior or that Android/web clients currently emit trace context.
 2. **Add a private parser.** Create a narrow private helper that safely parses only version-00 `traceparent`, validates trace/span IDs, and returns the trace ID or NULL. Missing or malformed context must never fail the business operation.
 3. **Persist trace IDs on event writers.** Add nullable `trace_id` fields to the event tables that are written during PostgREST requests. Populate only inside trusted SQL functions/triggers. Preserve event row IDs and existing row-local correlation semantics.
 4. **Expose bounded Admin search.** Add trace ID to minimized investigation details and support exact trace-ID search. Label it as a tracing reference, not a security verdict.
@@ -100,6 +100,7 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 - Valid version-00 traceparent returns the expected 32-hex trace ID.
 - Missing, malformed, unsupported-version, and all-zero values return NULL.
 - PostgREST header key casing is handled.
+- The disposable local Supabase integration test proves gateway-to-PostgREST delivery of a supplied traceparent and checks 24 concurrent request contexts remain isolated.
 - Multiple audit rows emitted by one RPC share the same trace ID.
 - Separate requests have separate trace IDs unless deliberately parented to the same trace.
 - Trace context cannot change actor attribution, session ownership, or authorization.
