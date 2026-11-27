@@ -49,7 +49,7 @@ BEGIN
      OR p_auth_session_id = '00000000-0000-0000-0000-000000000000'::uuid THEN
     RAISE EXCEPTION 'Verified Auth identity and session are required' USING ERRCODE = '22023';
   END IF;
-  IF p_purpose NOT IN ('registration', 'session_proof') THEN
+  IF p_purpose IS NULL OR p_purpose NOT IN ('registration', 'session_proof') THEN
     RAISE EXCEPTION 'Unsupported device proof purpose' USING ERRCODE = '22023';
   END IF;
 
