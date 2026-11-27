@@ -137,7 +137,7 @@ for marker in (
 assert "REFERENCES auth.sessions" not in trace_migration
 assert "auth.uid()" not in trace_migration
 for marker in (
-    "trace IDs, correlation IDs, Auth session IDs, and provider request IDs remain distinct",
+    "W3C trace IDs, Laravel correlation IDs, Auth session IDs, and provider request IDs remain distinct",
     'placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs"',
     'getTechnicalReference(event, "trace_id")',
     "W3C trace ID",
