@@ -59,40 +59,51 @@ def profile_for(role: str) -> dict[str, Any]:
     }
 
 
+def fulfill_json(route: Route, payload: Any, *, status: int = 200) -> None:
+    route.fulfill(
+        status=status,
+        content_type="application/json",
+        headers={"Access-Control-Allow-Origin": "*"},
+        body=json.dumps(payload),
+    )
+
+
 def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
     """Intercept only the known Auth/RPC endpoints used by this flow."""
     def handle(route: Route) -> None:
         request = route.request
         url = request.url
+        if request.method == "OPTIONS":
+            route.fulfill(
+                status=204,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Headers": "apikey,authorization,content-type,x-client-info,traceparent",
+                },
+            )
+            return
         if "/auth/v1/token" in url and "grant_type=password" in url:
             if login == "invalid":
-                route.fulfill(
-                    status=400,
-                    content_type="application/json",
-                    body=json.dumps({
-                        "code": "invalid_credentials",
-                        "msg": "Invalid login credentials",
-                        "message": "Invalid login credentials",
-                    }),
-                )
+                fulfill_json(route, {
+                    "code": "invalid_credentials",
+                    "msg": "Invalid login credentials",
+                    "message": "Invalid login credentials",
+                }, status=400)
             else:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps(fixture_session()))
+                fulfill_json(route, fixture_session())
             return
 
         if "/rest/v1/rpc/api_me" in url and role:
-            route.fulfill(status=200, content_type="application/json", body=json.dumps(profile_for(role)))
+            fulfill_json(route, profile_for(role))
             return
 
         if "/auth/v1/aal" in url:
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({
-                    "currentLevel": "aal1",
-                    "nextLevel": "aal2",
-                    "currentAuthenticationMethods": [],
-                }),
-            )
+            fulfill_json(route, {
+                "currentLevel": "aal1",
+                "nextLevel": "aal2",
+                "currentAuthenticationMethods": [],
+            })
             return
 
         if "/auth/v1/factors" in url:
@@ -103,11 +114,7 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                 "status": "verified",
                 "created_at": "2026-01-01T00:00:00.000Z",
             }]
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"all": factors, "totp": factors, "phone": []}),
-            )
+            fulfill_json(route, {"all": factors, "totp": factors, "phone": []})
             return
 
         # Unanticipated calls should not be silently converted into fake success.
