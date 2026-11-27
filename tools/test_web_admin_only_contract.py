@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
+app = (ROOT / "backend/web/src/App.tsx").read_text()
 dockerfile = (ROOT / "backend/Dockerfile").read_text()
 web_routes = (ROOT / "backend/src/routes/web.php").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
@@ -443,3 +444,10 @@ for required_text in (
 ):
     assert required_text in admin_console, f"Privacy request readiness is missing: {required_text}"
 assert "No personal-data export, correction, deletion, blocking, or retention operation is performed from this page." in admin_console
+
+
+# A delayed initial session snapshot must never overwrite a newer auth event.
+assert "let authEventVersion = 0;" in app
+assert "const initialAuthEventVersion = authEventVersion;" in app
+assert "authEventVersion += 1;" in app
+assert "if (!mounted || authEventVersion !== initialAuthEventVersion) return;" in app
