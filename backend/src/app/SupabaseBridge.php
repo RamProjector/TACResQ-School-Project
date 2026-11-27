@@ -36,6 +36,13 @@ final class SupabaseBridge
             $user = $response->successful() ? $response->json() : null;
             if (is_array($user) && is_string($user['id'] ?? null) && Str::isUuid($user['id'])) {
                 request()->attributes->set('auth_user_id', $user['id']);
+                // Auth /user has validated this exact bearer token. Only now
+                // decode its signed session_id claim, and require its sub to
+                // match the verified Auth response before recording it.
+                request()->attributes->set(
+                    'auth_session_id',
+                    $this->sessionIdFromVerifiedToken($accessToken, $user['id']),
+                );
             }
 
             app(ApiOperationAuditLogger::class)->record(
@@ -168,6 +175,45 @@ final class SupabaseBridge
 
         $value = trim(preg_replace('/[\\x00-\\x1F\\x7F]/', '', $value) ?? '');
         return $value === '' ? null : mb_substr($value, 0, 255);
+    }
+
+    /**
+     * Extract the signed Auth session claim only after /auth/v1/user has
+     * successfully validated the bearer token. This does not verify the JWT
+     * locally and never trusts role/profile claims from its payload.
+     */
+    private function sessionIdFromVerifiedToken(string $accessToken, string $verifiedUserId): ?string
+    {
+        $parts = explode('.', $accessToken);
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        $payload = strtr($parts[1], '-_', '+/');
+        $padding = strlen($payload) % 4;
+        if ($padding !== 0) {
+            $payload .= str_repeat('=', 4 - $padding);
+        }
+
+        $decoded = base64_decode($payload, true);
+        if (!is_string($decoded)) {
+            return null;
+        }
+
+        try {
+            $claims = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\\JsonException) {
+            return null;
+        }
+
+        if (!is_array($claims)
+            || !is_string($claims['sub'] ?? null)
+            || !hash_equals($verifiedUserId, $claims['sub'])) {
+            return null;
+        }
+
+        $sessionId = $claims['session_id'] ?? null;
+        return is_string($sessionId) && Str::isUuid($sessionId) ? $sessionId : null;
     }
 
     private function correlationId(): string
