@@ -6,7 +6,8 @@ import { buildDeviceProofMessage, encodeBase64Url } from "../supabase/functions/
 
 const encoder = new TextEncoder();
 const envPath = process.argv[2];
-if (!envPath) throw new Error("Usage: node tools/test_device_verifier_local.mjs <supabase-status-env-file>");
+const edgeEnvPath = process.argv[3];
+if (!envPath || !edgeEnvPath) throw new Error("Usage: node tools/test_device_verifier_local.mjs <supabase-status-env-file> <edge-env-file>");
 const env = {};
 for (const line of (await readFile(envPath, "utf8")).split(/\r?\n/)) {
   const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
@@ -24,6 +25,15 @@ if (!api?.startsWith("http://127.0.0.1:") || !anon || !service || !dbUrl?.includ
   throw new Error("Refusing device verifier integration test outside the disposable loopback Supabase stack");
 }
 const endpoint = `${api}/functions/v1/tacresq-device-verifier`;
+const edgeEnv = {};
+for (const line of (await readFile(edgeEnvPath, "utf8")).split(/\r?\n/)) {
+  const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+  if (match) edgeEnv[match[1]] = match[2];
+}
+const verifierDbUrl = edgeEnv.TACRESQ_DEVICE_VERIFIER_DATABASE_URL;
+if (!verifierDbUrl?.includes("tacresq_device_verifier@127.0.0.1")) {
+  throw new Error("Refusing to test a verifier database connection outside the dedicated local login");
+}
 const authHeaders = { apikey: anon, "Content-Type": "application/json" };
 const adminHeaders = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
 const createdUsers = [];
@@ -149,6 +159,10 @@ try {
       AND NOT has_table_privilege('tacresq_device_verifier', 'public.device_challenges', 'UPDATE')
   `);
   assert.equal(roleChecks, "t", "dedicated verifier role must have only private function execution");
+  const directRead = await import("node:child_process").then(({ spawnSync }) =>
+    spawnSync("psql", [verifierDbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", "SELECT * FROM public.user_devices LIMIT 1"], { encoding: "utf8" })
+  );
+  assert.notEqual(directRead.status, 0, "dedicated verifier login must not read registry tables directly");
   console.log("PASS: dedicated verifier login has narrow function execution and no direct registry table privileges");
 
   const alpha = await createUser("alpha");
