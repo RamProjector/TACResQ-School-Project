@@ -185,6 +185,9 @@ for marker in (
     "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
     "ALTER TABLE public.app_action_audit_logs",
     "CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()",
+    "CREATE OR REPLACE FUNCTION private.tacresq_current_audit_correlation_id()",
+    "set_config('tacresq.audit_correlation_id'",
+    "v_correlation_id := private.tacresq_current_audit_correlation_id()",
     "(SELECT auth.jwt()) ->> 'session_id'",
     "target_user_id, incident_id, metadata, auth_session_id",
     "api_operation_logs_auth_session_created_idx",
@@ -225,6 +228,8 @@ for marker in (
     "auth_session_id = '10000000-0000-4000-8000-000000000171'::uuid",
     "'auth_session_id' = '10000000-0000-4000-8000-000000000170'",
     "Session-ID search should return only the requester session actions",
+    "correlation_count <> 1",
+    "Transaction correlation search should return all three related app actions",
 ):
     assert marker in app_action_test, f"Missing app-action session attribution regression: {marker}"
 
