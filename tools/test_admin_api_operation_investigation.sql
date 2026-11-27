@@ -217,7 +217,8 @@ BEGIN
     10, 0, '', 'operations', 'api_operation_logs',
     NULL, NULL, NULL, NULL, NULL
   );
-  IF jsonb_array_length(v_page -> 'events') <> 2
+  IF v_page ->> 'contract_version' <> 'session_trace_v1'
+     OR jsonb_array_length(v_page -> 'events') <> 2
      OR v_page ->> 'total_count' <> '2' THEN
     RAISE EXCEPTION 'Expected two correlated API operation events: %', v_page;
   END IF;
