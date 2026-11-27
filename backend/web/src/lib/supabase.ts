@@ -98,11 +98,16 @@ interface RuntimeSupabaseConfig {
 
 function randomNonZeroHex(byteCount: number): string | null {
   if (!globalThis.crypto?.getRandomValues) return null;
-  const bytes = new Uint8Array(byteCount);
-  do {
-    globalThis.crypto.getRandomValues(bytes);
-  } while (bytes.every((value) => value === 0));
-  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  try {
+    const bytes = new Uint8Array(byteCount);
+    do {
+      globalThis.crypto.getRandomValues(bytes);
+    } while (bytes.every((value) => value === 0));
+    return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  } catch {
+    // Tracing is optional; an unavailable random source must not block an API call.
+    return null;
+  }
 }
 
 // A new trace and span are generated for each Supabase HTTP request. This is
