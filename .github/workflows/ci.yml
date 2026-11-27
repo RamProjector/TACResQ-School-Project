@@ -486,6 +486,8 @@ jobs:
 
       - name: Check Admin role isolation in Android navigation
         run: python3 tools/test_android_admin_role_safety.py
+      - name: Check isolated Android Keystore device-proof key manager
+        run: python3 tools/test_android_device_proof_keystore_contract.py
 
       - name: Check Android emulator KVM configuration
         run: python3 tools/test_android_emulator_kvm.py
