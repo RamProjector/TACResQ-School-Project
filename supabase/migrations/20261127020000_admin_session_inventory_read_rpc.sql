@@ -96,7 +96,7 @@ BEGIN
   next_cursor AS (
     SELECT created_at, id
     FROM items
-    ORDER BY created_at ASC NULLS FIRST, id ASC
+    ORDER BY created_at DESC NULLS LAST, id DESC
     LIMIT 1
     OFFSET p_limit - 1
   )
