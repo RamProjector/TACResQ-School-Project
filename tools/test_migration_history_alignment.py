@@ -151,6 +151,7 @@ UNAPPLIED_FORWARD_MIGRATIONS = {
     "20261126180000_restrict_device_registry_sequences.sql",
     "20261126190000_restrict_profile_insert_privilege.sql",
     "20261127010000_revoke_legacy_incident_create_rpc_execute.sql",
+    "20261127020000_admin_session_inventory_read_rpc.sql",
 }
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
