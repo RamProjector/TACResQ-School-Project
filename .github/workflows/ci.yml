@@ -915,8 +915,7 @@ jobs:
           ready=false
           for attempt in $(seq 1 45); do
             status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
-              --request POST --header "apikey: $(sed -n 's/^ANON_KEY=//p' "$status_file" | tr -d '"')" \
-              "http://127.0.0.1:54321/functions/v1/tacresq-device-verifier" || true)"
+              --request POST "http://127.0.0.1:54321/functions/v1/tacresq-device-verifier" || true)"
             if [ "$status" != "000" ]; then
               ready=true
               break
