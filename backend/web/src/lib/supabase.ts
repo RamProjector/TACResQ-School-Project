@@ -295,7 +295,7 @@ export async function getAdminAuthSessionsPage(
     p_before_session_id: cursor?.session_id ?? null,
   });
   if (error?.code === "PGRST202") {
-    throw new Error("The Admin session inventory is not installed in this database schema yet. Apply the reviewed session-inventory migration and refresh the Admin portal.");
+    throw new Error("The Admin session inventory RPC is not visible in this database's API schema cache. Confirm migration 20261127020000 is applied, refresh the schema cache, and reload the Admin portal.");
   }
   throwAdminError(error);
 
