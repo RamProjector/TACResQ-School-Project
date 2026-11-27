@@ -488,7 +488,7 @@ for required in (
     "public.api_dependency_health()",
     "public.api_set_duty_status(text)",
     "left(p.proname, 4) = 'api_'",
-    "api_callable_count <> 35",
+    "api_callable_count <> 36",
     "api_invoker_count <> 11",
 ):
     assert required in definer_inventory, f"Application callable inventory is incomplete: {required}"
