@@ -28,6 +28,7 @@ def main() -> None:
         ('KeyProperties.DIGEST_SHA256', "SHA-256 digest restriction"),
         ('KeyPermanentlyInvalidatedException', "invalidated-key handling"),
         ('DeviceProofKeySecurityLevel', "actual key security-level reporting"),
+        ('KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE', "unknown-secure key level reporting"),
         ('Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP)', "SPKI public-key export"),
     ]:
         require(marker in source, f"missing {description}")
@@ -40,7 +41,7 @@ def main() -> None:
 
     require("check(store.containsAlias(KEY_ALIAS))" in source, "signing must not silently create/replace a missing key")
     require("generator.generateKeyPair()" in source, "explicit key creation path must exist")
-    require("fun deleteForRecovery()" in source, "recovery deletion must be an explicit method")
+    require("internal fun deleteForRecovery()" in source, "recovery deletion must remain an internal explicit method")
     require("private.encoded" not in source and "privateKey.encoded" not in source, "private key material must never be exported")
     require("message.size <= MAX_MESSAGE_BYTES" in source, "signed message must be bounded")
     require("signature.size in MIN_DER_SIGNATURE_BYTES..MAX_DER_SIGNATURE_BYTES" in source, "DER signature size must be bounded")
