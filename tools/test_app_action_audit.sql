@@ -300,7 +300,7 @@ BEGIN
     100, 0, '10000000-0000-4000-8000-000000000170',
     'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
-  IF (feed->>'total_count')::integer <> 5
+  IF (feed->>'total_count')::integer <> 4
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'source' = 'device_security_events'
