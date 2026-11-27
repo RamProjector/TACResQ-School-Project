@@ -124,7 +124,10 @@ fun AppRoot(
     // Reconcile notification permission and token ownership whenever the app returns
     // from Settings; permission can be revoked without changing the auth session.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (sessionState is SessionState.LoggedIn) {
+        if (
+            sessionState is SessionState.LoggedIn &&
+            sessionState.session.user.role != Role.ADMIN
+        ) {
             scope.launch { container.pushTokenCoordinator.sync(container.repository) }
         }
     }
