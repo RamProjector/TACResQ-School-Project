@@ -1,7 +1,7 @@
 # TACResQ Admin Session Inventory & Security Event Correlation — Implementation Specification
 
 **Date:** 2026-11-27  
-**Status:** Session inventory, Laravel provider-request correlation capture, Admin API-operation feed integration, and W3C trace propagation implemented on PR #370; the session-revocation and W3C trace-context milestones passed exact-head CI on commit `4145dbece6ec0099e366cad4c04abb9bb585c2d4`; manual Admin UI acceptance and trusted device-security event ingestion remain pending  
+**Status:** Session inventory, Laravel provider-request correlation capture, Admin API-operation feed integration, W3C trace propagation, and the native Supabase Auth audit read-adapter contract are implemented on PR #370; manual Admin UI acceptance, hosted Auth Postgres-persistence confirmation, and trusted device-security event ingestion remain pending  
 **Branch:** `docs/admin-ips-ui-master-plan`  
 **Parent PR:** #370  
 **Scope:** Admin web, Supabase Auth/Postgres, trusted event ingestion, Render bridge where applicable  
@@ -427,3 +427,14 @@ Tests added:
 - Static migration, privacy, and Admin UI contracts.
 
 **Coverage limits:** The shared Android OkHttp and browser Supabase-js transports now generate a fresh W3C traceparent per request, covering their Auth, PostgREST, Storage, and bridge calls. This does not cover requests that bypass those shared transports. Device-security events still have no trusted writer, and provider-managed Supabase Auth audit rows remain outside trace persistence. A missing trace ID therefore means only that no valid traceparent reached that event writer; it does not mean the event is absent or suspicious. The local PostgREST header-delivery integration proof remains the source of truth for gateway-to-database header availability. No hosted migration or deployment is authorized by this code change.
+
+
+## 11. Supabase Auth provider audit source adapter (2026-11-27)
+
+The current source decision and implementation evidence are maintained in [Supabase Auth Audit Source — Research and Read-Adapter Decision](supabase-auth-audit-source-adapter.md).
+
+The investigation feed reads only the provider-owned `auth.audit_log_entries` Postgres mirror through its protected AAL2/TOTP RPC. It does not query Supabase's separate external `auth_audit_logs` stream. A disposable runtime fixture now verifies the adapter's event provenance, actor mapping, and privacy-minimized projection without fabricating session or trace identifiers.
+
+A read-only live inspection observed 12 external Auth audit events in the latest 24-hour window (six `token_refreshed`, six `token_revoked`), each with provider actor and request-reference fields, while the Postgres mirror contained zero rows. The project's Auth Postgres-persistence setting remains unverified. The external stream and Postgres mirror are separate sources; no historical backfill is assumed.
+
+Do not add a general Auth Hook, duplicate audit table, direct Auth-table trigger, Management API poller, or external log drain for this slice. The supported next step is owner verification of the optional Postgres persistence setting, followed—only if approved—by a controlled future-event check. No hosted setting or migration was changed.
