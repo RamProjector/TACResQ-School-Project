@@ -51,8 +51,8 @@ def main() -> int:
         + " TO tacresq_device_verifier;"
     )
     result = subprocess.run(
-        ["psql", db_url, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", sql],
-        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ["psql", db_url, "-X", "-v", "ON_ERROR_STOP=1", "-q"],
+        input=sql, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         env={**os.environ, "PGOPTIONS": "-c client_min_messages=warning"},
     )
     if result.returncode != 0:
