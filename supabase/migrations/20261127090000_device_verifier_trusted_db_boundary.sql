@@ -77,7 +77,8 @@ BEGIN
     INTO v_profile_id
     FROM public.profiles AS p
    WHERE p.auth_user_id = p_auth_user_id
-     AND p.account_status = 'active';
+     AND p.account_status = 'active'
+   FOR SHARE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Active TACResQ profile required' USING ERRCODE = '42501';
   END IF;
@@ -303,7 +304,7 @@ BEGIN
      AND c.challenge_hash = v_expected_hash
      AND c.consumed_at IS NULL
      AND c.expires_at > clock_timestamp()
-   FOR UPDATE OF c;
+   FOR UPDATE OF c, p;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Challenge is invalid, expired, or unavailable' USING ERRCODE = '42501';
