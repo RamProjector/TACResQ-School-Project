@@ -123,10 +123,7 @@ BEGIN
     FROM public.admin_audit_logs
    WHERE action = 'user_role_changed'
      AND reason = 'Disposable audit fixture for session revocation policy'
-     AND actor_user_id = (
-       SELECT id FROM public.profiles
-        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
-     );
+     AND actor_user_id = current_setting('test.session_inventory_admin_id')::bigint;
   IF v_count <> 1 THEN
     RAISE EXCEPTION 'Expected one owner-visible disposable Admin audit fixture row, found %', v_count;
   END IF;
