@@ -11,7 +11,7 @@ required = (
     "p_before_created_at timestamptz DEFAULT NULL",
     "p_before_session_id uuid DEFAULT NULL",
     "RETURNS jsonb",
-    "STABLE",
+    "VOLATILE",
     "SECURITY DEFINER",
     "SET search_path = pg_catalog",
     "PERFORM private.tacresq_require_admin_mfa()",
