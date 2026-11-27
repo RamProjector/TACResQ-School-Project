@@ -19,18 +19,20 @@ VALUES (
 );
 
 INSERT INTO public.api_operation_logs (
-  correlation_id, actor_auth_user_id, provider, operation, source, outcome,
+  correlation_id, actor_auth_user_id, auth_session_id, provider, operation, source, outcome,
   http_status, duration_ms, provider_request_id, error_code
 ) VALUES
   (
     '00000000-0000-4000-8000-000000000410',
     '00000000-0000-4000-8000-000000000401',
+    '10000000-0000-4000-8000-000000000401',
     'supabase', 'auth.get_user', 'render_api', 'success',
     200, 18, 'sb-auth-request-fixture-410', NULL
   ),
   (
     '00000000-0000-4000-8000-000000000410',
     '00000000-0000-4000-8000-000000000401',
+    '10000000-0000-4000-8000-000000000401',
     'supabase', 'rpc.api_units', 'render_api', 'failure',
     503, 241, 'sb-rpc-request-fixture-410', 'upstream_unavailable'
   );
@@ -93,6 +95,8 @@ BEGIN
        AND rows.event -> 'details' ->> 'outcome' = 'success'
        AND rows.event -> 'details' ->> 'correlation_id'
          = '00000000-0000-4000-8000-000000000410'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
   ) THEN
     RAISE EXCEPTION 'Auth operation event is missing its provider/correlation metadata: %', v_page;
   END IF;
@@ -105,6 +109,8 @@ BEGIN
        AND rows.event -> 'details' ->> 'error_code' = 'upstream_unavailable'
        AND rows.event -> 'details' ->> 'correlation_id'
          = '00000000-0000-4000-8000-000000000410'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
   ) THEN
     RAISE EXCEPTION 'RPC operation event is missing its provider/correlation metadata: %', v_page;
   END IF;
@@ -116,6 +122,15 @@ BEGIN
   );
   IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
     RAISE EXCEPTION 'Searching the shared correlation ID must return both bridge events: %', v_by_correlation;
+  END IF;
+
+  v_by_correlation := public.api_admin_list_investigation_events(
+    10, 0, '10000000-0000-4000-8000-000000000401',
+    'operations', 'api_operation_logs',
+    NULL, NULL, NULL, NULL, NULL
+  );
+  IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
+    RAISE EXCEPTION 'Searching the Auth session ID must return both bridge events: %', v_by_correlation;
   END IF;
 
   -- The same RPC must still reject an Admin token without AAL2/TOTP.
