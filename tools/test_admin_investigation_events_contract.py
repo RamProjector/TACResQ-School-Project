@@ -150,6 +150,7 @@ audit_logger = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text(
 android_trace = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/W3CTraceContext.kt").read_text()
 android_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 android_trace_test = (ROOT / "app/src/test/java/com/tacresq/app/data/remote/W3CTraceContextTest.kt").read_text()
+supabase_jwt_test = (ROOT / "tools/test_supabase_jwt_context.py").read_text()
 assert "request()->header('traceparent')" in trace_context
 assert "preg_match(" in trace_context and "str_repeat('0', 32)" in trace_context
 assert "TraceContext::currentTraceparent()" in bridge
@@ -176,6 +177,9 @@ for marker in (
 assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
 assert "everyHttpRequestGetsFreshTraceContext" in android_trace_test
 assert "generatedTraceparentUsesVersionZeroAndNonZeroIdentifiers" in android_trace_test
+assert "private.tacresq_current_trace_id()" in supabase_jwt_test
+assert '"trace_id", private.tacresq_current_trace_id()' in supabase_jwt_test
+assert "database parser did not extract the PostgREST traceparent header" in supabase_jwt_test
 
 # share Auth session IDs with API-operation telemetry for cross-source search.
 device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
