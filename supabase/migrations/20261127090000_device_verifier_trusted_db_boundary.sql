@@ -16,6 +16,8 @@ $role$;
 ALTER ROLE tacresq_device_verifier
   NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 
+REVOKE CREATE ON SCHEMA private
+  FROM PUBLIC, anon, authenticated, service_role, tacresq_device_verifier;
 GRANT USAGE ON SCHEMA private TO tacresq_device_verifier;
 
 -- The legacy service_role grants predate the dedicated verifier boundary.
