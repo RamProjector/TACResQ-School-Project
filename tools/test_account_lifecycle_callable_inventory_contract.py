@@ -64,6 +64,8 @@ assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-priva
 assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md").is_file()
 assert (ROOT / "tools/test_account_suspension_definer_inventory.sql").is_file()
 assert (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").is_file()
+private_inventory = (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").read_text(encoding="utf-8").lower()
+assert "'private.tacresq_current_audit_correlation_id()'" in private_inventory
 print("Account-lifecycle callable inventory contract passed.")
 
 
