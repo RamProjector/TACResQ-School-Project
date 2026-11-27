@@ -912,19 +912,22 @@ jobs:
           supabase functions serve tacresq-device-verifier --env-file "$edge_env" > "$edge_log" 2>&1 &
           edge_pid=$!
           echo "$edge_pid" > "$RUNNER_TEMP/tacresq-device-verifier.pid"
+          anon_key="$(sed -n 's/^ANON_KEY=//p' "$status_file" | tr -d '"')"
           ready=false
           for attempt in $(seq 1 45); do
             status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --header "apikey: $anon_key" \
               --request POST "http://127.0.0.1:54321/functions/v1/tacresq-device-verifier" || true)"
-            if [ "$status" != "000" ]; then
+            # With a valid API key but no bearer token, 401 proves the
+            # function gateway has reached the verifier and enforced JWT auth.
+            if [ "$status" = "401" ]; then
               ready=true
               break
             fi
             sleep 2
           done
           if [ "$ready" != true ]; then
-            cat "$edge_log"
-            echo "Local device verifier Edge Function did not start."
+            echo "Local device verifier did not become JWT-ready; see the redacted runtime diagnostics below."
             exit 1
           fi
           node tools/test_device_verifier_local.mjs "$status_file" "$edge_env"
