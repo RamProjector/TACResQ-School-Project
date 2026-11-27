@@ -423,6 +423,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: backend/web/pnpm-lock.yaml
 
+      - name: Test P-256 device proof cryptography contract
+        run: node --test tools/test_device_proof_crypto.mjs
+
       - name: Check SECURITY DEFINER trigger search paths
         run: python3 tools/test_trigger_search_paths.py
 
