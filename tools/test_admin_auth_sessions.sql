@@ -120,6 +120,7 @@ SELECT set_config(
 DO $session_reader_contract$
 DECLARE
   v_target_profile_id bigint := current_setting('test.session_inventory_target_id')::bigint;
+  v_empty_target_profile_id bigint := current_setting('test.session_inventory_suspended_admin_id')::bigint;
   v_page_one jsonb;
   v_page_two jsonb;
   v_cursor_created_at timestamptz;
@@ -155,6 +156,24 @@ BEGIN
      OR v_page_one -> 'items' -> 0 ->> 'validity_assessment' <> 'not_evaluated'
      OR v_page_one -> 'items' -> 0 ->> 'aal' <> 'aal2' THEN
     RAISE EXCEPTION 'Session status semantics or allowlisted AAL projection is incorrect';
+  END IF;
+
+  -- A genuinely empty target is distinguishable from a failed source.
+  v_page_two := public.api_admin_list_auth_sessions_page(v_empty_target_profile_id, 2, NULL, NULL);
+  IF jsonb_array_length(v_page_two -> 'items') <> 0
+     OR v_page_two ->> 'has_more' <> 'false'
+     OR v_page_two ->> 'source_status' <> 'available' THEN
+    RAISE EXCEPTION 'Empty session source must return an available, empty page: %', v_page_two;
+  END IF;
+
+  v_rejected := false;
+  BEGIN
+    PERFORM public.api_admin_list_auth_sessions_page(v_target_profile_id, 51, NULL, NULL);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'Session inventory must reject page sizes above 50';
   END IF;
 
   v_cursor_created_at := (v_page_one -> 'next_cursor' ->> 'created_at')::timestamptz;
