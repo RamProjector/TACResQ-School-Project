@@ -136,6 +136,13 @@ for marker in (
     assert marker in trace_migration, f"Missing W3C trace context migration contract: {marker}"
 assert "REFERENCES auth.sessions" not in trace_migration
 assert "auth.uid()" not in trace_migration
+for marker in (
+    "trace IDs, correlation IDs, Auth session IDs, and provider request IDs remain distinct",
+    'placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs"',
+    'getTechnicalReference(event, "trace_id")',
+    "W3C trace ID",
+):
+    assert marker in page, f"Missing W3C trace Admin UI contract: {marker}"
 
 trace_context = (ROOT / "backend/src/app/TraceContext.php").read_text()
 bridge = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
@@ -294,7 +301,7 @@ for marker in (
     "Laravel API operations",
     "No trusted server-side writer currently creates these rows",
     "an empty result is not evidence that devices are safe",
-    "This best-effort source does not cover direct Android/browser Supabase or Storage calls.",
+    "the shared Android and browser Supabase transports now generate one per request",
     "FCM delivery attempts",
     "Provider acceptance does not prove device receipt or user acknowledgement.",
     "Retention and integrity policy",
