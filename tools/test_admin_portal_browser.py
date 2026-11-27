@@ -94,7 +94,7 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                 headers={
                     "Access-Control-Allow-Origin": "http://127.0.0.1:4173",
                     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-                    "Access-Control-Allow-Headers": "apikey,authorization,content-type,x-client-info,traceparent",
+                    "Access-Control-Allow-Headers": "apikey,authorization,content-type,x-client-info,x-supabase-api-version,traceparent",
                 },
             )
             return
@@ -174,7 +174,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     # A validly authenticated non-admin must still be denied the Admin workspace.
     page = browser.new_page(viewport={"width": 1440, "height": 900})
     mock_supabase(page, login="valid", role="dispatcher")
-    page.goto(BASE_URL, wait_until="networkidle")
+    page.goto(BASE_URL, wait_until="domcontentloaded")
     page.get_by_label("Email address").fill("admin@example.test")
     page.get_by_label("Password").fill("fixture-password")
     page.get_by_role("button", name="Open admin portal").click()
@@ -200,12 +200,22 @@ def run_browser_tests(browser: Browser) -> list[str]:
 
     # Admin credentials alone must not bypass the verified TOTP gate.
     page = browser.new_page(viewport={"width": 1440, "height": 900})
+    failed_requests: list[str] = []
+    page.on("requestfailed", lambda request: failed_requests.append(
+        f"{request.method} {request.url}: {request.failure}"
+    ))
     mock_supabase(page, login="valid", role="admin")
-    page.goto(BASE_URL, wait_until="networkidle")
+    page.goto(BASE_URL, wait_until="domcontentloaded")
     page.get_by_label("Email address").fill("admin@example.test")
     page.get_by_label("Password").fill("fixture-password")
     page.get_by_role("button", name="Open admin portal").click()
-    expect(page.get_by_role("heading", name="Verify your identity")).to_be_visible(timeout=10000)
+    try:
+        expect(page.get_by_role("heading", name="Verify your identity")).to_be_visible(timeout=10000)
+    except AssertionError as error:
+        raise AssertionError(
+            f"Admin MFA gate did not reach verification. Body: {page.locator('body').inner_text()} "
+            f"Failed requests: {failed_requests}"
+        ) from error
     expect(page.get_by_text("Enter the current six-digit code from Google Authenticator")).to_be_visible()
     expect(page.locator(".admin-sidebar")).to_have_count(0)
     completed.append("admin session remains behind MFA until TOTP verification")
@@ -217,7 +227,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
         ({"width": 390, "height": 844}, False, "mobile"),
     ]:
         page = browser.new_page(viewport=viewport)
-        page.goto(BASE_URL, wait_until="networkidle")
+        page.goto(BASE_URL, wait_until="domcontentloaded")
         expect(page.get_by_role("heading", name="Administrator sign in")).to_be_visible()
         story = page.locator(".login-story")
         if story_visible:
