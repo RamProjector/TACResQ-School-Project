@@ -217,12 +217,24 @@ def main() -> int:
                 raise AssertionError(f"Session-validity RPC probe failed (HTTP {status})")
             return body
 
+        def probe_read_only(user: dict[str, str], token: str | None = None) -> dict:
+            status, body = request_json(
+                f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="GET",
+                headers={**auth_headers, "Authorization": f"Bearer {token or user['token']}"},
+            )
+            if status != 200 or not isinstance(body, dict):
+                raise AssertionError(f"Read-only PostgREST session probe failed (HTTP {status})")
+            return body
+
         for user in users:
             result = probe(user)
             if result.get("actual_uid") != user["id"] or result.get("actual_session_id") != user["session_id"]:
                 raise AssertionError("PostgREST auth.uid()/session_id did not match the caller JWT")
             if result.get("session_present") is not True or not session_valid(user):
                 raise AssertionError("A current Auth session must pass both read-only and row-locking session predicates")
+            read_only_result = probe_read_only(user)
+            if read_only_result.get("session_present") is not True:
+                raise AssertionError("A current Auth session must pass the STABLE predicate in a read-only GET transaction")
         print("PASS: each caller JWT preserved its own auth.uid()/session_id and passed both session predicates")
 
         spoofed = probe(users[0], users[1]["id"], users[1]["session_id"])
@@ -246,6 +258,9 @@ def main() -> int:
             raise AssertionError("A session_id owned by another Auth user passed the read-only session predicate")
         if session_valid(users[0], forged_token):
             raise AssertionError("A session_id owned by another Auth user passed the row-locking session predicate")
+        forged_read_only = probe_read_only(users[0], forged_token)
+        if forged_read_only.get("session_present") is not False:
+            raise AssertionError("A cross-user session_id passed the read-only GET transaction predicate")
         print("PASS: a validly signed JWT with another user's session_id failed the database ownership check")
 
         def concurrent_check(index: int) -> bool:
@@ -328,6 +343,9 @@ def main() -> int:
             raise AssertionError("PostgREST did not preserve claims from the still-unexpired revoked-session JWT")
         if stale_body.get("session_present") is not False or session_valid(revoked_user):
             raise AssertionError("The revoked session must fail database session checks while its JWT remains accepted")
+        stale_read_only = probe_read_only(revoked_user)
+        if stale_read_only.get("session_present") is not False:
+            raise AssertionError("The revoked session passed the read-only GET transaction predicate")
         print("PASS: old access JWT remains accepted by PostgREST but fails both database session checks after sign-out")
 
         refresh_status, _ = request_json(
