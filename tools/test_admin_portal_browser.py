@@ -426,7 +426,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(suspend_confirm).to_be_enabled()
     suspend_confirm.click()
     expect(suspend_dialog).to_have_count(0, timeout=10000)
-    expect(page.get_by_role("row").filter(has_text="Test Requester").get_by_text("Suspended")).to_be_visible(timeout=10000)
+    expect(page.locator("#admin-account-directory-table").get_by_text("Suspended")).to_be_visible(timeout=10000)
     expect(page.get_by_text("Test Requester was suspended. The action was recorded in lifecycle history.")).to_be_visible()
 
     page.get_by_role("button", name="Reactivate account for Test Requester").click()
@@ -438,7 +438,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(reactivate_confirm).to_be_enabled()
     reactivate_confirm.click()
     expect(reactivate_dialog).to_have_count(0, timeout=10000)
-    expect(page.get_by_role("row").filter(has_text="Test Requester").get_by_text("Active")).to_be_visible(timeout=10000)
+    expect(page.locator("#admin-account-directory-table").get_by_text("Active")).to_be_visible(timeout=10000)
     expect(page.get_by_text("Test Requester was reactivated. The action was recorded in lifecycle history.")).to_be_visible()
     completed.append("suspension and reactivation require reasons, call protected RPCs, and refresh the confirmed account state")
 
