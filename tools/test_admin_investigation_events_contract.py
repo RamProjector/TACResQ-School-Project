@@ -149,6 +149,13 @@ for marker in (
     'findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")',
     'findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")',
     "Correlation searches must cross source/category boundaries.",
+    'setCategory("all");',
+    'setSource("all");',
+    'setFrom("");',
+    'setTo("");',
+    'setActorId("");',
+    'setTargetId("");',
+    'setIncidentId("");',
 ):
     assert marker in page, f"Missing W3C trace Admin UI contract: {marker}"
 
