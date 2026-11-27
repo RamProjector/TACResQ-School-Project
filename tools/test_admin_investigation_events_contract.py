@@ -290,6 +290,8 @@ for marker in (
     "INSERT INTO auth.audit_log_entries (id, payload, created_at)",
     "v_id_type = 'uuid'",
     "v_id_type = 'bigint'",
+    "GENERATED ALWAYS AS IDENTITY",
+    "INSERT INTO auth.audit_log_entries (payload, created_at)",
     "Unsupported auth.audit_log_entries.id type",
     "'action', 'login'",
     "'user_id', '00000000-0000-4000-8000-000000000401'",
