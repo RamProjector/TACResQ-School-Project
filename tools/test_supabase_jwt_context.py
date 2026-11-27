@@ -37,6 +37,7 @@ AS $function$
   SELECT jsonb_build_object(
     'actual_uid', auth.uid(),
     'actual_session_id', auth.jwt() ->> 'session_id',
+    'trace_id', private.tacresq_current_trace_id(),
     'traceparent_header', coalesce(
       nullif(current_setting('request.headers', true), '')::jsonb ->> 'traceparent',
       ''
@@ -49,6 +50,11 @@ $function$;
 REVOKE ALL ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
+  TO authenticated;
+-- Temporary local-only grant lets the invoker probe exercise the private
+-- parser through real PostgREST request.headers; the production migration
+-- continues to revoke this helper from all client roles.
+GRANT EXECUTE ON FUNCTION private.tacresq_current_trace_id()
   TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.__tacresq_session_valid_probe()
@@ -67,6 +73,8 @@ GRANT EXECUTE ON FUNCTION public.__tacresq_session_valid_probe()
 NOTIFY pgrst, 'reload schema';
 """
 DROP_SQL = """
+REVOKE ALL ON FUNCTION private.tacresq_current_trace_id()
+  FROM PUBLIC, anon, authenticated, service_role;
 DROP FUNCTION IF EXISTS public.__tacresq_session_valid_probe();
 DROP FUNCTION IF EXISTS public.__tacresq_jwt_context_probe(uuid, uuid);
 NOTIFY pgrst, 'reload schema';
@@ -253,7 +261,9 @@ def main() -> int:
         traced = probe(users[0], extra_headers={"traceparent": traceparent})
         if traced.get("traceparent_header") != traceparent:
             raise AssertionError("PostgREST did not preserve the incoming traceparent request header")
-        print("PASS: local Supabase gateway/PostgREST preserved traceparent in transaction request.headers")
+        if traced.get("trace_id") != traceparent.split("-")[1]:
+            raise AssertionError("The database trace parser did not extract the PostgREST traceparent header")
+        print("PASS: local Supabase gateway/PostgREST delivered traceparent and the database parser extracted its trace ID")
 
         spoofed = probe(users[0], users[1]["id"], users[1]["session_id"])
         if spoofed.get("actual_uid") != users[0]["id"] or spoofed.get("actual_session_id") != users[0]["session_id"]:
@@ -289,6 +299,7 @@ def main() -> int:
                 result.get("actual_uid") == user["id"]
                 and result.get("actual_session_id") == user["session_id"]
                 and result.get("traceparent_header") == traceparent
+                and result.get("trace_id") == traceparent.split("-")[1]
             )
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             outcomes = list(pool.map(concurrent_check, range(24)))
