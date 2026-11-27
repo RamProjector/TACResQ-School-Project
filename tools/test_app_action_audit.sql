@@ -170,7 +170,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
   END IF;
-  SELECT count(DISTINCT audit.correlation_id), min(audit.correlation_id)
+  SELECT count(DISTINCT audit.correlation_id), min(audit.correlation_id::text)::uuid
     INTO correlation_count, app_correlation_id
     FROM public.app_action_audit_logs audit
    WHERE audit.actor_profile_id IN (requester_id, responder_id)
