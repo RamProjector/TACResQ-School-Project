@@ -95,6 +95,16 @@ def fulfill_json(route: Route, payload: Any, *, status: int = 200) -> None:
 
 def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str = "aal1") -> None:
     """Intercept only the known Auth/RPC endpoints used by this flow."""
+    managed_user: dict[str, Any] = {
+        "id": 1002,
+        "name": "Test Requester",
+        "email": "requester@example.test",
+        "role": "requester",
+        "duty_status": None,
+        "account_status": "active",
+        "created_at": "2026-10-01T00:00:00.000Z",
+    }
+
     def handle(route: Route) -> None:
         request = route.request
         url = request.url
@@ -128,17 +138,25 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             return
 
         if "/rest/v1/rpc/api_admin_list_users_page" in url:
+            fulfill_json(route, {"users": [dict(managed_user)], "total_count": 1})
+            return
+
+        if "/rest/v1/rpc/api_admin_set_user_role" in url:
+            params = request.post_data_json or {}
+            requested_role = str(params.get("p_role", ""))
+            old_role = str(managed_user["role"])
+            if params.get("p_user_id") != managed_user["id"] or requested_role not in {"requester", "responder", "driver", "dispatcher"}:
+                fulfill_json(route, {"code": "22023", "message": "Invalid test role change"}, status=400)
+                return
+            managed_user["role"] = requested_role
+            managed_user["duty_status"] = "off_duty" if requested_role in {"responder", "driver"} else None
             fulfill_json(route, {
-                "users": [{
-                    "id": 1002,
-                    "name": "Test Requester",
-                    "email": "requester@example.test",
-                    "role": "requester",
-                    "duty_status": None,
-                    "account_status": "active",
-                    "created_at": "2026-10-01T00:00:00.000Z",
-                }],
-                "total_count": 1,
+                "id": managed_user["id"],
+                "name": managed_user["name"],
+                "email": managed_user["email"],
+                "old_role": old_role,
+                "role": requested_role,
+                "duty_status": managed_user["duty_status"],
             })
             return
 
@@ -342,9 +360,13 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(confirm).to_be_disabled()
     dialog.locator("#admin-change-reason").fill("Operational reassignment approved")
     expect(confirm).to_be_enabled()
-    dialog.get_by_role("button", name="Cancel").click()
-    expect(dialog).to_have_count(0)
-    completed.append("user directory renders protected records and role-change submission enforces reason validation without mutating data")
+    confirm.click()
+    expect(dialog).to_have_count(0, timeout=10000)
+    expect(
+        page.get_by_role("row").filter(has_text="Test Requester").get_by_text("Responder")
+    ).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Test Requester's role changed from Requester to Responder. The action was recorded in the audit log.")).to_be_visible()
+    completed.append("user directory, reason validation, role-change RPC confirmation, and refreshed role state work with an isolated mock")
 
     # The same verified Admin session can open the unified read-only audit feed.
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Activity log").click()
