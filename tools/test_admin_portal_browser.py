@@ -109,6 +109,10 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                 fulfill_json(route, fixture_session())
             return
 
+        if "/auth/v1/user" in url:
+            fulfill_json(route, fixture_session()["user"])
+            return
+
         if "/rest/v1/rpc/api_me" in url and role:
             fulfill_json(route, profile_for(role))
             return
