@@ -31,7 +31,7 @@ required = (
     "next_cursor AS",
     "ORDER BY created_at ASC NULLS FIRST, id ASC",
     "'session_id', i.id",
-    "'last_refreshed_at', i.refreshed_at",
+    "'last_refreshed_at', i.refreshed_at AT TIME ZONE 'UTC'",
     "'record_status', 'record_present'",
     "'validity_assessment', 'not_evaluated'",
     "'source', 'supabase_auth_sessions'",
