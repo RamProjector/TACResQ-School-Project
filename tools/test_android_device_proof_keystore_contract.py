@@ -29,7 +29,7 @@ def main() -> None:
         ('KeyPermanentlyInvalidatedException', "invalidated-key handling"),
         ('DeviceProofKeySecurityLevel', "actual key security-level reporting"),
         ('KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE', "unknown-secure key level reporting"),
-        ('Base64.encodeToString(pair.public.encoded, Base64.NO_WRAP)', "SPKI public-key export"),
+        ('Base64.encodeToString(encodedPublicKey, Base64.NO_WRAP)', "SPKI public-key export"),
     ]:
         require(marker in source, f"missing {description}")
 
