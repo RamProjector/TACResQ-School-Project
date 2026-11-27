@@ -115,6 +115,23 @@ INSERT INTO public.admin_audit_logs (
   'Disposable audit fixture for session revocation policy'
 );
 
+DO $audit_fixture_owner_check$
+DECLARE
+  v_count bigint;
+BEGIN
+  SELECT count(*) INTO v_count
+    FROM public.admin_audit_logs
+   WHERE action = 'user_role_changed'
+     AND actor_user_id = (
+       SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
+     );
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one owner-visible disposable Admin audit fixture row, found %', v_count;
+  END IF;
+END;
+$audit_fixture_owner_check$;
+
 SELECT set_config(
   'test.session_inventory_admin_id',
   (SELECT id::text FROM public.profiles
@@ -205,6 +222,9 @@ BEGIN
   IF private.tacresq_actor_role() IS DISTINCT FROM 'admin' THEN
     RAISE EXCEPTION 'Admin audit RLS fixture did not resolve active Admin role: %', private.tacresq_actor_role();
   END IF;
+  IF NOT private.tacresq_current_account_active() THEN
+    RAISE EXCEPTION 'Admin audit RLS fixture failed the current-account policy';
+  END IF;
   IF auth.jwt() ->> 'aal' IS DISTINCT FROM 'aal2' THEN
     RAISE EXCEPTION 'Admin audit RLS fixture has unexpected AAL: %', auth.jwt() ->> 'aal';
   END IF;
@@ -217,9 +237,11 @@ BEGIN
   END IF;
   SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
   IF v_visible_audit_rows <> 1 THEN
-    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (uid %, role %, aal %, amr %, session_present %)',
+    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (uid %, role %, aal %, amr %, session_present %, active %, current_user %, select_grant %)',
       auth.uid(), private.tacresq_actor_role(), auth.jwt() ->> 'aal',
-      auth.jwt() -> 'amr', private.tacresq_current_auth_session_present_read();
+      auth.jwt() -> 'amr', private.tacresq_current_auth_session_present_read(),
+      private.tacresq_current_account_active(), current_user,
+      has_table_privilege(current_user, 'public.admin_audit_logs', 'SELECT');
   END IF;
 
   -- A syntactically valid session UUID owned by another user must not pass.
