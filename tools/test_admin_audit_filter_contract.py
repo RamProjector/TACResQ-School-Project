@@ -112,12 +112,12 @@ for marker in (
     'getTechnicalReference(event, "correlation_id")',
     'getTechnicalReference(event, "auth_session_id")',
     'aria-label="Find events from this Auth session"',
-    'setQuery(getTechnicalReference(event, "auth_session_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")',
     'getTechnicalReference(event, "provider_request_id")',
     'aria-label="Find events with this correlation ID"',
     'aria-label="Find events with this provider request ID"',
-    'setQuery(getTechnicalReference(event, "correlation_id") || "")',
-    'setQuery(getTechnicalReference(event, "provider_request_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "correlation_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")',
 ):
     assert marker in AUDIT_PAGE, f"Missing searchable investigation reference behavior: {marker}"
 
