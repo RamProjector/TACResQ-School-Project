@@ -66,3 +66,18 @@ No config or workflow was added in this spike because no local Supabase CLI/Dock
 - Local config management: https://supabase.com/docs/guides/local-development/managing-config
 - CLI setup action and explicit version pinning: https://github.com/supabase/setup-cli/blob/main/docs/index.md
 - Local reset behavior: https://supabase.com/docs/reference/cli/supabase-db-reset
+
+## 7. Advisory workflow added to the existing CI
+
+The first compatibility lane is now wired into the existing TACResQ CI workflow rather than a newly introduced workflow file. This matters because GitHub Actions may not execute a newly added PR workflow until its definition exists on the default branch. The job is therefore part of the already-established PR CI definition.
+
+- Job: `local-supabase-migration-compatibility` in `.github/workflows/ci.yml`.
+- It runs only when migration/function/config-plan/CI workflow paths change, or when manually dispatched.
+- It is explicitly advisory with job-level `continue-on-error: true`; existing source checks, PostgreSQL 16/17 replay, Android builds, Laravel integration, and security gates remain unchanged.
+- It uses the SHA-pinned `supabase/setup-cli` action and exact CLI version 3.4.0.
+- On the fresh runner it creates or validates one local config, starts local Supabase, performs `supabase db reset --local`, and always stops the stack with `--no-backup`.
+- It does not receive Supabase credentials, does not link a project, does not invoke remote commands, and redacts local JWT/key output from startup logs.
+- The standalone workflow prototype was removed and its job folded into the existing CI workflow to ensure the PR can actually exercise it.
+
+**First run status:** the workflow change is on PR #370 at head `5bb0116ea22454d45076dd125cef43309d3237d1`. The six existing PR workflow groups were queued/in progress at the last read; no result is yet claimed for the new advisory job. Inspect the exact job and sanitized startup/migration output after the run completes.
+
