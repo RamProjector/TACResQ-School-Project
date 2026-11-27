@@ -102,6 +102,7 @@ BEGIN
     'private.tacresq_active_responder_locations_internal()',
     'private.tacresq_assign_incident_team(bigint,bigint[])',
     'private.tacresq_can_access_incident_chat(bigint,bigint)',
+    'private.tacresq_current_auth_session_valid()',
     'private.tacresq_record_location_v2_internal(bigint,double precision,double precision,real,timestamp with time zone)',
     'private.tacresq_release_incident_assignment_internal(bigint,bigint)'
   ] LOOP
@@ -133,4 +134,4 @@ BEGIN
 END;
 $account_suspension_private_definer_inventory$;
 
-\echo 'PASS: all 13 authenticated-callable private SECURITY DEFINER helpers remain inventoried; private schema grants and internal implementation EXECUTE boundaries remain constrained.'
+\echo 'PASS: all 14 authenticated-callable private SECURITY DEFINER helpers remain inventoried; private schema grants and internal implementation EXECUTE boundaries remain constrained.'
