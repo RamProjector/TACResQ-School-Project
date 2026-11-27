@@ -1,7 +1,7 @@
 # TACResQ Admin Session Inventory & Security Event Correlation — Implementation Specification
 
 **Date:** 2026-11-27  
-**Status:** Session inventory, Laravel provider-request correlation capture, and Admin API-operation feed integration implemented on PR #370; exact-head automated checks passed; manual Admin UI acceptance and direct-client/device event ingestion remain pending  
+**Status:** Session inventory, Laravel provider-request correlation capture, Admin API-operation feed integration, and W3C trace propagation implemented on PR #370; the prior session-correlation milestone passed exact-head CI, while the current trace-context milestone is awaiting exact-head verification; manual Admin UI acceptance and trusted device-security event ingestion remain pending  
 **Branch:** `docs/admin-ips-ui-master-plan`  
 **Parent PR:** #370  
 **Scope:** Admin web, Supabase Auth/Postgres, trusted event ingestion, Render bridge where applicable  
