@@ -299,6 +299,24 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setPage(0);
   }
 
+  // Correlation searches must cross source/category boundaries. Retaining a
+  // previous source, date, actor, target, or incident filter can hide the very
+  // related events this action is meant to find.
+  function findRelatedEvents(reference: string) {
+    const value = reference.trim();
+    if (!value) return;
+    setQuery(value);
+    setCategory("all");
+    setSource("all");
+    setFrom("");
+    setTo("");
+    setActorId("");
+    setTargetId("");
+    setIncidentId("");
+    setPage(0);
+    setExpanded(null);
+  }
+
   const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize);
   const pageCount = Math.ceil(total / PAGE_SIZE);
   const notificationReadCount = events.filter((event) =>
@@ -494,7 +512,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                         <dt>W3C trace ID</dt>
                         <dd>
                           <code>{getTechnicalReference(event, "trace_id")}</code>
-                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "trace_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this W3C trace ID" title="Find traced events">Find related</button>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "trace_id") || "")} aria-label="Find events with this W3C trace ID" title="Find traced events">Find related</button>
                         </dd>
                       </div>
                     )}
@@ -503,7 +521,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                         <dt>Correlation ID</dt>
                         <dd>
                           <code>{getTechnicalReference(event, "correlation_id")}</code>
-                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "correlation_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this correlation ID" title="Find related events">Find related</button>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "correlation_id") || "")} aria-label="Find events with this correlation ID" title="Find related events">Find related</button>
                         </dd>
                       </div>
                     )}
@@ -512,7 +530,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                         <dt>Auth session ID</dt>
                         <dd>
                           <code>{getTechnicalReference(event, "auth_session_id")}</code>
-                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "auth_session_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events from this Auth session" title="Find session activity">Find related</button>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")} aria-label="Find events from this Auth session" title="Find session activity">Find related</button>
                         </dd>
                       </div>
                     )}
@@ -521,7 +539,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                         <dt>Provider request ID</dt>
                         <dd>
                           <code>{getTechnicalReference(event, "provider_request_id")}</code>
-                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "provider_request_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this provider request ID" title="Find related events">Find related</button>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")} aria-label="Find events with this provider request ID" title="Find related events">Find related</button>
                         </dd>
                       </div>
                     )}
