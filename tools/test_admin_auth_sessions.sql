@@ -122,6 +122,7 @@ BEGIN
   SELECT count(*) INTO v_count
     FROM public.admin_audit_logs
    WHERE action = 'user_role_changed'
+     AND reason = 'Disposable audit fixture for session revocation policy'
      AND actor_user_id = (
        SELECT id FROM public.profiles
         WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
@@ -235,10 +236,16 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Admin audit RLS fixture is missing TOTP AMR: %', auth.jwt() -> 'amr';
   END IF;
-  SELECT count(*) INTO v_visible_audit_rows FROM public.admin_audit_logs;
+  SELECT count(*) INTO v_visible_audit_rows
+    FROM public.admin_audit_logs
+   WHERE reason = 'Disposable audit fixture for session revocation policy'
+     AND actor_user_id = (
+       SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
+     );
   IF v_visible_audit_rows <> 1 THEN
-    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (uid %, role %, aal %, amr %, session_present %, active %, current_user %, select_grant %)',
-      auth.uid(), private.tacresq_actor_role(), auth.jwt() ->> 'aal',
+    RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (visible_rows %, uid %, role %, aal %, amr %, session_present %, active %, current_user %, select_grant %)',
+      v_visible_audit_rows, auth.uid(), private.tacresq_actor_role(), auth.jwt() ->> 'aal',
       auth.jwt() -> 'amr', private.tacresq_current_auth_session_present_read(),
       private.tacresq_current_account_active(), current_user,
       has_table_privilege(current_user, 'public.admin_audit_logs', 'SELECT');
