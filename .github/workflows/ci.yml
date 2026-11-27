@@ -853,9 +853,27 @@ jobs:
           supabase db reset --local
           echo "Local Supabase migration replay completed."
 
+      - name: Install PostgreSQL client for the disposable JWT probe
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Prove local Auth JWT context reaches PostgREST
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          # This file contains ephemeral local keys; never print or upload it.
+          supabase status -o env > "$status_file"
+          chmod 600 "$status_file"
+          python3 tools/test_supabase_jwt_context.py "$status_file"
+          rm -f "$status_file"
+
       - name: Stop local stack and delete its volumes
         if: always() && steps.scope.outputs.relevant == 'true'
         run: |
+          rm -f "$RUNNER_TEMP/tacresq-supabase-local.env"
           if [ -e supabase/config.toml ] || [ -e supabase/config.jsonc ] || [ -e supabase/config.json ]; then
             supabase stop --no-backup || true
           fi
