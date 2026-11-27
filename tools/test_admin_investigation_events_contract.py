@@ -178,7 +178,7 @@ assert android_api.count("addInterceptor(TraceparentInterceptor())") == 2
 assert "everyHttpRequestGetsFreshTraceContext" in android_trace_test
 assert "generatedTraceparentUsesVersionZeroAndNonZeroIdentifiers" in android_trace_test
 assert "'trace_id', private.tacresq_current_trace_id()" in supabase_jwt_test
-assert "database parser did not extract the PostgREST traceparent header" in supabase_jwt_test
+assert "database trace parser did not extract the PostgREST traceparent header" in supabase_jwt_test
 
 # share Auth session IDs with API-operation telemetry for cross-source search.
 device_projection = operation_migration.split("FROM public.device_security_events AS d", 1)[0].split("UNION ALL")[-1]
