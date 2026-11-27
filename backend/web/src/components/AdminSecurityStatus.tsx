@@ -418,7 +418,7 @@ export default function AdminSecurityStatus() {
               <div className="admin-security-status__coverage-group">
                 <h4><ShieldCheck size={15} /> Implemented in branch · deployment unverified</h4>
                 <ul>
-                  <li><strong>TOTP + AAL2 gate</strong><span>Admin RPCs require an authenticated user, a TOTP method in the session claims, AAL2, and an Admin profile role.</span></li>
+                  <li><strong>TOTP + AAL2 gate</strong><span>Admin RPCs require an active Admin profile, a TOTP method in the session claims, AAL2, and a current matching Auth session record.</span></li>
                   <li><strong>Protected Admin operations</strong><span>User listing, role changes, audit retrieval, and analytics summary are wrapped by the MFA gate.</span></li>
                   <li><strong>Audit-table read protection</strong><span>Direct reads of Admin audit records also require TOTP-verified AAL2 claims.</span></li>
                   <li><strong>Role-change accountability</strong><span>Role changes require a reason and are recorded through the protected Admin operation.</span></li>
@@ -428,7 +428,7 @@ export default function AdminSecurityStatus() {
               <div className="admin-security-status__coverage-group admin-security-status__coverage-group--gaps">
                 <h4><ShieldX size={15} /> Not verified by this Admin console</h4>
                 <ul>
-                  <li><strong>Account suspension</strong><span>The database transition function is staged but EXECUTE remains revoked from client roles. Remaining same-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete. No suspend/reactivate action is exposed here.</span></li>
+                  <li><strong>Account suspension</strong><span>The database transition function is staged but EXECUTE remains revoked from client roles. Remaining same-JWT authorization coverage, migration/deployment verification, and the Admin workflow are not complete. Current-session enforcement is implemented for protected Admin RPCs and selected sensitive RLS reads; ordinary unguarded PostgREST paths may still accept an unexpired access JWT. No suspend/reactivate action is exposed here.</span></li>
                   <li><strong>Denied-action audit trail</strong><span>Rejected privileged requests are not yet recorded in a trusted, durable Admin event stream.</span></li>
                   <li><strong>Device-security telemetry</strong><span>No trusted server-side writer currently feeds device-security events into this control center.</span></li>
                   <li><strong>Backup and restore status</strong><span>Live backup-job and restore-drill evidence is not connected to this page.</span></li>
@@ -437,7 +437,7 @@ export default function AdminSecurityStatus() {
               </div>
             </div>
           </section>
-          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. A verified factor can be removed only when another verified factor remains, and removal requires fresh TOTP verification. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; existing access tokens remain valid until expiry.</p>
+          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. A verified factor can be removed only when another verified factor remains, and removal requires fresh TOTP verification. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; ordinary JWT-verified endpoints may continue accepting already-issued access tokens until expiry. Protected Admin RPCs and selected sensitive RLS reads additionally require the matching Auth session record to remain present.</p>
         </>
       ) : null}
     </section>
