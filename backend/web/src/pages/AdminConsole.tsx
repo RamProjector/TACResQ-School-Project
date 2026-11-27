@@ -1691,16 +1691,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-table-wrap">
                   <table className="admin-table">
                     <caption className="admin-table-caption">Latest five authentication and device-security events returned by the protected investigation feed</caption>
-                    <thead><tr><th scope="col">Event</th><th scope="col">Severity</th><th scope="col">Account / actor</th><th scope="col">Auth session</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Severity</th><th scope="col">Account / actor</th><th scope="col">Auth session</th><th scope="col">Trace / correlation</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
                     <tbody>{recentAuthenticationEvents.map((event) => {
                       const authSessionId = typeof event.details.auth_session_id === "string" ? event.details.auth_session_id : null;
+                      const traceId = typeof event.details.trace_id === "string" ? event.details.trace_id : null;
+                      const correlationId = typeof event.details.correlation_id === "string" ? event.details.correlation_id : null;
+                      const relatedReference = traceId ?? correlationId;
+                      const relatedReferenceType = traceId ? "Trace" : correlationId ? "Correlation" : null;
                       const severity = typeof event.details.severity === "string" ? event.details.severity : null;
                       return (
                         <tr key={event.event_id}>
                           <td>{event.summary}</td>
                           <td>{severity ? severity.toUpperCase() : "—"}</td>
                           <td>{event.actor_label}</td>
-                          <td>{authSessionId ? <code title={authSessionId}>Session · {authSessionId.slice(-8)}</code> : "Not recorded"}</td>
+                          <td>{authSessionId ? <div className="admin-security-event-reference"><code title={authSessionId}>Session · {authSessionId.slice(-8)}</code><button className="admin-account-details" type="button" onClick={() => navigateToSection("audit", authSessionId)} aria-label={`Find activity from Auth session ${authSessionId}`}>Find activity</button></div> : "Not recorded"}</td>
+                          <td>{relatedReference && relatedReferenceType ? <div className="admin-security-event-reference"><code title={relatedReference}>{relatedReferenceType} · {relatedReference.slice(-8)}</code><button className="admin-account-details" type="button" onClick={() => navigateToSection("audit", relatedReference)} aria-label={`Find events with ${relatedReferenceType.toLowerCase()} ID ${relatedReference}`}>Find related</button></div> : "Not recorded"}</td>
                           <td className="admin-date">{formatDate(event.occurred_at)}</td>
                           <td><code>{event.source}</code></td>
                         </tr>
