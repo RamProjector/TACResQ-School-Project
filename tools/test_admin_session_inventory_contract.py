@@ -81,6 +81,13 @@ for marker in (
 assert "session_id" in session_guard
 assert "00000000-0000-0000-0000-000000000000" in session_guard
 assert "FOR SHARE" in session_guard
+assignment_policy = session_guard.split(
+    "CREATE POLICY incident_assignment_events_admin_require_aal2", 1
+)[1]
+assert "(SELECT private.tacresq_actor_role()) IS DISTINCT FROM 'admin'" in assignment_policy
+assert "OR (" in assignment_policy and "private.tacresq_current_auth_session_present_read()" in assignment_policy, (
+    "The dispatcher branch must remain independent while the Admin branch requires a current session."
+)
 assert "session_id" not in admin_guard.lower() or "tacresq_current_auth_session_valid" in session_guard
 
 # No direct table grant and no sensitive/session validity overclaim.
