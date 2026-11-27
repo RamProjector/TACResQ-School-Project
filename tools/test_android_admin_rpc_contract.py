@@ -53,12 +53,12 @@ checks = {
         and "AdminAccessScreen" not in root
     ),
     "Admin cannot re-register an FCM token when the app resumes": (
-        "sessionState.session.user.role != Role.ADMIN" in resume_flow
+        "loggedInState.session.user.role != Role.ADMIN" in resume_flow
         and "pushTokenCoordinator.sync" in resume_flow
         and resume_flow.index("role != Role.ADMIN") < resume_flow.index("pushTokenCoordinator.sync")
     ),
     "Admin cannot register an FCM token after the notification permission callback": (
-        "sessionState.session.user.role != Role.ADMIN" in permission_flow
+        "loggedInState.session.user.role != Role.ADMIN" in permission_flow
         and "pushTokenCoordinator.sync" in permission_flow
         and permission_flow.index("role != Role.ADMIN") < permission_flow.index("pushTokenCoordinator.sync")
     ),
