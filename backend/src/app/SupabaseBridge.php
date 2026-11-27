@@ -24,10 +24,7 @@ final class SupabaseBridge
         $startedAt = hrtime(true);
         try {
             $response = Http::acceptJson()
-                ->withHeaders([
-                    'apikey' => $publishableKey,
-                    'Authorization' => 'Bearer '.$accessToken,
-                ])
+                ->withHeaders($this->callerHeaders($publishableKey, $accessToken))
                 ->connectTimeout(2)
                 ->timeout(5)
                 ->get($baseUrl.'/auth/v1/user');
@@ -119,10 +116,7 @@ final class SupabaseBridge
         try {
             $response = Http::acceptJson()
                 ->asJson()
-                ->withHeaders([
-                    'apikey' => $publishableKey,
-                    'Authorization' => 'Bearer '.$accessToken,
-                ])
+                ->withHeaders($this->callerHeaders($publishableKey, $accessToken))
                 ->connectTimeout(2)
                 ->timeout(8)
                 // PostgREST RPC parameters must be a JSON object; PHP's empty
@@ -214,6 +208,26 @@ final class SupabaseBridge
 
         $sessionId = $claims['session_id'] ?? null;
         return is_string($sessionId) && Str::isUuid($sessionId) ? $sessionId : null;
+    }
+
+    /**
+     * Forward only syntactically valid W3C trace context. The value remains
+     * caller-influenced observability metadata and is never used for identity.
+     *
+     * @return array<string, string>
+     */
+    private function callerHeaders(string $publishableKey, string $accessToken): array
+    {
+        $headers = [
+            'apikey' => $publishableKey,
+            'Authorization' => 'Bearer '.$accessToken,
+        ];
+        $traceparent = TraceContext::currentTraceparent();
+        if ($traceparent !== null) {
+            $headers['traceparent'] = $traceparent;
+        }
+
+        return $headers;
     }
 
     private function correlationId(): string
