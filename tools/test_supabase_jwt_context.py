@@ -37,6 +37,10 @@ AS $function$
   SELECT jsonb_build_object(
     'actual_uid', auth.uid(),
     'actual_session_id', auth.jwt() ->> 'session_id',
+    'traceparent_header', coalesce(
+      nullif(current_setting('request.headers', true), '')::jsonb ->> 'traceparent',
+      ''
+    ),
     'session_present', private.tacresq_current_auth_session_present_read(),
     'claimed_sub', p_claimed_sub,
     'claimed_session_id', p_claimed_session_id
@@ -197,10 +201,15 @@ def main() -> int:
         psql(cfg["DB_URL"], PROBE_SQL)
         time.sleep(1)
         def probe(user: dict[str, str], claimed_user: str | None = None,
-                  claimed_session: str | None = None, token: str | None = None) -> dict:
+                  claimed_session: str | None = None, token: str | None = None,
+                  extra_headers: dict[str, str] | None = None) -> dict:
             status, body = request_json(
                 f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
-                headers={**auth_headers, "Authorization": f"Bearer {token or user['token']}"},
+                headers={
+                    **auth_headers,
+                    "Authorization": f"Bearer {token or user['token']}",
+                    **(extra_headers or {}),
+                },
                 payload={"p_claimed_sub": claimed_user, "p_claimed_session_id": claimed_session},
             )
             if status != 200 or not isinstance(body, dict):
@@ -236,6 +245,15 @@ def main() -> int:
             if read_only_result.get("session_present") is not True:
                 raise AssertionError("A current Auth session must pass the STABLE predicate in a read-only GET transaction")
         print("PASS: each caller JWT preserved its own auth.uid()/session_id and passed both session predicates")
+
+        # PostgREST exposes incoming HTTP headers through its transaction-local
+        # request.headers setting. This proves delivery only: traceparent remains
+        # client-influenced and must never become identity or authorization input.
+        traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+        traced = probe(users[0], extra_headers={"traceparent": traceparent})
+        if traced.get("traceparent_header") != traceparent:
+            raise AssertionError("PostgREST did not preserve the incoming traceparent request header")
+        print("PASS: local Supabase gateway/PostgREST preserved traceparent in transaction request.headers")
 
         spoofed = probe(users[0], users[1]["id"], users[1]["session_id"])
         if spoofed.get("actual_uid") != users[0]["id"] or spoofed.get("actual_session_id") != users[0]["session_id"]:
