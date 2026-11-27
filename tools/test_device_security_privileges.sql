@@ -136,6 +136,11 @@ BEGIN
     RAISE EXCEPTION 'Dedicated device verifier role is missing or over-privileged';
   END IF;
 
+  IF NOT has_schema_privilege('tacresq_device_verifier', 'private', 'USAGE')
+     OR has_schema_privilege('tacresq_device_verifier', 'private', 'CREATE') THEN
+    RAISE EXCEPTION 'Dedicated verifier role has incorrect private-schema privileges';
+  END IF;
+
   IF NOT has_function_privilege(
        'tacresq_device_verifier',
        'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
