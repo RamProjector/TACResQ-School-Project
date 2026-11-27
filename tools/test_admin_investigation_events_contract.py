@@ -2,7 +2,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql").read_text()
-action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()\noperation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
+action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()
+operation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
