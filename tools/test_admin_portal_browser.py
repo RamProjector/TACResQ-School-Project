@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -142,7 +143,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     # Invalid credentials must be reported in-page and must not open the portal.
     page = browser.new_page(viewport={"width": 1440, "height": 900})
     mock_supabase(page, login="invalid")
-    page.goto(BASE_URL, wait_until="networkidle")
+    page.goto(BASE_URL, wait_until="domcontentloaded")
     expect(page.get_by_role("heading", name="Administrator sign in")).to_be_visible()
     expect(page.get_by_label("Email address")).to_be_visible()
     expect(page.get_by_label("Password")).to_be_visible()
@@ -218,6 +219,7 @@ def main() -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        start_new_session=True,
     )
     try:
         wait_for_server(process)
@@ -231,11 +233,17 @@ def main() -> int:
         print("Admin portal browser smoke tests passed (Supabase responses were mocked).")
         return 0
     finally:
-        process.terminate()
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            process.kill()
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             process.wait(timeout=5)
         if process.stdout:
             output = process.stdout.read()
