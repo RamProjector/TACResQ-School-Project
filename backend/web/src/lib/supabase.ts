@@ -440,7 +440,7 @@ export async function getAdminInvestigationEventsPage(
   ) {
     throw new Error("The investigation service returned an invalid page.");
   }
-  const categories = new Set(["administrative", "authentication", "incident", "assignment"]);
+  const categories = new Set(["administrative", "authentication", "operations", "incident", "assignment"]);
   const eventIds = new Set<string>();
   for (const event of page.events) {
     if (
