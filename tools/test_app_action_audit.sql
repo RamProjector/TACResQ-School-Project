@@ -18,6 +18,7 @@ DECLARE
   event_count integer;
   correlation_count integer;
   app_correlation_id uuid;
+  api_correlation_id uuid := '10000000-0000-4000-8000-000000000410';
   feed jsonb;
 BEGIN
   SELECT id INTO requester_id FROM public.profiles
@@ -188,7 +189,7 @@ BEGIN
     correlation_id, actor_auth_user_id, auth_session_id, provider, operation,
     source, outcome, http_status, duration_ms, provider_request_id, error_code
   ) VALUES (
-    app_correlation_id,
+    api_correlation_id,
     '00000000-0000-4000-8000-000000000170',
     '10000000-0000-4000-8000-000000000170',
     'supabase', 'rpc.api_me', 'render_api', 'failure', 401, 12,
@@ -273,14 +274,26 @@ BEGIN
     100, 0, app_correlation_id::text,
     'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
-  IF (feed->>'total_count')::integer <> 4
+  IF (feed->>'total_count')::integer <> 3
+     OR EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+     ) THEN
+    RAISE EXCEPTION 'Transaction correlation search must return only the three app actions in that database transaction: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, api_correlation_id::text,
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 1
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'source' = 'api_operation_logs'
           AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
           AND value->'details'->>'provider_request_id' = 'synthetic-provider-request-170'
      ) THEN
-    RAISE EXCEPTION 'Cross-source correlation search should return three app actions and their API operation: %', feed;
+    RAISE EXCEPTION 'Request correlation search must return only the related Laravel API operation: %', feed;
   END IF;
 
   feed := public.api_admin_list_investigation_events(
