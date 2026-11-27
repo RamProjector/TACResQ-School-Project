@@ -1,6 +1,6 @@
 # TACResQ Device Security & Identification — Research and Implementation Plan
 
-**Status:** Phase 1 private registry foundation is present in PR #370; the latest PR head's six workflow groups pass; not deployed. No trusted challenge verifier, device-session binding, or sensitive-operation enforcement is implemented.  
+**Status (2026-11-27):** Phase 1 private registry foundation and Phase 2 trusted verifier-to-database challenge flow are implemented in PR #370. The disposable local Supabase Auth/Edge/PostgreSQL integration suite, clean PostgreSQL migration replay, and all eight current workflow groups pass on head `644497059929f7d428b9a016992935486b0d5ef7`. Not deployed. Android Keystore integration, sensitive-operation enforcement, revocation UX, hosted pooler identity validation, and independent security review remain outstanding. The registry must remain private and unused by operational client flows until those gates pass.  
 **Scope:** Android app, dispatcher/admin web clients, Supabase backend, and Render bridge where applicable  
 **Design principle:** Device recognition is a risk signal. Authentication and server-side authorization remain authoritative.
 
@@ -229,7 +229,7 @@ Before choosing the exact implementation, inspect the current Supabase project c
 
 **Schema detail confirmed:** `device_sessions.auth_session_id` is `NOT NULL` and unique; `device_challenges.auth_session_id` is nullable in the foundation migration. A registration challenge may have no device ID, but issuance and proof still need to bind it to a verified Supabase session. Do not interpret the nullable challenge column as permission to accept an unbound session.
 
-**Current implementation status:** no challenge issuance endpoint, signature verifier, device-session binding, or sensitive-operation enforcement has been implemented. The Laravel bridge and Sanctum logout endpoints are not substitutes for those controls. Keep the registry private until the Supabase-side transaction and request-path enforcement are complete.
+**Current implementation status:** the PR now contains an authenticated Edge Function challenge endpoint, P-256 signature verification, a dedicated non-login-by-default PostgreSQL verifier role, narrowly granted private transaction functions, live Auth-session checks, atomic device/session binding, and append-only event writes. The disposable local integration suite passes replay, cross-user/session, wrong-key, altered-challenge, concurrency, expiry, rate-limit, stale-session, bypass, and transaction-rollback cases. Sensitive-operation enforcement is still absent: a verified device association is not yet consulted by incident/dispatch/chat/other protected operations. The Laravel bridge and Sanctum logout endpoints remain separate identity paths. Keep the registry private and do not connect it to operational client flows until enforcement and independent review are complete.
 
 
 ## 13. Client RPC inventory and device-proof scope (verified branch source review)
@@ -276,20 +276,22 @@ Device proof should initially establish and maintain a cryptographic association
 
 This is a deliberately conservative first rollout. If later threat modeling identifies a specific high-risk operation that needs device step-up, add it as a narrow server-enforced policy with a fallback/recovery route and emergency-safe failure behavior. Do not implement UI-only checks.
 
-### Remaining implementation blockers
+### Remaining implementation and release gates
 
-1. Confirm the exact verified Supabase JWT session claim available in the deployed PostgREST request context and test it using a real authenticated request. The current Laravel getUser() bridge validates a token but does not expose verified session_id claims to the bridge controller.
-2. Decide whether challenge issuance/signature verification belongs in a Supabase Edge Function or another trusted server component. The selected path must retain the original user JWT when calling the database, while keeping secret/service-role credentials server-only.
-3. Verify available cryptographic libraries/extensions and deployment conventions before selecting ES256 or Ed25519 verification. The schema currently permits both; the initial implementation should select one supported algorithm rather than claim both are implemented.
-4. Inventory all data surfaces that need device binding, including direct table reads, Storage operations, and any web-only paths—not just named RPCs.
-5. Add server-side enforcement and isolated PostgreSQL/HTTP tests before Android or web UI integration. Existing clients must continue operating safely while the registry remains unused.
+1. Validate the dedicated verifier role through the actual hosted Supabase shared transaction pooler, including whether `session_user` remains `tacresq_device_verifier` for the private-function gate. Local direct-PostgreSQL success does not prove pooler identity behavior.
+2. Provision the role password and Edge Function connection secret only through an approved, controlled deployment procedure; never store them in Git or client configuration.
+3. Implement Android Keystore P-256 key generation, SPKI export, DER signature production, key invalidation/rotation handling, and instrumented tests on supported Android API levels. Do not reuse the app's AES-GCM session-encryption key.
+4. Add server-enforced session/device checks only to individually justified sensitive operations, with explicit recovery paths. Preserve requester SOS, emergency location submission, chat, responder claim, dispatcher assignment, and Admin TOTP/AAL2 behavior unless a separately reviewed policy establishes a safe exception.
+5. Implement device revocation and session-revocation lifecycle with audit records, then user-facing My Devices and protected Admin Device Security screens.
+6. Add a trusted per-IP rate limit if the deployed Edge platform exposes a verified client address; never trust arbitrary forwarding headers.
+7. Obtain independent security review and controlled hosted validation before deploying migrations, enabling the Edge Function, provisioning the role, or wiring clients.
 
-**Scope decision:** do not add device-proof parameters to the existing emergency/dispatch RPC signatures in this phase. First deliver a narrowly scoped registration and session-binding protocol, prove replay resistance and ownership, then separately propose any additional operation-level enforcement based on a concrete threat and safe fallback.
+**Scope decision:** keep this verifier as an isolated, unused registration/session-proof service until the above gates pass. Do not add device-proof parameters to emergency/dispatch RPCs or turn device recognition into an SOS prerequisite.
 
 
 ## 14. Cryptographic runtime feasibility (repository-only review)
 
-The current migration baseline enables pgcrypto. The deployed `tacresq-notify` source has since been recovered into `supabase/functions/tacresq-notify/index.ts` (see Section 17), so a function source tree and `Deno.serve` precedent now exist. However, no `supabase/config.toml` or device-verifier function/test workflow is checked in. The recovered notification function is not a device verifier and its service-role query pattern does not preserve caller `auth.uid()`/`auth.jwt()` context. Do not treat that source recovery as proof that a new verifier can be safely deployed.
+The current migration baseline enables pgcrypto. The repository now includes `supabase/functions/tacresq-device-verifier/index.ts`, shared WebCrypto P-256 primitives, a local Edge Function integration script, and a dedicated advisory CI job. There is still no `supabase/config.toml`; no per-function JWT-verification override is committed, so retain the platform's default JWT verification behavior and keep the handler's own `getClaims` verification. The older `tacresq-notify` function remains a separate service-role integration and is not part of this verifier's trust boundary.
 
 pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but its presence does not establish a supported P-256/ES256 signature-verification primitive. Do not implement a home-grown ECDSA verifier in SQL or mistake digest/hash support for public-key signature verification.
 
@@ -309,7 +311,7 @@ pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but it
 A focused source review on this branch confirms the following implementation facts:
 
 - `tools/test_supabase_migration_replay.sh` creates minimal `auth.uid()` and `auth.jwt()` compatibility functions. The latter reads `request.jwt.claims`, but the replay fixtures do not currently set or assert a `session_id` claim, exercise missing/malformed session claims, or test device-session ownership. The script is a migration replay harness against a supplied PostgreSQL database; it is not a running Supabase Auth/PostgREST integration environment.
-- No `supabase/config.toml` exists on this branch. The recovered `supabase/functions/tacresq-notify/index.ts` is a deployed notification-function mirror, not a challenge verifier; it does not demonstrate a configured local Supabase function workflow or a deployed device-verifier convention.
+- No `supabase/config.toml` exists on this branch; this is intentional at present because no function-specific JWT override is required. The device-verifier function and local Supabase function workflow are now checked in and exercised by the advisory CI lane. The function is not deployed.
 - Android `app/build.gradle.kts` sets `minSdk = 26`. `app/src/main/java/com/tacresq/app/data/local/SessionStore.kt` creates one Android Keystore AES key (`tacresq_session_aes_gcm_v1`) for AES/GCM/NoPadding encryption. That key is symmetric and is used for local data encryption; it is not a signing key and must not be reused as the device identity key.
 - The reviewed Android session store does not implement a P-256 key pair, public-key export, `SHA256withECDSA` signing, signature encoding conversion, key invalidation handling, or device-key rotation. Existing Keystore use proves only the local AES-GCM storage path.
 - The migration replay harness's `auth.jwt()` stub is suitable for deterministic SQL claim tests by setting `request.jwt.claims` within a transaction, but that alone cannot prove that a real signed Supabase JWT's session claim survives an Edge Function/proxy/PostgREST hop.
@@ -346,7 +348,7 @@ Official references checked 22 November 2026:
 A read-only inspection of the connected Supabase project `TACResQ-School-Project` (project ref `kttguamhznoflzagfutr`, region `ap-southeast-1`) on 22 November 2026 corrected the earlier repository-only assessment:
 
 - The live project is `ACTIVE_HEALTHY` and has one active Edge Function: `tacresq-notify`, version 2, with `verify_jwt = true`.
-- The function source is not present in this Git branch, and the repository still has no `supabase/config.toml` or checked-in Edge Function directory. The project therefore has a deployed function precedent, but not a version-controlled local function workflow.
+- The earlier source-recovery snapshot predates the checked-in `tacresq-device-verifier` Edge Function and its local integration workflow. Current implementation and validation details are recorded in Section 20.
 - The deployed notification function uses `admin.auth.getUser(userToken)` to validate the caller, then uses a service-role Supabase client for profile/incident/FCM queries. This is a notification-specific privileged workflow. It does not implement device challenge issuance, P-256 signature verification, challenge replay protection, or session-to-device binding.
 - Important for the future verifier: validating a bearer token with `auth.getUser()` through an admin client does not by itself establish that a subsequent service-role database query runs with the caller's `auth.uid()` and `auth.jwt()` context. A verifier must deliberately preserve the original user JWT on the database operation or use a narrowly scoped, independently verified server-side transaction design. Do not assume the notification function's service-role query pattern is sufficient for session-bound proof.
 - The live migration history includes `device_security_registry_foundation`, `bound_device_registry_metadata`, and `require_totp_for_admin_rpcs`. This confirms those migrations are recorded in the connected project; it does not prove that device-verifier behavior exists. The device registry remains backend-only and currently has no client-facing verifier flow.
@@ -403,7 +405,7 @@ References (rechecked 2026-11-27):
 
 Do not run this proof against the hosted TACResQ project and do not create a production test RPC. Use a disposable Supabase local stack with synthetic users and a temporary probe RPC that is created only inside the disposable database and is not included in production migrations.
 
-1. Add and pin the Supabase CLI/local stack configuration only after the existing migration replay has been proven compatible with the local Auth, PostgREST, and Functions services. The current repository has no supabase/config.toml; the existing PostgreSQL replay workflow alone does not prove Auth or Edge Function JWT propagation.
+1. **Completed in PR #370:** pin the Supabase CLI, start an isolated local Auth/PostgREST/Edge Runtime stack, prove signed JWT subject/session propagation, provision an ephemeral dedicated verifier login, and exercise the actual Edge Function against disposable PostgreSQL. This is local evidence only; it does not prove hosted pooler identity behavior or deployment readiness.
 2. Start local Supabase in an isolated CI job; assert the resolved API URL is loopback/local before creating users or issuing any request. Fail closed if the URL contains the hosted TACResQ project ref or is not a local address.
 3. Create two disposable Auth users through the local Auth admin API using only the local service-role secret in the CI process. Sign each user in through the local Auth API using the publishable key and obtain real access JWTs. Keep all credentials in process memory; never print or upload them.
 4. Create a temporary SQL probe function in the local database only. It must return auth.uid(), auth.jwt() ->> 'session_id', and auth.jwt() ->> 'role'; grant execute only to authenticated. The probe must not exist in the migration directory or any deployed schema.
@@ -460,7 +462,7 @@ tools/test_device_proof_crypto.mjs uses ephemeral WebCrypto-generated P-256 key 
 
 ### Security boundary retained
 
-This slice deliberately does not issue or consume database challenges, register public keys, create device/session rows, or accept client requests. It is not yet called by tacresq-notify or any other deployed function. The device registry remains private and unused. No new Supabase function, supabase/config.toml, Vault secret, database migration, client key, Android API, or Admin control was added. No production resource was changed.
+Historical checkpoint: this primitive-only slice did not itself issue challenges or register devices. It was subsequently extended by the trusted verifier implementation in Section 20. The registry remains private and unused by operational clients; no hosted function, production migration, Vault secret, database role password, client key, Android API integration, or Admin control was deployed.
 
 ### Remaining gates before a verifier endpoint
 
