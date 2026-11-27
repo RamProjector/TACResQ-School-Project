@@ -280,3 +280,105 @@ This is a research-only follow-up. No trace propagation, event schema, RLS/grant
 ## 10. Direct-client trace correlation research
 
 The direct Android/browser coverage map and W3C trace-propagation design are recorded in `docs/security/direct-supabase-request-correlation-plan.md`. The important implementation gate is to prove that the actual PostgREST HTTP request header reaches SQL before adding trace columns or writers. The browser dependency is new enough for the documented Supabase JS feature but tracing is not configured; Android uses custom Retrofit/OkHttp and has no trace propagation. The API Gateway's `sb-request-id` is mapped to provider log `request_id`, while W3C `traceparent` provides a separate `trace_id`. Treat trace IDs only as tracing hints, never as identity or authorization. This follow-up remains research-only.
+
+
+## 11. Sensitive-operation session revocation enforcement — exact boundary research
+
+**Research update:** 2026-11-27  
+**Status:** Design and source inventory only. No session-enforcement migration or runtime change has been made.
+
+### 11.1 Verified behavior from a disposable local Supabase stack
+
+The PR's expanded local Auth → PostgREST test now proves all of the following with Auth-issued tokens:
+
+1. POST /auth/v1/logout?scope=local removes the matching auth.sessions row.
+2. The already-issued, unexpired access JWT remains accepted by ordinary PostgREST JWT verification after that row is removed.
+3. Its original sub and session_id claims still reach the SQL probe.
+4. The revoked refresh token is rejected.
+
+This is not a reason to reject every request that presents a JWT after sign-out at the API gateway; ordinary PostgREST JWT verification is intentionally stateless. It is a reason to add an explicit database-side check at the operations that require immediate revocation enforcement.
+
+### 11.2 Existing Admin gate does not yet enforce session-row presence
+
+The current private.tacresq_require_admin_mfa() helper checks:
+
+- non-null auth.uid();
+- JWT aal = aal2;
+- a TOTP entry in JWT amr;
+- a current profile mapped to auth.uid(), with role = admin and account_status = active;
+- a FOR SHARE lock on that active Admin profile.
+
+It does **not** currently inspect JWT session_id or auth.sessions. The new session-inventory and investigation RPCs call this same helper, so their current AAL2/TOTP/active-profile check is not equivalent to immediate session-revocation enforcement.
+
+The same helper is reused by the Admin directory, role-change and account-lifecycle wrappers, audit readers, analytics, session inventory, and investigation feed. Strengthening this shared helper is preferable to copying divergent checks into each wrapper, but it has a wider effect than the new session page alone and must be regression-tested against every caller.
+
+### 11.3 Recommended database enforcement pattern
+
+For **sensitive Admin RPCs** that already call private.tacresq_require_admin_mfa(), the next implementation candidate is to extend that helper so it also:
+
+1. Reads the session_id claim from the verified PostgREST JWT context.
+2. Rejects a missing, empty, malformed, or all-zero session UUID without attempting an unsafe cast.
+3. Requires a row in auth.sessions where id = session_id and user_id = auth.uid().
+4. Takes a transaction-scoped FOR SHARE row lock on the matching session while the privileged RPC runs, in addition to the existing active-profile lock.
+5. Fails closed for these privileged Admin operations if the session record cannot be verified; it must not silently fall back to AAL2/TOTP-only authorization.
+
+The ownership predicate is essential: a session UUID alone must not be treated as proof that it belongs to the caller. The check belongs inside Postgres, in the same transaction as the protected RPC, because Admin web calls Supabase directly and bypasses Laravel middleware. A Laravel-only check would leave that direct path open.
+
+The session row lock provides a clear transaction boundary: a protected operation that has already acquired the matching row lock may finish before a concurrent logout deletion completes; a later operation sees no row and is denied. This does not promise cancellation of an operation already in flight when logout begins.
+
+Do not add a session lookup to every ordinary requester SOS read/write or every low-risk application request as part of this Admin slice. Any expansion to responder, dispatcher, or requester actions needs a separate per-operation risk and availability review. In particular, never make device attestation or a new device-registration requirement a prerequisite for a requester creating an emergency request.
+
+### 11.4 Entry-point and bypass boundaries
+
+| Surface | Current evidence | Required handling |
+|---|---|---|
+| Admin web direct Supabase RPCs | Protected wrappers call the shared Admin MFA helper | Database helper is the authoritative enforcement point; browser route guards are only UX |
+| Admin direct table reads protected by RLS | Some Admin-readable tables use AAL2/TOTP predicates or restrictive policies | Inventory every policy and direct grant; a helper-only change does not automatically update independent RLS predicates |
+| Laravel Supabase bridge | SupabaseBridge::getUser() validates a token by calling Auth /auth/v1/user; callRpc() forwards the same caller JWT to PostgREST | The database guard still applies to the forwarded RPC. Do not treat Laravel's Auth validation as a substitute for the transaction-local session check |
+| Laravel legacy auth:sanctum routes | Sanctum tokens belong to a separate Laravel identity/token domain | Do not compare Sanctum token IDs to Supabase session_id; define a separate policy if these legacy routes remain supported |
+| Android direct Supabase RPCs | Direct calls bypass Laravel | Database-side enforcement is required wherever the operation is in the Admin-sensitive scope |
+| Edge Functions / service-role workers | Function JWT verification and service-role execution are separate from the caller's PostgREST SQL transaction | Do not assume the Admin helper protects these paths; trace caller identity propagation and server authorization independently |
+| Session inventory UI | Read-only RPC returns record_present and validity_assessment = not_evaluated | Preserve this honest display semantics; do not equate row presence with full provider-policy validity |
+
+### 11.5 Required regression matrix before changing the helper
+
+Run against disposable clean PostgreSQL replay and the local Auth/PostgREST stack; use synthetic users and tokens only.
+
+- Active Admin + current AAL2/TOTP JWT + matching session row: existing protected Admin RPCs continue to work.
+- Active Admin + AAL2/TOTP JWT + deleted session row: every protected Admin RPC is denied.
+- Active Admin + JWT whose session_id belongs to another Auth user: denied.
+- Active Admin + missing, malformed, or all-zero session_id: denied cleanly, with no cast error leaking details.
+- Active Admin + valid session row but AAL1 or no TOTP: remains denied.
+- Suspended Admin + otherwise-valid JWT/session: remains denied.
+- Non-Admin + valid session row and AAL2/TOTP: remains denied.
+- Authenticated, anon, and service_role direct execution of the private helper: remains denied.
+- Session inventory and investigation readers: continue to work for an authorized current Admin session and reject revoked sessions.
+- Existing account lifecycle, role-change, audit, and analytics RPCs: preserve grants, output shape, profile-lock behavior, and atomic audit semantics.
+- Concurrent logout vs protected Admin RPC: document and test the row-lock ordering; no operation may begin after the session deletion commits.
+- Direct table/RLS paths: revoked-session tokens must not retain sensitive Admin table access through an independent policy that omits the session check.
+- Laravel bridge: a revoked token must fail at the protected PostgREST operation even if a prior /auth/v1/user validation request succeeded before revocation.
+- Emergency requester create/retry, cancellation, and other normal non-Admin flows: remain unchanged by this Admin-only enforcement slice.
+
+### 11.6 Implementation order and release gate
+
+1. Enumerate every current client-callable Admin SECURITY DEFINER wrapper and every Admin-sensitive direct-table RLS policy/grant on the branch head.
+2. Confirm the helper owner can read and lock auth.sessions in the clean PG16 and PG17 migration replay environments without granting direct Auth-table access to API roles.
+3. Add the shared helper check in a forward migration only after the inventory is complete.
+4. Extend the existing Admin session SQL test and static contracts with same-valid-JWT/revoked-session cases; do not create a parallel generic test framework.
+5. Extend the local Supabase Auth/PostgREST integration test to exercise at least one protected Admin RPC with a real Auth-issued JWT, then sign out and prove that same unexpired JWT is denied by the database helper.
+6. Run all exact-head CI workflows, both PostgreSQL replay versions, RPC grant contracts, and local Supabase integration. Report the advisory local-stack result separately.
+7. Keep PR #370 open and unmerged; do not apply the migration to hosted Supabase or deploy Render as part of this work.
+
+### 11.7 Current Supabase documentation and compatibility note
+
+The current Supabase User Sessions guide documents the session_id claim and explicitly recommends checking it against auth.sessions for sensitive actions when post-sign-out guarantees are required. It also cautions that max-lifetime and inactivity timeout sessions may remain in the table until later cleanup; therefore this proposed check is specifically a sign-out/session-row revocation check, not a complete independent implementation of every Auth timeout policy.
+
+The November 2026 Supabase changelog review found no Auth breaking change that alters this session-row contract. The Supabase CLI v3 local-by-default behavior is a separate CLI breaking change; this PR's CI continues to use its existing pinned CLI workflow and must not be casually upgraded as part of this change.
+
+References:
+- [Supabase User Sessions](https://supabase.com/docs/guides/auth/sessions)
+- [Supabase Sign out](https://supabase.com/docs/guides/auth/signout)
+- [Supabase changelog — Auth](https://supabase.com/changelog?tags=auth)
+- [Supabase changelog — breaking changes](https://supabase.com/changelog?types=breaking-change)
+
+No hosted Auth settings, Auth sessions, database grants, migrations, Render services, or production data were changed during this research.
