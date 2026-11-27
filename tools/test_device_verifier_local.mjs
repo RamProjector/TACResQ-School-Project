@@ -201,6 +201,8 @@ try {
   );
   assert.equal(directRead.error, undefined, "psql must run for the direct-table denial check");
   assert.notEqual(directRead.status, 0, "dedicated verifier login must not read registry tables directly");
+  assert.match(directRead.stderr, /permission denied for table user_devices/i,
+    "the verifier login must connect successfully and be denied specifically by table privileges");
   console.log("PASS: dedicated verifier login has narrow function execution and no direct registry table privileges");
 
   const alpha = await createUser("alpha");
