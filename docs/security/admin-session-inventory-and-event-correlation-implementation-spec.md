@@ -1,7 +1,7 @@
 # TACResQ Admin Session Inventory & Security Event Correlation — Implementation Specification
 
 **Date:** 2026-11-27  
-**Status:** Research/design complete; implementation not started  
+**Status:** Session inventory implemented; Laravel provider-request correlation capture implemented; Admin feed integration remains pending  
 **Branch:** `docs/admin-ips-ui-master-plan`  
 **Parent PR:** #370  
 **Scope:** Admin web, Supabase Auth/Postgres, trusted event ingestion, Render bridge where applicable  
@@ -128,7 +128,7 @@ Keep these identifiers distinct and preserve their provenance:
 
 Do not overload the existing `app_action_audit_logs.correlation_id` column. Its current `gen_random_uuid()` default is a row-local identifier, not a propagated request ID. Do not join events solely by user ID and time proximity. Do not accept arbitrary client-supplied request IDs as trusted cross-source links.
 
-For Laravel bridge operations, preserve the middleware-generated correlation ID through each audit write and store the actual provider request ID only when the provider returns one. For direct Supabase actions, use a provider-supported request/trace identifier only after verifying what the installed SDK and PostgREST/Auth gateway actually expose to the database/function. If no trusted identifier is available, record the event as uncorrelated rather than inventing a link.
+For Laravel bridge operations, preserve the middleware-generated correlation ID through each audit write and store the actual provider request ID only when the provider returns one. The bridge now reads `sb-request-id` from Supabase Auth/PostgREST responses, falling back to `x-request-id` for self-hosted/reverse-proxy deployments; it strips control characters and bounds the value before persistence. It does not accept a client-supplied provider ID. A feature test asserts both header paths and that Auth + RPC audit rows retain the same server-generated Laravel correlation ID. For direct Supabase actions, use a provider-supported request/trace identifier only after verifying what the installed SDK and PostgREST/Auth gateway actually expose to the database/function. If no trusted identifier is available, record the event as uncorrelated rather than inventing a link.
 
 ### 4.4 Investigation feed and alerts
 
@@ -203,4 +203,8 @@ No automatic account suspension, session revocation, incident denial, or emergen
 
 ## 8. Current disposition
 
-The first implementation slice is now committed on the PR branch: a protected, read-only, keyset-paginated session-list RPC; a validated typed client helper; and an account-detail session panel with explicit record-present / validity-not-evaluated semantics. The RPC uses the existing active-Admin + AAL2 + TOTP helper, resolves Auth ownership from the target profile, and exposes no IP, user-agent, token, token-HMAC, or refresh-token metadata. It does not revoke sessions or assert that a row is currently valid. Contract tests cover the SQL authorization/privacy/pagination shape and the web integration. Exact-head clean PostgreSQL migration replay, TypeScript build, and workflow checks remain pending; do not claim runtime acceptance until they pass. The empty Auth audit relation and absent trusted device/API event writers still prevent a complete correlated alert feed. Next: inspect the new workflow results and fix any clean-replay, RPC grant, TypeScript, or static contract failures before expanding event ingestion. Do not add selective revocation or device alerts in the same change.
+The session inventory is committed on the PR branch: a protected, read-only, keyset-paginated session-list RPC; a validated typed client helper; and an account-detail session panel with explicit record-present / validity-not-evaluated semantics. The RPC uses the existing active-Admin + AAL2 + TOTP helper, resolves Auth ownership from the target profile, and exposes no IP, user-agent, token, token-HMAC, or refresh-token metadata. It does not revoke sessions or assert that a row is currently valid. Its SQL authorization/privacy/pagination runtime test and web contracts passed on commit `983d1b4` under PostgreSQL 16 clean migration replay, PostgreSQL 17 RPC grant contract, TypeScript/source checks, Android builds, Laravel/dashboard integration, and CodeQL.
+
+The Laravel bridge correlation capture is now committed separately on the same PR branch. It records the provider's `sb-request-id` response header (with `x-request-id` fallback), keeps that value distinct from the middleware-generated `correlation_id`, and includes a feature test covering both response-header paths. Exact-head CI for commit `819e9539` is running; do not claim this newest bridge change is validated until those jobs pass.
+
+The Admin investigation RPC still does not yet consume `api_operation_logs`; therefore the new provider IDs are persisted but not yet visible as correlated Admin feed events. The external Auth audit source also remains provider-log based and may not be persisted to `auth.audit_log_entries` unless its optional database persistence setting is enabled. Device events remain untrusted/empty until their challenge-verification writers are implemented. Next: add a protected, minimized `api_operation_logs` source to the Admin investigation feed, test category/source filters and correlation fields, then wire the feed UI and verify source freshness/error states. Do not add selective revocation or heuristic automatic suspension.
