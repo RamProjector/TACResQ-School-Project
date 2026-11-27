@@ -60,7 +60,9 @@ def main() -> int:
 
     username = quote("tacresq_device_verifier", safe="")
     encoded_password = quote(password, safe="")
-    authority = f"{username}:{encoded_password}@{parsed.hostname}:{parsed.port or 5432}"
+    # Edge Runtime runs in Docker; Supabase documents host.docker.internal
+    # as the route from a local function container to the host-published DB port.
+    authority = f"{username}:{encoded_password}@host.docker.internal:{parsed.port or 5432}"
     verifier_url = urlunsplit((parsed.scheme, authority, parsed.path, parsed.query, parsed.fragment))
     target = Path(sys.argv[2])
     target.parent.mkdir(parents=True, exist_ok=True)
