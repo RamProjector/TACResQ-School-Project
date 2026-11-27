@@ -212,6 +212,10 @@ for marker in (
     "'auth_session_id', c.auth_session_id",
     "'auth_session_id', r.auth_session_id",
     "'auth_session_id', e.auth_session_id",
+    "FROM public.device_security_events AS d",
+    "'severity', d.severity",
+    "'auth_session_id', d.auth_session_id",
+    "'trace_id', d.trace_id",
 ):
     assert marker in session_feed_migration, f"Session activity feed omits a domain event source: {marker}"
 for marker in (
@@ -273,8 +277,6 @@ for marker in (
     "incident_assignment_events",
     "Admin session search did not find every stamped Admin and device-security event source",
     "device_security_events",
-    "'severity', d.severity",
-    "'trace_id', d.trace_id",
     "Requester session search did not find incident status and edit events",
 ):
     assert marker in api_operation_test, f"Missing API-operation session attribution regression: {marker}"
