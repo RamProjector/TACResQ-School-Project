@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.119.2";
 import postgres from "npm:postgres@3.4.7";
 import {
   buildDeviceProofMessage,
