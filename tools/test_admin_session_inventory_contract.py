@@ -3,6 +3,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261127020000_admin_session_inventory_read_rpc.sql").read_text()
 admin_guard = (ROOT / "supabase/migrations/20261125020826_account_lifecycle_admin_mfa_guard.sql").read_text()
+replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
+runtime_test = (ROOT / "tools/test_admin_auth_sessions.sql").read_text()
 
 required = (
     "CREATE OR REPLACE FUNCTION public.api_admin_list_auth_sessions_page",
@@ -80,5 +82,27 @@ assert "Auth timeout policy is not evaluated" in migration
 assert "s.created_at IS NULL" in migration
 assert "s.created_at = p_before_created_at" in migration
 assert "s.id < p_before_session_id" in migration
+
+# Clean replay must define a private Auth-session fixture and execute the runtime
+# SQL contract, rather than relying only on source-string checks.
+for marker in (
+    "CREATE TABLE auth.sessions",
+    "ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY",
+    "tools/test_admin_auth_sessions.sql",
+):
+    assert marker in replay, f"Migration replay omits the Auth session fixture/test: {marker}"
+
+for marker in (
+    "SET LOCAL ROLE authenticated",
+    "api_admin_list_auth_sessions_page",
+    "AAL1 session inventory request must be denied",
+    "AAL2 without TOTP session inventory request must be denied",
+    "Suspended Admin session inventory request must be denied",
+    "Auth session table must not be directly readable by API roles",
+    "sensitive-refresh-hmac-fixture",
+    "Keyset pagination did not advance through the NULL timestamp tail",
+    "Empty session source must return an available, empty page",
+):
+    assert marker in runtime_test, f"Missing runtime session security test: {marker}"
 
 print("PASS: Admin session inventory authorization, pagination, and privacy contracts are present.")
