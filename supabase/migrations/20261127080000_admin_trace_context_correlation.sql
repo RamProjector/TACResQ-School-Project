@@ -524,21 +524,27 @@ BEGIN
       AND (p_incident_id IS NULL OR e.incident_id = p_incident_id)
       AND (
         v_query = ''
-        OR strpos(lower(e.event_id), v_query) > 0
-        OR strpos(lower(e.source), v_query) > 0
-        OR strpos(lower(e.category), v_query) > 0
-        OR strpos(lower(e.event_type), v_query) > 0
-        OR strpos(lower(e.actor_label), v_query) > 0
-        OR strpos(lower(coalesce(e.target_label, '')), v_query) > 0
-        OR strpos(lower(e.summary), v_query) > 0
-        OR strpos(coalesce(e.actor_user_id::text, ''), v_query) > 0
-        OR strpos(coalesce(e.target_user_id::text, ''), v_query) > 0
-        OR strpos(coalesce(e.incident_id::text, ''), v_query) > 0
-        OR strpos(lower(e.details::text), v_query) > 0
         OR (
           v_query ~ '^[0-9a-f]{32}$'
           AND e.details ->> 'trace_id' = v_query
         )
+        OR (
+          v_query !~ '^[0-9a-f]{32}$'
+          AND (
+            strpos(lower(e.event_id), v_query) > 0
+            OR strpos(lower(e.source), v_query) > 0
+            OR strpos(lower(e.category), v_query) > 0
+            OR strpos(lower(e.event_type), v_query) > 0
+            OR strpos(lower(e.actor_label), v_query) > 0
+            OR strpos(lower(coalesce(e.target_label, '')), v_query) > 0
+            OR strpos(lower(e.summary), v_query) > 0
+            OR strpos(coalesce(e.actor_user_id::text, ''), v_query) > 0
+            OR strpos(coalesce(e.target_user_id::text, ''), v_query) > 0
+            OR strpos(coalesce(e.incident_id::text, ''), v_query) > 0
+            OR strpos(lower(e.details::text), v_query) > 0
+          )
+        )
+      )
   )
   SELECT jsonb_build_object(
     'events',
