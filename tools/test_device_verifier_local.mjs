@@ -138,7 +138,7 @@ async function signedRequest(user, challenge, pair, publicKeySpkiBase64, overrid
 }
 async function issue(user, purpose, deviceId = undefined) {
   const result = await invoke(user, { action: "issue", purpose, ...(deviceId ? { deviceId } : {}) });
-  assert.equal(result.status, 200, `challenge issuance failed: HTTP ${result.status}`);
+  assert.equal(result.status, 200, `challenge issuance failed: HTTP ${result.status}: ${JSON.stringify(result.data)}`);
   assert.ok(result.data?.challenge_id && result.data?.challenge);
   assert.equal(Buffer.from(result.data.challenge, "base64url").length, 32);
   return result.data;
