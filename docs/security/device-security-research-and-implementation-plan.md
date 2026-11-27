@@ -426,3 +426,15 @@ Do not run this proof against the hosted TACResQ project and do not create a pro
 ### Explicit implementation decision
 
 The JWT-context proof is now a well-supported implementation path, but it has **not yet been executed**. Documentation and official examples establish the correct pattern; only the disposable runtime test above can prove the exact TACResQ function-to-PostgREST path. Do not treat documentation, a mocked Laravel HTTP test, a decoded JWT payload, or the existing PostgreSQL-only CI workflow as runtime proof.
+
+
+### Supabase-supported test conventions
+
+Supabase's current Edge Function testing guide recommends Deno's built-in test runner under a functions test directory, and its development guide uses the Supabase CLI local stack plus `supabase functions serve`. This is a suitable convention for the disposable JWT-context probe. Keep the local test-only SQL fixture outside `supabase/migrations`; the committed function tests must not introduce a public production RPC just to inspect claims.
+
+References:
+- [Testing your Edge Functions](https://supabase.com/docs/guides/functions/unit-test)
+- [Edge Function development environment](https://supabase.com/docs/guides/functions/development-environment)
+- [Local development workflow](https://supabase.com/docs/guides/local-development/cli-workflows)
+
+The current CI's RPC grant contract uses a standalone PostgreSQL 17 service and the repository's custom migration replay script. That is useful database coverage but it does not start Supabase Auth, PostgREST, or the Edge Runtime. Add the full local-stack job as a separate advisory lane first; do not replace or weaken the existing fast source and database gates. Promote it to required only after repeatable startup, runtime, and cleanup are demonstrated.
