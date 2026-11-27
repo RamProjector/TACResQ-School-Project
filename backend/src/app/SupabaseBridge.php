@@ -158,7 +158,10 @@ final class SupabaseBridge
      */
     private function providerRequestId(\Illuminate\Http\Client\Response $response): ?string
     {
-        $value = $response->header('sb-request-id') ?? $response->header('x-request-id');
+        $value = $response->header('sb-request-id');
+        if (!is_string($value) || trim($value) === '') {
+            $value = $response->header('x-request-id');
+        }
         if (!is_string($value)) {
             return null;
         }
