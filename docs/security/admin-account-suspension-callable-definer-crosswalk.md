@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Application API baseline (live read-only catalog, 2026-11-26):** 38 authenticated-callable public API functions: 24 SECURITY DEFINER and 14 SECURITY INVOKER. There are 13 authenticated-callable private SECURITY DEFINER helpers. PR #370 adds a protected Admin Auth-session reader, so the branch target is now 36 authenticated-callable public API functions, comprising 25 authenticated-callable public SECURITY DEFINER functions and 11 authenticated-callable public SECURITY INVOKER functions, after the three legacy requester-create invoker grants are removed; the connected live count remains 38 until deployment. The connected project also has one public trigger-only function with default client EXECUTE grants; see the live-catalog reconciliation below. The older 75/24/51 aggregate was extension-schema-dependent and is not an application API count.
+**Application API baseline (live read-only catalog, 2026-11-26):** 38 authenticated-callable public API functions: 24 SECURITY DEFINER and 14 SECURITY INVOKER. There are 14 authenticated-callable private SECURITY DEFINER helpers. PR #370 adds a protected Admin Auth-session reader, so the branch target is now 36 authenticated-callable public API functions, comprising 25 authenticated-callable public SECURITY DEFINER functions and 11 authenticated-callable public SECURITY INVOKER functions, after the three legacy requester-create invoker grants are removed; the connected live count remains 38 until deployment. The connected project also has one public trigger-only function with default client EXECUTE grants; see the live-catalog reconciliation below. The older 75/24/51 aggregate was extension-schema-dependent and is not an application API count.
 
 ## Public SECURITY DEFINER entry points
 
@@ -42,12 +42,12 @@ The website invokes `public.api_admin_set_account_status(bigint,text,text,text)`
 
 ## Private callable definer functions
 
-The private-function inventory is a separate callable surface. The current source-contract inventory locks thirteen authenticated-callable private SECURITY DEFINER helpers, including `private.tacresq_auth_profile_id_for_token_cleanup()` and `private.tacresq_current_account_active()`, and rejects `anon`/`PUBLIC` EXECUTE on every classified callable definer. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
+The private-function inventory is a separate callable surface. The current source-contract inventory locks fourteen authenticated-callable private SECURITY DEFINER helpers, including `private.tacresq_auth_profile_id_for_token_cleanup()` and `private.tacresq_current_account_active()`, and rejects `anon`/`PUBLIC` EXECUTE on every classified callable definer. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1. The profile-ID helper now returns NULL for suspended callers; Storage policies that rely on it fail closed. The directly callable incident-assignee helper also checks active status and locks the caller profile. Notification list/detail and incident-chat history RPCs now use this helper directly; claimable-incident discovery requires an active profile under a share lock.
 - `private.tacresq_assign_incident_team_guarded(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3. The dispatcher progress implementation is now separately guarded by `20261124070000_account_lifecycle_dispatch_progress_guard.sql`: it requires an active dispatcher and holds a `FOR SHARE` profile lock for the transaction. Its public `api_update_incident_status(bigint,text)` wrapper remains SECURITY INVOKER; the private implementation is the privileged write boundary.
 - `private.tacresq_require_admin_mfa()` is intentionally not directly executable by client roles; it is a trusted internal authorization helper used by Admin wrappers — Batch 2.
-- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the thirteen-function private-definer inventory.
+- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the fourteen-function private-definer inventory.
 
 The full exact private signature list and function bodies are emitted by `tools/check_account_suspension_authorization_surface.sql` during clean replay. Do not treat this short list as the complete private catalog. Every function with client EXECUTE must be checked directly; every internal definer helper must be traced from its caller and checked for authorization assumptions.
 
@@ -55,7 +55,7 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The live connected project snapshot has 14 authenticated-callable application API SECURITY INVOKER functions. The branch-only forward migration removes three legacy incident-create invoker grants; the expected post-migration application inventory is 11 authenticated-callable invokers. Their access can still expose or mutate data through RLS, policies, and helper calls. The pre-migration 14 signatures are enumerated in the live-catalog reconciliation below. Extension-provided routines must be inventoried separately by extension schema.
 
-A complete release matrix must include the pre-migration live baseline of 38 authenticated-callable public API functions (24 definers and 14 invokers), and the expected branch target of 36 (25 definers and 11 invokers) after the three legacy incident-create grants are revoked, plus the 13 authenticated-callable private definer helpers, the trigger-only functions, direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must include the pre-migration live baseline of 38 authenticated-callable public API functions (24 definers and 14 invokers), and the expected branch target of 36 (25 definers and 11 invokers) after the three legacy incident-create grants are revoked, plus the 14 authenticated-callable private definer helpers, the trigger-only functions, direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
@@ -66,7 +66,7 @@ A complete release matrix must include the pre-migration live baseline of 38 aut
 This crosswalk connects the 25 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
-1. Finish exact coverage for all 14 pre-migration application API invokers (11 expected after the legacy requester-create grant reduction), all 13 authenticated-callable private definers, and every internal helper reached transitively.
+1. Finish exact coverage for all 14 pre-migration application API invokers (11 expected after the legacy requester-create grant reduction), all 14 authenticated-callable private definers, and every internal helper reached transitively.
 2. Trace each public and private entry point to nested helpers and trigger-mediated effects; document the actual lock order and transaction boundary.
 3. Map every Android, web, and Laravel direct operation to its effective grant, RLS policy, view, RPC, or Storage enforcement point.
 4. Keep the clean-replay inventory contract synchronized with exact callable signatures and effective `anon`/`PUBLIC` EXECUTE grants; treat active-account enforcement as a separate runtime-test requirement.
@@ -241,9 +241,9 @@ The website Admin lifecycle transition is exposed through `public.api_admin_set_
 
 ## Current inventory contract reconciliation
 
-The current executable private callable inventory contains **13**, not twelve, authenticated-callable private SECURITY DEFINER helpers. The exact signatures are enforced by tools/test_account_suspension_private_definer_inventory.sql. The current public contract separately enforces 75 authenticated-callable public functions: 24 SECURITY DEFINER and 51 SECURITY INVOKER. The older clean-replay snapshot and older matrix counts are historical and superseded; this does not claim a new replay has just run.
+The current executable private callable inventory contains **14**, not thirteen, authenticated-callable private SECURITY DEFINER helpers. The exact signatures are enforced by tools/test_account_suspension_private_definer_inventory.sql. The current public contract separately enforces 75 authenticated-callable public functions: 24 SECURITY DEFINER and 51 SECURITY INVOKER. The older clean-replay snapshot and older matrix counts are historical and superseded; this does not claim a new replay has just run.
 
-The 13 private signatures are: tacresq_active_responder_locations(), tacresq_actor_role(), tacresq_assign_incident_team_guarded(bigint,bigint[]), tacresq_auth_can_access_incident_chat(bigint), tacresq_auth_profile_id(), tacresq_auth_profile_id_for_token_cleanup(), tacresq_current_account_active(), tacresq_current_account_active_read(), tacresq_dispatch_update_incident_status(bigint,text), tacresq_is_incident_assignee(bigint), tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz), tacresq_release_incident_assignment(bigint,bigint), and tacresq_upload_reservation_allows_insert(text,text,bigint).
+The 14 private signatures are: tacresq_active_responder_locations(), tacresq_actor_role(), tacresq_assign_incident_team_guarded(bigint,bigint[]), tacresq_auth_can_access_incident_chat(bigint), tacresq_auth_profile_id(), tacresq_auth_profile_id_for_token_cleanup(), tacresq_current_account_active(), tacresq_current_account_active_read(), tacresq_current_auth_session_present_read(), tacresq_dispatch_update_incident_status(bigint,text), tacresq_is_incident_assignee(bigint), tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz), tacresq_release_incident_assignment(bigint,bigint), and tacresq_upload_reservation_allows_insert(text,text,bigint).
 
 Use the canonical master-plan Section 29 for the corrected matrix baseline and full invoker/RLS/view review gate.
 
@@ -257,7 +257,7 @@ This section records read-only catalog results from the connected project named 
 | Surface | Live count | Classification |
 |---|---:|---|
 | Authenticated-callable public API functions | 38 | 24 SECURITY DEFINER + 14 SECURITY INVOKER |
-| Authenticated-callable private SECURITY DEFINER helpers | 13 | All observed with anon EXECUTE false |
+| Authenticated-callable private SECURITY DEFINER helpers | 14 | All observed with anon EXECUTE false |
 | Additional public trigger-only function | 1 | SECURITY INVOKER; not an application RPC |
 | Authenticated-callable public functions including trigger-only | 39 | 24 definers + 15 invokers |
 
@@ -312,21 +312,21 @@ The live migration ledger's latest observed entry is 20261125030354. It contains
 The live inventory is a catalog snapshot only. It does not prove behavior under real user JWTs, Storage HTTP, Edge Function provider calls, or concurrent suspension and operational writes. The trigger-function revoke migration and exact invoker contract changes must pass clean replay before merge; any production application requires the normal approved migration process.
 
 
-**Extension-schema-independent application inventory:** the exact pre-migration live baseline is 38 authenticated-callable public API functions, including 24 authenticated-callable public SECURITY DEFINER functions and 14 authenticated-callable application API invoker functions. The branch-only legacy incident-create grant reduction targets 36 authenticated-callable public API functions after migration: 25 definers and 11 invokers. This is 36 authenticated-callable public API functions after the legacy requester-create EXECUTE revocation, with 11 authenticated-callable application API invoker functions after the legacy requester-create EXECUTE revocation. The 13 authenticated-callable private SECURITY DEFINER helpers are separate. The inventory contract is extension-schema-independent because it counts only explicit api_ application signatures; extension functions are tracked by their installed extension schema. The public incident-location trigger is tracked separately as trigger-only, not as an RPC.
+**Extension-schema-independent application inventory:** the exact pre-migration live baseline is 38 authenticated-callable public API functions, including 24 authenticated-callable public SECURITY DEFINER functions and 14 authenticated-callable application API invoker functions. The branch-only legacy incident-create grant reduction targets 36 authenticated-callable public API functions after migration: 25 definers and 11 invokers. This is 36 authenticated-callable public API functions after the legacy requester-create EXECUTE revocation, with 11 authenticated-callable application API invoker functions after the legacy requester-create EXECUTE revocation. The 14 authenticated-callable private SECURITY DEFINER helpers are separate. The inventory contract is extension-schema-independent because it counts only explicit api_ application signatures; extension functions are tracked by their installed extension schema. The public incident-location trigger is tracked separately as trigger-only, not as an RPC.
 
 
 ## Private callable-helper dependency audit — live catalog, 2026-11-26
 
-**Scope:** all 13 private SECURITY DEFINER functions with effective authenticated EXECUTE, their direct private helper calls, their RLS/Storage/trigger consumers, and relevant object privileges. This is a source/catalog review; it is not a same-JWT runtime test.
+**Scope:** all 14 private SECURITY DEFINER functions with effective authenticated EXECUTE, their direct private helper calls, their RLS/Storage/trigger consumers, and relevant object privileges. This is a source/catalog review; it is not a same-JWT runtime test.
 
 ### Namespace and exposure boundary
 
 - The live database grants USAGE on schema private to authenticated, but not anon. Authenticated has no CREATE on private; anon has neither USAGE nor CREATE.
-- The 13 private functions grant EXECUTE to authenticated, but PUBLIC and anon do not have EXECUTE. The internal implementation functions inspected below have authenticated and anon EXECUTE false.
+- The 14 private functions grant EXECUTE to authenticated, but PUBLIC and anon do not have EXECUTE. The internal implementation functions inspected below have authenticated and anon EXECUTE false.
 - Repository migrations explicitly describe private as outside the PostgREST-exposed Data API. Supabase documentation also describes private as inaccessible through the API. The live SQL role settings do not reveal the Dashboard's external API Exposed Schemas setting, so that setting still requires a read-only Dashboard verification before release. Do not equate schema USAGE with PostgREST exposure.
 - Storage policies call selected private helpers directly. Their authenticated EXECUTE grants and private schema USAGE are therefore part of the Storage authorization path, not merely unused grants.
 
-### Exact 13-helper register
+### Exact 14-helper register
 
 | Callable private helper | Current behavior and transitive path | Boundary / finding |
 |---|---|---|
@@ -337,6 +337,7 @@ The live inventory is a catalog snapshot only. It does not prove behavior under 
 | private.tacresq_auth_profile_id_for_token_cleanup() | Returns only the caller's own profile ID, without requiring active status. Used by the FCM self-unregister path and suspended-account cleanup policy. | Intentional suspended-account exception: it returns no profile fields and does not itself mutate data. Preserve only the narrow own-token cleanup path; do not reuse as general identity resolution. |
 | private.tacresq_auth_profile_id() | Resolves the caller's profile ID only for an active profile and takes FOR SHARE. Used by chat RPCs and Storage authorization helpers. | Active-aware identity resolver; serialized with suspension transitions. |
 | private.tacresq_current_account_active_read() | STABLE, non-locking boolean check of the current profile's account_status. Used by restrictive read/write RLS predicates and operation-specific FCM policies. | Correctly separated from locking mutation helper so SELECT/USING policies remain safe in read-only transactions. Same-valid-JWT and statement-snapshot tests remain required. |
+| private.tacresq_current_auth_session_present_read() | STABLE, non-locking boolean check that JWT session_id maps to an auth.sessions row owned by auth.uid(). Used only by restrictive Admin audit and assignment-history SELECT policies. | Read-only counterpart to the row-locking Admin RPC session guard; it must not take locks in PostgREST GET transactions. Local Auth/PostgREST tests verify current, cross-user, and post-sign-out behavior. |
 | private.tacresq_current_account_active() | VOLATILE active check that takes profile FOR SHARE. Used by write-entry guards and mutation boundaries. | Serializes protected writes with account suspension/reactivation; do not call from read-only RLS predicates. |
 | private.tacresq_dispatch_update_incident_status(bigint,text) | Requires active dispatcher under FOR SHARE; locks incident; validates allowed progress transition; updates incident, all team assignment statuses, and field-unit duty states atomically. | Preserve active dispatcher lock, transition matrix, and assignment/profile trigger guards. |
 | private.tacresq_is_incident_assignee(bigint) | Resolves active profile under FOR SHARE, then checks normalized incident assignment membership. | Active-aware membership predicate used by incident and assignment RLS. |
@@ -368,7 +369,7 @@ The five privileged implementation helpers listed above returned authenticated E
 
 ### Important operational interpretation
 
-1. The 13 authenticated EXECUTE grants do not mean 13 additional public PostgREST endpoints. The private schema is intentionally not in the Data API surface; verify the project's actual Exposed Schemas setting before release.
+1. The 14 authenticated EXECUTE grants do not mean 14 additional public PostgREST endpoints. The private schema is intentionally not in the Data API surface; verify the project's actual Exposed Schemas setting before release.
 2. Do not revoke helper EXECUTE indiscriminately: Storage policies and SECURITY INVOKER wrappers need the caller role to execute these predicates. If exposure must be reduced, first move the policy execution boundary to a supported role/function design and test Storage HTTP behavior.
 3. tacresq_auth_profile_id_for_token_cleanup() is the only reviewed helper that deliberately resolves a suspended profile. It exists to permit self-token cleanup, not to restore application access.
 4. The guarded assignment, release, and location wrappers are critical because their internal implementation functions do not all repeat account_status checks. Internal functions must remain non-client-executable and must not gain a second caller without a fresh review.
@@ -384,7 +385,7 @@ The five privileged implementation helpers listed above returned authenticated E
 ### Remaining release tests
 
 - [ ] Verify private is absent from Supabase Dashboard → API → Exposed Schemas (read-only check); preserve private schema USAGE needed by invoker/Storage paths.
-- [ ] With the same still-valid JWT, test all 13 helper paths before and after suspension; distinguish read-only helpers from mutation/Storage predicates.
+- [ ] With the same still-valid JWT, test all 14 helper paths before and after suspension; distinguish read-only helpers from mutation/Storage predicates.
 - [ ] Verify suspended own-token unregister succeeds only for the caller's exact token; registration, enumeration, rotation, and other-user deletion remain denied.
 - [ ] Exercise Storage HTTP upload/download for requester, assigned field unit, dispatcher, unrelated profile, removed member, and suspended caller; test reservation enforcement both disabled and enabled.
 - [ ] Test guarded assignment, release, and GPS operations concurrently with account suspension and role changes.
