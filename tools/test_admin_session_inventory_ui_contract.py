@@ -26,6 +26,13 @@ for marker in (
     assert marker in client, f"Missing client validation: {marker}"
 
 for marker in (
+    "function navigateToSection(section: AdminSection, auditQuery?: string)",
+    'url.searchParams.set("auditQuery", auditQuery)',
+    'url.searchParams.delete("auditQuery")',
+):
+    assert marker in page, f"Missing session-to-audit navigation behavior: {marker}"
+
+for marker in (
     'import AdminAccountSessions from "@/components/AdminAccountSessions";',
     '<AdminAccountSessions key={user.id} profileId={user.id} accountName={user.name} onFindSessionActivity={(sessionId) => navigateToSection("audit", sessionId)} />',
 ):
