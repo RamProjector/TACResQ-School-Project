@@ -442,6 +442,14 @@ jobs:
           VITE_BASE_PATH: /admin/
         run: pnpm build
 
+      - name: Install Playwright Chromium for Admin browser tests
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Exercise the Admin portal in a real browser
+        run: python3 tools/test_admin_portal_browser.py
+
       - name: Check RPC and table privilege grants
         run: python3 tools/test_rpc_grants.py
 
