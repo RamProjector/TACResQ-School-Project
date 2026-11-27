@@ -266,7 +266,7 @@ class SupabaseBridgeTest extends TestCase
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response(
                 [],
                 200,
-                ['x-request-id' => 'self-hosted-rpc-request-456'],
+                ['X-Request-Id' => 'self-hosted-rpc-request-456'],
             ),
             'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
         ]);
