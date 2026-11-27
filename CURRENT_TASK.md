@@ -2225,3 +2225,7 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation status:** Source edits and commit creation succeeded. Exact-head CI and the PostgreSQL runtime contract have not yet been rechecked on the final documentation commit; do not treat the test as passed until those workflows complete. The synthetic fixture is inside the disposable test transaction and is rolled back.
 - **Safety:** No hosted migration, database write, Auth persistence toggle, log drain, hook, secret, Render setting, deployment, session revocation, or merge was performed. PR #370 remains the existing open PR; no duplicate PR was created.
 - **Next:** Inspect CI on the final exact PR head and fix any failures in the new Auth audit fixture/contract. If checks pass, leave PR #370 open pending manual Admin UI acceptance and project-owner confirmation of the optional Auth Postgres persistence setting. Do not deploy or merge without the existing release gates.
+
+
+- **Additional hardening:** Extended the disposable SQL privilege contract to assert that neither `authenticated` nor `anon` can SELECT directly from `auth.audit_log_entries`. The static Python contract now requires these privilege assertions. This keeps provider-owned audit rows behind the protected Admin RPC.
+- **Final test-source adjustment:** Corrected the static UI-copy assertion to match the page's typographic apostrophe. CI is being evaluated against the latest branch head, not the earlier in-progress head.
