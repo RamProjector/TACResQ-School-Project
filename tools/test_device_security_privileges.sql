@@ -181,55 +181,27 @@ BEGIN
     RAISE EXCEPTION 'A client or service_role can invoke the private device verifier';
   END IF;
 
-  -- Identity sequences are backend-only too; table grants alone do not
-  -- protect INSERT ... RETURNING paths or direct sequence calls.
+  -- The dedicated verifier's SECURITY DEFINER functions own all writes.
+  -- service_role must not read or mutate any device registry table directly.
+  FOREACH table_name IN ARRAY table_names LOOP
+    table_oid := to_regclass('public.' || table_name);
+    FOREACH privilege_name IN ARRAY ARRAY[
+      'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ] LOOP
+      IF has_table_privilege('service_role', table_oid, privilege_name) THEN
+        RAISE EXCEPTION 'service_role unexpectedly has % on public.%', privilege_name, table_name;
+      END IF;
+    END LOOP;
+  END LOOP;
+
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
     IF has_sequence_privilege('anon', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('authenticated', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('anon', 'public.device_integrity_checks_id_seq', privilege_name)
-       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name) THEN
-      RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on device registry sequences', privilege_name;
-    END IF;
-  END LOOP;
-
-  IF NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'USAGE')
-     OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'SELECT')
-     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
-     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'USAGE')
-     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'SELECT')
-     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
-    RAISE EXCEPTION 'Unexpected service_role privileges on device registry sequences';
-  END IF;
-
-  -- Mutable registry records are server-managed; event/integrity records
-  -- are insert-only so service_role cannot rewrite or erase their history.
-  IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
-     OR NOT has_table_privilege('service_role', 'public.user_devices', 'INSERT')
-     OR NOT has_table_privilege('service_role', 'public.user_devices', 'UPDATE')
-     OR has_table_privilege('service_role', 'public.user_devices', 'DELETE')
-     OR has_table_privilege('service_role', 'public.user_devices', 'TRUNCATE') THEN
-    RAISE EXCEPTION 'Unexpected service_role privileges on user_devices';
-  END IF;
-
-  FOREACH table_name IN ARRAY ARRAY['device_sessions', 'device_challenges'] LOOP
-    table_oid := to_regclass('public.' || table_name);
-    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
-       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
-       OR NOT has_table_privilege('service_role', table_oid, 'UPDATE')
-       OR has_table_privilege('service_role', table_oid, 'DELETE')
-       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
-      RAISE EXCEPTION 'Unexpected service_role privileges on public.%', table_name;
-    END IF;
-  END LOOP;
-
-  FOREACH table_name IN ARRAY ARRAY['device_security_events', 'device_integrity_checks'] LOOP
-    table_oid := to_regclass('public.' || table_name);
-    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
-       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
-       OR has_table_privilege('service_role', table_oid, 'UPDATE')
-       OR has_table_privilege('service_role', table_oid, 'DELETE')
-       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
-      RAISE EXCEPTION 'Unexpected service_role privileges on append-only public.%', table_name;
+       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Client or service role unexpectedly has % on device registry sequences', privilege_name;
     END IF;
   END LOOP;
 END;
