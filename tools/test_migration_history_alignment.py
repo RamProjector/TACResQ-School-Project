@@ -129,6 +129,7 @@ PENDING = {
     "20261127030000_admin_investigation_api_operation_correlation.sql",
     "20261127040000_admin_sensitive_session_revocation_guard.sql",
     "20261127050000_add_auth_session_ids_to_audit_events.sql",
+    "20261127060000_admin_event_session_context.sql",
 }
 # These two source files use new local timestamps, while the connected
 # project's migration ledger records the same logical migration names under
