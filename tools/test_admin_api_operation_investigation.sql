@@ -160,6 +160,15 @@ BEGIN
     'account_suspended', 'active', 'suspended',
     'Disposable session correlation fixture'
   );
+
+  -- The device-security event must receive the same verified session and
+  -- W3C trace attribution as other event rows written in this request.
+  INSERT INTO public.device_security_events (
+    profile_id, event_type, severity, details
+  ) VALUES (
+    v_admin_profile_id, 'suspicious_activity', 'high',
+    '{"reason_code":"disposable_session_correlation_fixture"}'::jsonb
+  );
 END;
 $session_event_fixtures$;
 
@@ -287,21 +296,35 @@ BEGIN
      WHERE rows.event ->> 'source' = 'incident_assignment_events'
        AND rows.event -> 'details' ->> 'auth_session_id'
          = '10000000-0000-4000-8000-000000000401'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+     WHERE rows.event ->> 'source' = 'device_security_events'
+       AND rows.event -> 'details' ->> 'auth_session_id'
+         = '10000000-0000-4000-8000-000000000401'
+       AND rows.event -> 'details' ->> 'trace_id'
+         = '11111111111111111111111111111111'
+       AND rows.event -> 'details' ->> 'severity' = 'high'
   ) THEN
-    RAISE EXCEPTION 'Admin session search did not find every stamped Admin event source: %', v_by_correlation;
+    RAISE EXCEPTION 'Admin session search did not find every stamped Admin and device-security event source: %', v_by_correlation;
   END IF;
 
   v_by_correlation := public.api_admin_list_investigation_events(
     25, 0, '11111111111111111111111111111111',
     'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
-  IF jsonb_array_length(v_by_correlation -> 'events') < 4
+  IF jsonb_array_length(v_by_correlation -> 'events') < 5
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
+        WHERE rows.event ->> 'source' = 'device_security_events'
+          AND rows.event -> 'details' ->> 'auth_session_id'
+            = '10000000-0000-4000-8000-000000000401'
+     )
      OR EXISTS (
        SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
         WHERE rows.event -> 'details' ->> 'trace_id'
           IS DISTINCT FROM '11111111111111111111111111111111'
      ) THEN
-    RAISE EXCEPTION 'Exact trace-ID search must return only the matching Admin trace rows: %', v_by_correlation;
+    RAISE EXCEPTION 'Exact trace-ID search must include the matching device-security event and exclude unrelated trace rows: %', v_by_correlation;
   END IF;
 
   v_by_correlation := public.api_admin_list_investigation_events(
