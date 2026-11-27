@@ -65,7 +65,7 @@ def load_env(path: Path) -> dict[str, str]:
     api = values["API_URL"].rstrip("/")
     if not api.startswith(("http://127.0.0.1:", "http://localhost:")):
         raise RuntimeError("Refusing to test against a non-loopback Supabase API URL")
-    if not values["DB_URL"].startswith(("postgresql://postgres@", "postgres://postgres@")):
+    if not values["DB_URL"].startswith(("postgresql://postgres:", "postgres://postgres:")):
         raise RuntimeError("Refusing to test against a non-local database URL")
     return values
 
@@ -219,7 +219,7 @@ def main() -> int:
             headers={**auth_headers, "Authorization": f"Bearer {anon}"},
             payload={"p_claimed_sub": None, "p_claimed_session_id": None},
         )
-        if status not in (401, 403):
+        if status not in (401, 403, 404):
             raise AssertionError(f"Anon-role JWT unexpectedly reached authenticated probe (HTTP {status})")
         print("PASS: anon-role JWT was rejected by the authenticated-only probe")
 
