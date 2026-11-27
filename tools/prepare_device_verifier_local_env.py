@@ -36,6 +36,9 @@ def main() -> int:
     parsed = urlsplit(db_url)
     if parsed.scheme not in ("postgres", "postgresql") or parsed.username != "postgres" or parsed.hostname not in ("127.0.0.1", "localhost"):
         raise RuntimeError("Refusing to provision a verifier login outside the local PostgreSQL instance")
+    database_name = parsed.path.lstrip("/") or "postgres"
+    if not database_name.replace("_", "").isalnum():
+        raise RuntimeError("Unexpected local database name")
     if not anon_key:
         raise RuntimeError("Local Supabase publishable/anon key is missing")
 
@@ -44,7 +47,7 @@ def main() -> int:
         "ALTER ROLE tacresq_device_verifier LOGIN PASSWORD '"
         + password
         + "'; GRANT CONNECT ON DATABASE "
-        + (parsed.path.lstrip("/") or "postgres")
+        + database_name
         + " TO tacresq_device_verifier;"
     )
     result = subprocess.run(
