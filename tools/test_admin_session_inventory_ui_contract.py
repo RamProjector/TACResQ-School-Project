@@ -15,7 +15,7 @@ for marker in (
     "export async function getAdminAuthSessionsPage(",
     'getSupabase().rpc("api_admin_list_auth_sessions_page"',
     'if (error?.code === "PGRST202")',
-    "The Admin session inventory is not installed in this database schema yet.",
+    "The Admin session inventory RPC is not visible in this database's API schema cache.",
     "p_target_profile_id: profileId",
     "p_before_created_at: cursor?.created_at ?? null",
     "p_before_session_id: cursor?.session_id ?? null",
