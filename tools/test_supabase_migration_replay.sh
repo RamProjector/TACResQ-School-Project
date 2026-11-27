@@ -36,6 +36,28 @@ CREATE TABLE auth.users (
   raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Minimal provider-owned Auth session fixture. The Admin session reader must
+-- compile and execute against this private relation without granting API roles
+-- direct access to it.
+CREATE TABLE auth.sessions (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz,
+  updated_at timestamptz,
+  factor_id uuid,
+  aal text,
+  not_after timestamptz,
+  refreshed_at timestamp without time zone,
+  user_agent text,
+  ip inet,
+  tag text,
+  oauth_client_id uuid,
+  refresh_token_hmac_key text,
+  refresh_token_counter bigint,
+  scopes text
+);
+ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
 CREATE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
@@ -2220,3 +2242,6 @@ SQL
 
 # Verify the service-role Admin audit boundary and preserve authenticated Admin RPC grants.
 psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
+
+# Exercise protected Auth session pagination, MFA authorization, and field minimization.
+psql -v ON_ERROR_STOP=1 -f tools/test_admin_auth_sessions.sql
