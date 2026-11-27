@@ -229,7 +229,9 @@ for marker in (
     "'auth_session_id' = '10000000-0000-4000-8000-000000000170'",
     "Session-ID search should return only the requester session actions",
     "correlation_count <> 1",
-    "Cross-source correlation search should return three app actions and their API operation",
+    "api_correlation_id uuid",
+    "Transaction correlation search must return only the three app actions in that database transaction",
+    "Request correlation search must return only the related Laravel API operation",
     "Auth-session search should correlate app, device-security, and API operation events",
     "Device security feed exposed arbitrary event details",
 ):
