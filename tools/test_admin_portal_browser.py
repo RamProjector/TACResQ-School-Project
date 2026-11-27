@@ -95,6 +95,7 @@ def fulfill_json(route: Route, payload: Any, *, status: int = 200) -> None:
 
 def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str = "aal1") -> None:
     """Intercept only the known Auth/RPC endpoints used by this flow."""
+    managed_lifecycle_events: list[dict[str, Any]] = []
     managed_user: dict[str, Any] = {
         "id": 1002,
         "name": "Test Requester",
@@ -164,8 +165,50 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             })
             return
 
+        if "/rest/v1/rpc/api_admin_set_account_status" in url:
+            params = request.post_data_json or {}
+            expected_status = str(params.get("p_expected_account_status", ""))
+            next_status = str(params.get("p_account_status", ""))
+            reason = str(params.get("p_reason", ""))
+            expected_reason = (
+                "Temporary account suspension"
+                if next_status == "suspended"
+                else "Account access reinstated"
+            )
+            if (
+                params.get("p_target_profile_id") != managed_user["id"]
+                or expected_status != managed_user["account_status"]
+                or next_status not in {"active", "suspended"}
+                or next_status == expected_status
+                or reason != expected_reason
+            ):
+                fulfill_json(route, {"code": "22023", "message": "Invalid test account status change"}, status=400)
+                return
+            managed_user["account_status"] = next_status
+            managed_lifecycle_events.append({
+                "id": len(managed_lifecycle_events) + 1,
+                "actor_profile_id": 1001,
+                "actor_identity": "admin@example.test",
+                "target_profile_id": managed_user["id"],
+                "target_name": managed_user["name"],
+                "action": "account_suspended" if next_status == "suspended" else "account_reactivated",
+                "previous_status": expected_status,
+                "new_status": next_status,
+                "reason": reason,
+                "created_at": datetime.now().astimezone().isoformat(),
+            })
+            fulfill_json(route, {
+                "status": "changed",
+                "target_profile_id": managed_user["id"],
+                "account_status": next_status,
+            })
+            return
+
         if "/rest/v1/rpc/api_admin_list_account_lifecycle_events" in url:
-            fulfill_json(route, {"events": [], "total_count": 0})
+            fulfill_json(route, {
+                "events": list(reversed(managed_lifecycle_events)),
+                "total_count": len(managed_lifecycle_events),
+            })
             return
 
         if "/rest/v1/rpc/api_admin_list_auth_sessions_page" in url:
@@ -371,6 +414,33 @@ def run_browser_tests(browser: Browser) -> list[str]:
     ).to_be_visible(timeout=10000)
     expect(page.get_by_text("Test Requester's role changed from Requester to Responder. The action was recorded in the audit log.")).to_be_visible()
     completed.append("user directory, reason validation, role-change RPC confirmation, and refreshed role state work with an isolated mock")
+
+    # Suspension and reactivation must each require a reason and reflect the
+    # confirmed account state returned by the protected RPC.
+    page.get_by_role("button", name="Suspend account for Test Requester").click()
+    suspend_dialog = page.get_by_role("dialog", name="Suspend account")
+    expect(suspend_dialog).to_be_visible()
+    suspend_confirm = suspend_dialog.get_by_role("button", name="Confirm status change")
+    expect(suspend_confirm).to_be_disabled()
+    suspend_dialog.locator("#admin-lifecycle-reason").fill("Temporary account suspension")
+    expect(suspend_confirm).to_be_enabled()
+    suspend_confirm.click()
+    expect(suspend_dialog).to_have_count(0, timeout=10000)
+    expect(page.get_by_role("row").filter(has_text="Test Requester").get_by_text("Suspended")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Test Requester was suspended. The action was recorded in lifecycle history.")).to_be_visible()
+
+    page.get_by_role("button", name="Reactivate account for Test Requester").click()
+    reactivate_dialog = page.get_by_role("dialog", name="Reactivate account")
+    expect(reactivate_dialog).to_be_visible()
+    reactivate_confirm = reactivate_dialog.get_by_role("button", name="Confirm status change")
+    expect(reactivate_confirm).to_be_disabled()
+    reactivate_dialog.locator("#admin-lifecycle-reason").fill("Account access reinstated")
+    expect(reactivate_confirm).to_be_enabled()
+    reactivate_confirm.click()
+    expect(reactivate_dialog).to_have_count(0, timeout=10000)
+    expect(page.get_by_role("row").filter(has_text="Test Requester").get_by_text("Active")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Test Requester was reactivated. The action was recorded in lifecycle history.")).to_be_visible()
+    completed.append("suspension and reactivation require reasons, call protected RPCs, and refresh the confirmed account state")
 
     # The same verified Admin session can open the unified read-only audit feed.
     page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="Activity log").click()
