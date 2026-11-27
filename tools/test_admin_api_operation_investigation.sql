@@ -5,7 +5,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
   '00000000-0000-4000-8000-000000000401',
   'api-operation-investigation-admin@example.test',
-  '{"name":"API Operation Investigation Admin"}'::jsonb
+  '{"name":"API Operation Investigation Admin","phone":"+639171234567"}'::jsonb
 );
 
 UPDATE public.profiles
