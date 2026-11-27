@@ -284,8 +284,15 @@ BEGIN
     pg_catalog.translate(p_raw_challenge_base64url, '-_', '+/') || '=',
     'base64'
   );
-  IF pg_catalog.octet_length(v_raw_challenge) <> 32 THEN
-    RAISE EXCEPTION 'Invalid challenge size' USING ERRCODE = '22023';
+  IF pg_catalog.octet_length(v_raw_challenge) <> 32
+     OR pg_catalog.translate(
+       pg_catalog.rtrim(
+         pg_catalog.replace(pg_catalog.encode(v_raw_challenge, 'base64'), E'\\n', ''),
+         '='
+       ),
+       '+/', '-_'
+     ) <> p_raw_challenge_base64url THEN
+    RAISE EXCEPTION 'Invalid or non-canonical challenge encoding' USING ERRCODE = '22023';
   END IF;
   v_expected_hash := pg_catalog.encode(extensions.digest(v_raw_challenge, 'sha256'), 'hex');
 
