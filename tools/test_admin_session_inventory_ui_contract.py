@@ -73,6 +73,8 @@ for forbidden in (
     assert forbidden not in component, f"Session inventory must remain read-only/minimized: {forbidden}"
 
 assert "@media (max-width: 560px)" in styles
+assert "flex-wrap: wrap" in styles
+assert ".admin-account-sessions__record-title > strong" in styles
 assert "grid-template-columns: minmax(0, 1fr)" in styles
 assert "private.tacresq_require_admin_mfa()" in migration
 assert "auth.sessions" in migration
