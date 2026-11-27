@@ -11,10 +11,15 @@ client = (root / "backend/web/src/lib/supabase.ts").read_text(encoding="utf-8")
 assert 'getAdminInvestigationEventsPage(5, 0, "", "authentication", "all"' in console
 assert "getAdminInvestigationEventsPage(" in client
 assert 'api_admin_list_investigation_events' in client
-assert 'Recent authentication events' in console
-assert 'Latest five authentication events returned by the protected investigation feed' in console
+assert 'Recent authentication and device-security events' in console
+assert 'Latest five authentication and device-security events returned by the protected investigation feed' in console
 assert 'it is not a complete sign-in or session history' in console
 assert 'This does not prove that no sign-ins occurred.' in console
+assert '<th scope="col">Auth session</th>' in console
+assert 'event.details.auth_session_id' in console
+assert 'Session · {authSessionId.slice(-8)}' in console
+assert 'the device-security writer is not implemented' in console
+assert 'use Activity log to search linked events' in console
 
 # Prevent stale responses from replacing a newer refresh or a different page.
 assert "authenticationEventsRequest.current" in console
