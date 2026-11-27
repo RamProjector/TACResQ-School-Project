@@ -20,25 +20,26 @@ class TraceContextTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider invalidTraceparents
-     */
-    public function test_rejects_invalid_trace_context_without_throwing(string $value): void
+    public function test_rejects_invalid_trace_context_without_throwing(): void
     {
-        request()->headers->set('traceparent', $value);
-
-        $this->assertNull(TraceContext::currentTraceparent());
+        foreach (self::invalidTraceparents() as $label => $value) {
+            request()->headers->set('traceparent', $value);
+            $this->assertNull(
+                TraceContext::currentTraceparent(),
+                "Invalid traceparent case should be rejected: {$label}",
+            );
+        }
     }
 
-    public static function invalidTraceparents(): array
+    private static function invalidTraceparents(): array
     {
         return [
-            'missing header' => [''],
-            'unsupported version' => ['01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01'],
-            'zero trace ID' => ['00-00000000000000000000000000000000-00f067aa0ba902b7-01'],
-            'zero span ID' => ['00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01'],
-            'truncated value' => ['00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7'],
-            'extra suffix' => ['00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra'],
+            'missing header' => '',
+            'unsupported version' => '01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+            'zero trace ID' => '00-00000000000000000000000000000000-00f067aa0ba902b7-01',
+            'zero span ID' => '00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01',
+            'truncated value' => '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7',
+            'extra suffix' => '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra',
         ];
     }
 }
