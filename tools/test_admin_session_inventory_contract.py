@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261127020000_admin_session_inventory_read_rpc.sql").read_text()
 admin_guard = (ROOT / "supabase/migrations/20261125020826_account_lifecycle_admin_mfa_guard.sql").read_text()
+session_guard = (ROOT / "supabase/migrations/20261127040000_admin_sensitive_session_revocation_guard.sql").read_text()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 runtime_test = (ROOT / "tools/test_admin_auth_sessions.sql").read_text()
 
@@ -47,6 +48,39 @@ required = (
 )
 for marker in required:
     assert marker in migration, f"Missing protected session inventory contract: {marker}"
+
+# Current Auth session enforcement is split between a read-only RLS
+# predicate and a write-capable, row-locking Admin RPC predicate.
+for marker in (
+    "CREATE OR REPLACE FUNCTION private.tacresq_current_auth_session_present_read()",
+    "RETURNS boolean",
+    "LANGUAGE plpgsql",
+    "STABLE",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "auth.jwt() ->> 'session_id'",
+    "FROM auth.sessions AS s",
+    "s.id = v_session_id",
+    "s.user_id = v_auth_user_id",
+    "CREATE OR REPLACE FUNCTION private.tacresq_current_auth_session_valid()",
+    "VOLATILE",
+    "FOR SHARE",
+    "REVOKE ALL ON FUNCTION private.tacresq_current_auth_session_valid()",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "GRANT EXECUTE ON FUNCTION private.tacresq_current_auth_session_present_read()",
+    "TO authenticated",
+    "IF NOT private.tacresq_current_auth_session_valid() THEN",
+    "CREATE POLICY admin_audit_logs_require_aal2",
+    "CREATE POLICY incident_assignment_events_admin_require_aal2",
+    "AS RESTRICTIVE",
+    "private.tacresq_current_auth_session_present_read()",
+):
+    assert marker in session_guard, f"Missing sensitive-session guard contract: {marker}"
+
+assert "session_id" in session_guard
+assert "00000000-0000-0000-0000-000000000000" in session_guard
+assert "FOR SHARE" in session_guard
+assert "session_id" not in admin_guard.lower() or "tacresq_current_auth_session_valid" in session_guard
 
 # No direct table grant and no sensitive/session validity overclaim.
 for forbidden in (
@@ -94,6 +128,15 @@ for marker in (
 
 for marker in (
     "SET LOCAL ROLE authenticated",
+    "private.tacresq_current_auth_session_valid()",
+    "private.tacresq_current_auth_session_present_read()",
+    "session_id",
+    "A different user''s session UUID must not authenticate this Admin",
+    "A missing session_id claim must fail closed",
+    "A malformed session_id claim must fail closed",
+    "An all-zero session_id claim must fail closed",
+    "A revoked Admin session must lose direct audit-history access",
+    "A revoked Admin session must be denied by protected Admin RPCs",
     "api_admin_list_auth_sessions_page",
     "AAL1 session inventory request must be denied",
     "AAL2 without TOTP session inventory request must be denied",
