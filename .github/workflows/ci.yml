@@ -243,6 +243,12 @@ jobs:
 
       - name: Check administrator TOTP MFA enforcement
         run: python3 tools/test_admin_totp_contract.py
+
+      - name: Check protected Admin session inventory SQL contract
+        run: python3 tools/test_admin_session_inventory_contract.py
+
+      - name: Check Admin session inventory web contract
+        run: python3 tools/test_admin_session_inventory_ui_contract.py
       - name: Check pending MFA cleanup on gate sign-out
         run: python3 tools/test_admin_gate_signout_cleanup_contract.py
       - name: Check Admin pending MFA cleanup contract
