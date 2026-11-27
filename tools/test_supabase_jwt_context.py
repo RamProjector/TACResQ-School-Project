@@ -283,13 +283,18 @@ def main() -> int:
 
         def concurrent_check(index: int) -> bool:
             user = users[index % 2]
-            result = probe(user)
-            return result.get("actual_uid") == user["id"] and result.get("actual_session_id") == user["session_id"]
+            traceparent = f"00-{index + 1:032x}-{index + 1:016x}-01"
+            result = probe(user, extra_headers={"traceparent": traceparent})
+            return (
+                result.get("actual_uid") == user["id"]
+                and result.get("actual_session_id") == user["session_id"]
+                and result.get("traceparent_header") == traceparent
+            )
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             outcomes = list(pool.map(concurrent_check, range(24)))
         if not all(outcomes):
             raise AssertionError("Concurrent requests crossed caller JWT identity context")
-        print("PASS: 24 concurrent requests retained isolated caller identities")
+        print("PASS: 24 concurrent requests retained isolated caller identities and traceparent headers")
 
         status, _ = request_json(
             f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
