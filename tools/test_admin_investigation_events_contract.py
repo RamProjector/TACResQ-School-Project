@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql").read_text()
 action_migration = (ROOT / "supabase/migrations/20261123045611_20261122230000_app_action_audit_coverage.sql").read_text()
 operation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
-operation_session_migration = (ROOT / "supabase/migrations/20261127050000_api_operation_auth_session_correlation.sql").read_text()
+operation_session_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -73,7 +73,7 @@ for marker in (
     "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
     "ON public.api_operation_logs (auth_session_id, created_at DESC, id DESC)",
     "WHERE auth_session_id IS NOT NULL",
-    "retained as historical metadata after session revocation",
+    "retained after session revocation",
 ):
     assert marker in operation_session_migration, f"Missing API session correlation migration contract: {marker}"
 assert "REFERENCES auth.sessions" not in operation_session_migration
