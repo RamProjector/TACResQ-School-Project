@@ -131,6 +131,7 @@ PENDING = {
     "20261127050000_add_auth_session_ids_to_audit_events.sql",
     "20261127060000_admin_event_session_context.sql",
     "20261127070000_admin_session_activity_feed.sql",
+    "20261127080000_admin_trace_context_correlation.sql",
 }
 # These two source files use new local timestamps, while the connected
 # project's migration ledger records the same logical migration names under
@@ -162,6 +163,7 @@ UNAPPLIED_FORWARD_MIGRATIONS = {
     "20261127050000_add_auth_session_ids_to_audit_events.sql",
     "20261127060000_admin_event_session_context.sql",
     "20261127070000_admin_session_activity_feed.sql",
+    "20261127080000_admin_trace_context_correlation.sql",
 }
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
