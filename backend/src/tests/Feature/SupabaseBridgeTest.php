@@ -252,6 +252,47 @@ class SupabaseBridgeTest extends TestCase
             ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
     }
 
+    public function test_provider_request_ids_are_captured_from_trusted_upstream_response_headers(): void
+    {
+        config(['tacru.supabase_secret_key' => 'synthetic-server-secret']);
+        request()->attributes->set('correlation_id', '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27');
+
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(
+                ['id' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001'],
+                200,
+                ['sb-request-id' => 'auth-gateway-request-123', 'x-request-id' => 'ignored-fallback'],
+            ),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response(
+                [],
+                200,
+                ['x-request-id' => 'self-hosted-rpc-request-456'],
+            ),
+            'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
+        ]);
+
+        $this->assertNotNull(app(SupabaseBridge::class)->getUser('synthetic-access-token'));
+        $result = app(SupabaseBridge::class)->callRpc('synthetic-access-token', 'api_units', []);
+        $this->assertSame(200, $result['status']);
+
+        $auditPayloads = [];
+        Http::assertSent(function ($request) use (&$auditPayloads): bool {
+            if (!str_ends_with($request->url(), '/rest/v1/api_operation_logs')) {
+                return false;
+            }
+            $auditPayloads[] = $request->data();
+            return true;
+        });
+
+        $this->assertCount(2, $auditPayloads);
+        $this->assertSame(['auth.get_user', 'rpc.api_units'], array_column($auditPayloads, 'operation'));
+        $this->assertSame(['auth-gateway-request-123', 'self-hosted-rpc-request-456'], array_column($auditPayloads, 'provider_request_id'));
+        $this->assertSame([
+            '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
+            '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
+        ], array_column($auditPayloads, 'correlation_id'));
+    }
+
     private function postEmptyRpc(string $function, string $token)
     {
         // An empty PostgREST argument set is the JSON object {}, not the JSON array [].
