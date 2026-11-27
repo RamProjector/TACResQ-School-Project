@@ -114,7 +114,7 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
           ) : page ? (
             <>
               <p className="admin-account-sessions__source">
-                <ShieldCheck size={14} /> Source: Supabase Auth · Retrieved {formatManilaDateTime(page.observed_at)} (Asia/Manila)
+                <ShieldCheck size={14} /> Source: Supabase Auth · Status: {page.source_status} · Retrieved {formatManilaDateTime(page.observed_at)} (Asia/Manila)
               </p>
               <p className="admin-account-sessions__semantics">{page.status_semantics}</p>
               {page.items.length === 0 ? (
