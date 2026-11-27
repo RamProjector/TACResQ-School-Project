@@ -28,7 +28,7 @@ SUPABASE_URL = "https://tacresq-browser-test.invalid"
 PUBLISHABLE_KEY = "sb_publishable_browser_test_only"
 
 
-def fixture_session() -> dict[str, Any]:
+def fixture_session(aal: str = "aal1") -> dict[str, Any]:
     now = int(time.time())
     user_id = "00000000-0000-4000-8000-000000000001"
     header = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').rstrip(b"=").decode()
@@ -38,8 +38,8 @@ def fixture_session() -> dict[str, Any]:
         "iat": now,
         "sub": user_id,
         "role": "authenticated",
-        "aal": "aal1",
-        "amr": [{"method": "password", "timestamp": now}],
+        "aal": aal,
+        "amr": [{"method": "password", "timestamp": now}] + ([{"method": "totp", "timestamp": now}] if aal == "aal2" else []),
     }
     payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
     # Supabase's client decodes the JWT claims locally; no signature is trusted
@@ -91,7 +91,7 @@ def fulfill_json(route: Route, payload: Any, *, status: int = 200) -> None:
     )
 
 
-def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
+def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str = "aal1") -> None:
     """Intercept only the known Auth/RPC endpoints used by this flow."""
     def handle(route: Route) -> None:
         request = route.request
@@ -114,15 +114,39 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                     "message": "Invalid login credentials",
                 }, status=400)
             else:
-                fulfill_json(route, fixture_session())
+                fulfill_json(route, fixture_session(aal))
             return
 
         if "/auth/v1/user" in url:
-            fulfill_json(route, fixture_session()["user"])
+            fulfill_json(route, fixture_session(aal)["user"])
             return
 
         if "/rest/v1/rpc/api_me" in url and role:
             fulfill_json(route, profile_for(role))
+            return
+
+        if "/rest/v1/rpc/api_admin_list_users_page" in url:
+            fulfill_json(route, {"users": [], "total_count": 0})
+            return
+
+        if "/rest/v1/rpc/api_admin_list_investigation_events" in url:
+            fulfill_json(route, {
+                "contract_version": "session_trace_v1",
+                "events": [],
+                "total_count": 0,
+            })
+            return
+
+        if "/rest/v1/rpc/api_dependency_health" in url:
+            fulfill_json(route, "tacresq_database_ok")
+            return
+
+        if "/auth/v1/health" in url:
+            route.fulfill(
+                status=200,
+                headers={"Access-Control-Allow-Origin": "http://127.0.0.1:4173"},
+                body="ok",
+            )
             return
 
         if "/auth/v1/aal" in url:
@@ -224,6 +248,27 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_text("Enter the current six-digit code from Google Authenticator")).to_be_visible()
     expect(page.locator(".admin-sidebar")).to_have_count(0)
     completed.append("admin session remains behind MFA until TOTP verification")
+    page.close()
+
+    # A session already verified at AAL2 must enter the actual Admin console,
+    # load protected dashboard records, and display read-only service health.
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    mock_supabase(page, login="valid", role="admin", aal="aal2")
+    page.route(
+        f"http://{HOST}:{PORT}/up",
+        lambda route: route.fulfill(status=200, body="ok"),
+    )
+    page.goto(BASE_URL, wait_until="domcontentloaded")
+    page.get_by_label("Email address").fill("admin@example.test")
+    page.get_by_label("Password").fill("fixture-password")
+    page.get_by_role("button", name="Open admin portal").click()
+    expect(page.get_by_role("heading", name="Overview")).to_be_visible(timeout=15000)
+    expect(page.get_by_role("navigation", name="Admin sections")).to_be_visible()
+    expect(page.get_by_role("heading", name="Dependency reachability")).to_be_visible()
+    expect(page.get_by_text("All three dependencies responded within the probe threshold")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("No events are recorded in the integrated investigation sources today.")).to_be_visible()
+    expect(page.get_by_role("navigation", name="Admin sections").get_by_role("button", name="User management")).to_be_visible()
+    completed.append("verified AAL2 administrator reaches the live Admin console with mocked read-only dashboard data")
     page.close()
 
     # Check both responsive layouts on the real login screen.
