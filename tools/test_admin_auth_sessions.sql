@@ -142,8 +142,8 @@ BEGIN
   END IF;
   IF EXISTS (
     SELECT 1
-    FROM jsonb_array_elements(v_page_one -> 'items') AS item
-    CROSS JOIN LATERAL jsonb_object_keys(item) AS keys(key_name)
+    FROM jsonb_array_elements(v_page_one -> 'items') AS elements(item)
+    CROSS JOIN LATERAL jsonb_object_keys(elements.item) AS keys(key_name)
     WHERE keys.key_name IN (
       'ip', 'user_agent', 'refresh_token_hmac_key',
       'refresh_token_counter', 'scopes', 'factor_id',
