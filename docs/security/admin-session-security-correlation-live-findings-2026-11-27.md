@@ -53,6 +53,18 @@ Do not interpret expected errors from deliberately rejected authorization tests 
 4. **App-action audit:** `app_action_audit_logs` has no live rows in the observed project snapshot. Do not infer that all application actions are covered.
 5. **Incident and assignment sources:** status and request-edit history contain a small number of rows; assignment and claimability sources are empty in this snapshot. The feed is not a complete incident-operation timeline.
 
+## Live migration and RPC contract comparison
+
+A separate read-only check of the live migration ledger and PostgreSQL function definitions confirmed the deployment mismatch:
+
+- The latest live migration version is `20261125030354`.
+- The PR's Admin session/trace migrations (`20261127020000` through `20261127080000`) are not present in the live migration ledger.
+- The new `api_admin_list_auth_sessions_page(bigint, integer, timestamptz, uuid)` RPC is not installed in the live database.
+- The live `api_admin_list_investigation_events` RPC exists, but its current definition does not reference `auth_session_id`, `trace_id`, or `device_security_events`.
+- The live schema currently has `correlation_id` and `provider_request_id` on `api_operation_logs`, `correlation_id` on `app_action_audit_logs`, and `auth_session_id` on `device_security_events`. The checked event tables do not yet have the complete session/trace attribution columns supplied by the PR migrations.
+
+This means the current live Admin UI cannot use the newer branch contract even if its frontend is updated. The database migration and matching frontend/backend deployment must be treated as one release unit.
+
 ## Correlation semantics
 
 Keep these identifiers distinct:
