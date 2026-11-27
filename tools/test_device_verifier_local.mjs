@@ -172,6 +172,7 @@ try {
   const directRead = await import("node:child_process").then(({ spawnSync }) =>
     spawnSync("psql", [verifierDbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", "SELECT * FROM public.user_devices LIMIT 1"], { encoding: "utf8" })
   );
+  assert.equal(directRead.error, undefined, "psql must run for the direct-table denial check");
   assert.notEqual(directRead.status, 0, "dedicated verifier login must not read registry tables directly");
   console.log("PASS: dedicated verifier login has narrow function execution and no direct registry table privileges");
 
