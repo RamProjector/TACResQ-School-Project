@@ -21,6 +21,7 @@ assert "if (dateRangeError || idFilterError)" in AUDIT_PAGE
 assert 'setError(dateRangeError || idFilterError || "Invalid audit filter.")' in AUDIT_PAGE
 assert "Boolean(dateRangeError || idFilterError)" in AUDIT_PAGE
 assert "getAdminInvestigationEventsPage(" in AUDIT_PAGE
+assert 'new URLSearchParams(window.location.search).get("auditQuery")' in AUDIT_PAGE
 
 # Keyboard focus and reduced-motion preferences must be explicitly respected.
 assert ":focus-visible" in ADMIN_CSS
