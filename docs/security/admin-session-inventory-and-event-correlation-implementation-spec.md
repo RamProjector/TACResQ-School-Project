@@ -210,3 +210,73 @@ Laravel bridge correlation capture is implemented. It records the provider's `sb
 Exact-head validation completed successfully on `13f0d7636d9dad59b35c9d2864e5b6a16f2fae4b`: TACResQ CI (including PostgreSQL 16 clean migration replay, Android debug/release builds, source checks, and Laravel/dashboard integration), PostgreSQL 17 RPC grant contract, Security (repository guardrails and CodeQL Android/Web/Actions), QA (local-stack stress and prototype capture), Frontend Review, and read-only profile verification. The clean-replay Admin API-operation runtime test and Laravel bridge header-capture feature test passed after correcting the synthetic Auth fixture and blank-primary-header fallback behavior.
 
 The migrations remain unapplied to hosted Supabase. Manual Admin UI acceptance has not been performed; prototype capture is not manual acceptance. The external Auth audit source remains provider-log based and may not be persisted to `auth.audit_log_entries` unless its optional database persistence setting is enabled. Direct Android/browser Supabase requests still bypass the Laravel bridge and remain outside this telemetry source. Device events remain untrusted/empty until trusted challenge-verification writers are implemented. The next research/implementation gate is to map direct Android/browser privileged event paths and design trusted event writers, while keeping provider IDs, Auth session IDs, Laravel correlation IDs, and device IDs distinct. Do not add selective revocation or heuristic automatic suspension.
+
+
+## 9. Direct-client request correlation — follow-up research (2026-11-27)
+
+The Laravel operation feed is not a system-wide request ledger. Current source review confirms:
+
+- Android release uses the custom Retrofit/OkHttp Supabase transport directly. The Render bridge is an opt-in debug-build path and is limited to the explicit `bridge_rpc_allowlist`; login/signup/logout and several sensitive RPC, notification, FCM, chat, assignment-history, and Storage operations remain direct.
+- The Admin web portal signs in, manages MFA, reads account/session data, changes account state/roles, loads analytics, and reads investigation events directly through `@supabase/supabase-js`. It does not route these operations through the Laravel bridge.
+- The existing `api_operation_logs` writer is in Laravel's `ApiOperationAuditLogger`; therefore it does not record those direct client requests.
+- Existing database-backed event sources cover specific successful actions (role/lifecycle, incident status, claimability, requester edits, assignments, and selected app actions). They do not share a trusted request trace field. The `app_action_audit_logs.correlation_id` default is a row-local UUID, not a propagated request identifier.
+
+### 9.1 Verified provider trace mechanism
+
+Current Supabase documentation describes two different identifiers:
+
+1. `sb-request-id` is returned by the API Gateway. Supabase maps it to `log_attributes['request_id']` in Edge/API Gateway logs; it is not exposed as `request.headers.sb-request-id` to Postgres.
+2. W3C `traceparent` can be propagated by clients. Supabase API Gateway and Edge Function logs extract a `trace_id`; PostgREST exposes request headers to SQL through `current_setting('request.headers', true)::jsonb`, with lowercase header names. A database function can therefore read the incoming `traceparent` header and extract its trace ID.
+
+The current Admin web dependency is `@supabase/supabase-js ^2.119.2`, which is new enough for the documented trace-propagation feature. However, the repository does not currently configure `tracePropagation`, import the SDK tracing runtime, or declare `@opentelemetry/api` directly. Supabase's built-in integration is opt-in and requires an active W3C trace context. The Android app uses a custom Retrofit/OkHttp client rather than the Supabase Kotlin SDK; no traceparent propagation is present in its shared Supabase interceptor.
+
+### 9.2 Identifier rules
+
+Keep these values separate:
+
+- `event_id`: identity of one persisted event row.
+- `auth_session_id`: Supabase Auth session UUID from a verified JWT/session record.
+- `correlation_id`: server-generated Laravel request UUID; trusted within the Laravel request/audit path.
+- `provider_request_id`: provider response ID such as `sb-request-id`; one upstream request.
+- `trace_id`: W3C trace context shared by requests in one distributed trace. It is a tracing hint, not an identity or authorization claim.
+
+A client may choose or replay a trace ID. Validate W3C syntax and reject all-zero identifiers, but never use trace context to identify the actor, authorize an operation, establish device ownership, prove compromise, or trigger automatic suspension/revocation. Actor identity must continue to come from verified Supabase JWT claims and server/database profile mapping.
+
+### 9.3 Recommended next implementation slice
+
+1. Add a narrow private Postgres helper that safely reads `request.headers.traceparent`, validates the W3C version-00 shape, and returns only the 32-hex trace ID or NULL. It must tolerate a missing request context and must not read/store IP, user-agent, cookies, baggage, or arbitrary headers.
+2. Add nullable `trace_id` metadata to the event sources that are actually written during PostgREST requests. Populate it only inside trusted SQL functions/triggers from the helper. Preserve existing event IDs and row-local `correlation_id` semantics.
+3. Extend the protected Admin investigation feed with the trace ID as minimized metadata and support exact trace-ID search. Label it as request tracing, not a security verdict.
+4. Add direct-client propagation: browser Supabase client via supported W3C trace propagation or a carefully scoped custom fetch wrapper; Android via its shared OkHttp interceptor. Prefer an active span per user action when one exists; never send trace headers to third-party hosts.
+5. Propagate a trace context from Laravel into upstream Supabase requests separately from the existing server-generated correlation ID, then persist the trace ID in Laravel operation telemetry if the schema is extended.
+6. Keep telemetry fail-open and bounded so tracing/audit failure cannot block emergency creation, assignment, status progress, or SOS reporting.
+
+Before writing a migration, prove the current hosted PostgREST request-header behavior with a read-only-safe diagnostic in an approved test environment. Clean PostgreSQL replay tests should simulate `request.headers` using transaction-local `set_config`; a separate disposable PostgREST integration test must prove the actual HTTP header reaches SQL. Do not infer this from a SQL-only replay.
+
+### 9.4 Required tests and gates
+
+- valid W3C version-00 traceparent yields the expected trace ID;
+- missing, malformed, unsupported-version, and all-zero traceparent yields NULL without failing the business operation;
+- header names are handled case-insensitively through PostgREST's lowercase JSON representation;
+- two event rows emitted by one RPC share the same trace ID;
+- separate requests do not accidentally share a trace ID unless an explicit parent operation created that trace;
+- actor/profile/session authorization remains independent of trace context;
+- a caller-supplied trace ID cannot change actor attribution or access control;
+- no tokens, request/response bodies, IP, user-agent, cookies, or precise location are copied into event metadata;
+- Admin feed search can find events by trace ID without confusing it with provider request ID or Laravel correlation ID;
+- telemetry failure does not change emergency RPC success/failure semantics.
+
+### 9.5 References
+
+- Supabase, [Client-side tracing](https://supabase.com/docs/guides/observability/client-side-tracing) — current SDK support, opt-in behavior, and W3C trace propagation.
+- Supabase, [Advanced log filtering and request correlation](https://supabase.com/docs/guides/observability/advanced-log-filtering) — API Gateway `sb-request-id` mapping and trace ID log correlation.
+- Supabase, [Securing your API — request information](https://supabase.com/docs/guides/api/securing-your-api) — Postgres `request.headers` access.
+- PostgREST, [Transactions and request headers](https://docs.postgrest.org/en/stable/references/transactions.html) — transaction-local request context and lowercase header keys.
+- W3C, [Trace Context](https://www.w3.org/TR/trace-context/) — standard `traceparent` format and validation.
+
+This is a research-only follow-up. No trace propagation, event schema, RLS/grant, Auth setting, hosted project, or production service was changed by this section.
+
+
+## 10. Direct-client trace correlation research
+
+The direct Android/browser coverage map and W3C trace-propagation design are recorded in `docs/security/direct-supabase-request-correlation-plan.md`. The important implementation gate is to prove that the actual PostgREST HTTP request header reaches SQL before adding trace columns or writers. The browser dependency is new enough for the documented Supabase JS feature but tracing is not configured; Android uses custom Retrofit/OkHttp and has no trace propagation. The API Gateway's `sb-request-id` is mapped to provider log `request_id`, while W3C `traceparent` provides a separate `trace_id`. Treat trace IDs only as tracing hints, never as identity or authorization. This follow-up remains research-only.

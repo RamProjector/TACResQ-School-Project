@@ -2076,3 +2076,29 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Documentation:** Updated `docs/security/admin-session-inventory-and-event-correlation-implementation-spec.md` with the implemented state and coverage boundaries.
 - **Safety:** Both SQL migrations remain unapplied to hosted Supabase. No Auth setting, live schema/data, RLS/grant, secret, Render configuration, or production deployment changed. No session revocation, account suspension, or merge occurred.
 - **Next:** Map direct Android/browser privileged event paths and identify trusted event-writer boundaries. Keep provider request IDs, Auth session IDs, Laravel correlation IDs, device IDs, and row event IDs distinct. Perform manual Admin UI acceptance before considering the UI slice complete.
+
+
+## 2026-11-27 — Admin operations category validation and direct-client trace research
+
+- **Exact implementation head validated:** `7ef7201e40880a099c42dbed8aa15200b14a02f1`; PR #370 remains open and unmerged.
+- **Additional defect found during direct client review:** the Admin investigation client type and filter UI included the new `operations` category, but its response validator's category allowlist did not. The RPC could return API-operation events that the client then rejected as invalid.
+- **Fix:** Added `operations` to the response validator's accepted category set and added a source-contract assertion that locks the complete category set. Source checks passed on the exact head.
+- **Exact-head CI:** all six workflow groups passed again: TACResQ CI (source, Android debug/release, PostgreSQL 16 replay, Laravel/dashboard integration); PostgreSQL 17 RPC grant contract; Security (guardrails and CodeQL Android/Web/Actions); QA (stress and prototype capture); Frontend Review; and read-only profile verification.
+- **Direct client map:** current Android release uses direct Retrofit/OkHttp Supabase requests; the Render bridge is opt-in for debug only and has a 13-RPC allowlist. The Admin browser uses direct Supabase Auth/MFA/RPC calls. Neither path is comprehensively captured by Laravel's `api_operation_logs` writer.
+- **Research finding:** Supabase's current docs confirm W3C `traceparent` can flow through the API Gateway into `trace_id` log fields, while PostgREST exposes incoming request headers through `current_setting('request.headers', true)::jsonb`. The gateway's `sb-request-id` maps to its log `request_id`; it is not a Postgres request header. The web dependency `@supabase/supabase-js ^2.119.2` is compatible with the documented SDK feature, but tracing is not configured; Android's custom OkHttp path has no trace propagation.
+- **Design boundary:** Treat `trace_id` as a tracing hint only, separate from server-generated Laravel `correlation_id`, provider `sb-request-id`, event-row ID, and verified Auth session ID. Never use a client trace ID for actor identity or authorization.
+- **Documentation:** Added `docs/security/direct-supabase-request-correlation-plan.md` and updated the session/correlation implementation spec with the direct-client coverage gap and test gates.
+- **Safety:** No hosted migration, trace propagation, credentials, Supabase setting, Render configuration, or production data was changed. No session revocation, account suspension, or merge occurred.
+- **Next:** Implement and test the private Postgres traceparent parser plus event-source trace_id columns only after disposable PostgREST proves header delivery; then add client propagation and Admin feed search. Manual Admin UI acceptance remains outstanding.
+
+
+## 2026-11-27 — Direct-client request correlation research (PR #370)
+
+- **Exact-head implementation validation:** `7ef7201e40880a099c42dbed8aa15200b14a02f1`; all six workflow groups passed after adding `operations` to the Admin investigation response validator and locking the full category set in the source contract.
+- **Coverage map:** Android release uses direct Retrofit/OkHttp Supabase requests; Render bridge is debug opt-in only and limited to 13 RPCs. Admin web directly calls Supabase Auth/MFA and Admin RPCs. Laravel's `api_operation_logs` does not capture these direct calls.
+- **New provider research:** Supabase docs now document W3C `traceparent` propagation into API Gateway/Edge Function `trace_id` logs, and PostgREST exposes request headers through `current_setting('request.headers', true)::jsonb`. The gateway's `sb-request-id` maps to provider `request_id`, not a Postgres request header.
+- **SDK readiness:** web `@supabase/supabase-js ^2.119.2` is compatible with current trace propagation but does not configure it; the repository has no tracing runtime or direct `@opentelemetry/api` dependency. Android custom OkHttp transport has no trace header injection.
+- **Architecture:** Keep W3C `trace_id` separate from server Laravel `correlation_id`, provider `sb-request-id`, Auth `session_id`, and event row ID. Trace context is client-influenced and must never establish identity, authorization, device trust, or compromise evidence.
+- **Documentation:** Added `docs/security/direct-supabase-request-correlation-plan.md`; updated the implementation spec with direct-client coverage and exact PostgREST integration gates.
+- **Safety:** No trace propagation, schema migration, hosted settings, secrets, Render configuration, or production data changed.
+- **Next:** Prove actual PostgREST traceparent header delivery in a disposable integration environment; only then add the private parser, nullable trace columns, trusted event-writer propagation, and Admin trace search. Manual Admin UI acceptance remains outstanding.
