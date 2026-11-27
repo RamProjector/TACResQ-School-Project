@@ -430,7 +430,7 @@ export default function AdminSecurityStatus() {
                 <ul>
                   <li><strong>Account suspension</strong><span>The database transition function is staged but EXECUTE remains revoked from client roles. Remaining same-JWT authorization coverage, migration/deployment verification, and the Admin workflow are not complete. Current-session enforcement is implemented for protected Admin RPCs and selected sensitive RLS reads; ordinary unguarded PostgREST paths may still accept an unexpired access JWT. No suspend/reactivate action is exposed here.</span></li>
                   <li><strong>Denied-action audit trail</strong><span>Rejected privileged requests are not yet recorded in a trusted, durable Admin event stream.</span></li>
-                  <li><strong>Device-security telemetry</strong><span>No trusted server-side writer currently feeds device-security events into this control center.</span></li>
+                  <li><strong>Device-security telemetry</strong><span>The Admin investigation feed can read sanitized device-security rows and correlate them by Auth session ID, but no trusted server-side writer currently creates these events. Empty results are not evidence that devices are safe.</span></li>
                   <li><strong>Backup and restore status</strong><span>Live backup-job and restore-drill evidence is not connected to this page.</span></li>
                   <li><strong>Push-delivery monitoring</strong><span>FCM delivery attempts and outcomes are not verified by this console.</span></li>
                 </ul>
