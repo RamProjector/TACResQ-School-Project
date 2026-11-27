@@ -4,8 +4,8 @@ export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "a
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
 export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; account_status: "active" | "suspended"; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
-export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
-export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events" | "app_action_audit_logs";
+export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "operations" | "incident" | "assignment";
+export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events" | "app_action_audit_logs" | "api_operation_logs";
 export interface AdminInvestigationEvent {
   event_id: string;
   source: string;
