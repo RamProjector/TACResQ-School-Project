@@ -146,7 +146,9 @@ class SupabaseBridgeTest extends TestCase
             ], 200),
         ]);
 
-        $this->withToken('valid-supabase-access-token')
+        $traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+        $this->withHeader('traceparent', $traceparent)
+            ->withToken('valid-supabase-access-token')
             ->postJson('/api/bridge/rpc/api_create_incident_v4', [
                 'p_type' => 'medical',
                 'p_client_request_id' => '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
@@ -159,10 +161,11 @@ class SupabaseBridgeTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only');
         });
-        Http::assertSent(function ($request) {
+        Http::assertSent(function ($request) use ($traceparent) {
             return str_contains($request->url(), '/rest/v1/rpc/api_create_incident_v4')
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only')
+                && $request->hasHeader('traceparent', $traceparent)
                 && !str_contains($request->header('Authorization')[0] ?? '', 'service_role');
         });
     }
