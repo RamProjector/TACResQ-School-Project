@@ -31,7 +31,7 @@ for (const line of (await readFile(edgeEnvPath, "utf8")).split(/\r?\n/)) {
   if (match) edgeEnv[match[1]] = match[2];
 }
 const verifierDbUrl = edgeEnv.TACRESQ_DEVICE_VERIFIER_DATABASE_URL;
-if (!verifierDbUrl?.includes("tacresq_device_verifier@127.0.0.1")) {
+if (!verifierDbUrl?.includes("tacresq_device_verifier@host.docker.internal")) {
   throw new Error("Refusing to test a verifier database connection outside the dedicated local login");
 }
 const authHeaders = { apikey: anon, "Content-Type": "application/json" };
@@ -170,9 +170,10 @@ try {
   `);
   assert.equal(roleChecks, "t", "dedicated verifier role must have only private function execution");
   const verifierUrl = new URL(verifierDbUrl);
+  const directHost = new URL(dbUrl).hostname;
   const directRead = await import("node:child_process").then(({ spawnSync }) =>
     spawnSync("psql", [
-      "-h", verifierUrl.hostname,
+      "-h", directHost,
       "-p", verifierUrl.port || "5432",
       "-U", decodeURIComponent(verifierUrl.username),
       "-d", verifierUrl.pathname.slice(1),
