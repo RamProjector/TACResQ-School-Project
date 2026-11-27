@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Verify metadata-only app-action audit writes and Admin investigation visibility.
 -- All fixtures are synthetic and run only in the clean PostgreSQL CI replay.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
@@ -328,4 +330,6 @@ END;
 $app_action_audit_fixture$;
 
 RESET ROLE;
+ROLLBACK;
+
 SELECT 'PASS: committed app actions are audited without private content and are visible only through the protected Admin feed.' AS result;
