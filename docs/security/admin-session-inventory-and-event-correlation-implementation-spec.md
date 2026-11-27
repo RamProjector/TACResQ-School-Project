@@ -285,7 +285,7 @@ The direct Android/browser coverage map and W3C trace-propagation design are rec
 ## 11. Sensitive-operation session revocation enforcement — exact boundary research
 
 **Research update:** 2026-11-27  
-**Status:** Design and source inventory only. No session-enforcement migration or runtime change has been made.
+**Status:** Session-enforcement migration and regression contracts are committed to PR #370; exact-head CI and local Auth/PostgREST verification are pending. Not deployed.
 
 ### 11.1 Verified behavior from a disposable local Supabase stack
 
@@ -384,3 +384,16 @@ References:
 - [Supabase changelog — breaking changes](https://supabase.com/changelog?types=breaking-change)
 
 No hosted Auth settings, Auth sessions, database grants, migrations, Render services, or production data were changed during this research.
+
+### 11.8 Branch implementation checkpoint
+
+The following repository-only changes now exist on PR #370:
+
+- Migration 20261127040000 adds two separate session predicates: a STABLE, read-only predicate for direct SELECT/RLS policies and a VOLATILE row-locking predicate for protected RPCs.
+- The shared Admin MFA helper now requires the caller's JWT session_id to identify a row in auth.sessions owned by auth.uid(), and holds a FOR SHARE lock for the protected transaction.
+- The restrictive Admin audit-history and Admin assignment-history RLS policies now include the read-only session-presence predicate. The dispatcher branch of assignment-history access is preserved.
+- The existing disposable SQL session-inventory test now covers valid, cross-user, missing, malformed, all-zero, and deleted session IDs; it also checks direct Admin audit-history access disappears after session-row deletion.
+- The local Auth/PostgREST integration harness now probes both predicates with real Auth-issued tokens, a correctly signed cross-user session_id token, and the old access JWT after local sign-out.
+- Migration-history alignment classifies the new migration as an unapplied forward migration. It is not present in the connected project's migration ledger.
+
+**Important:** the test fixture and new helper have not yet been validated by an exact-head CI run. Do not report this implementation as passing until PostgreSQL 16/17 clean replay, the SQL runtime contract, static source checks, and the local Supabase Auth/PostgREST job have completed. No hosted migration, ACL update, Auth-session mutation, or deployment was performed.
