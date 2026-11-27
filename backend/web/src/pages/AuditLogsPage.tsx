@@ -22,6 +22,7 @@ const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   incident_request_edit_logs: "Requester edits",
   incident_assignment_events: "Responder assignments",
   app_action_audit_logs: "App actions",
+  device_security_events: "Device security events",
   api_operation_logs: "Laravel API operations",
 };
 
