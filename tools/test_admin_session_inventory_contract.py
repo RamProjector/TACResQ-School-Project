@@ -9,6 +9,8 @@ runtime_test = (ROOT / "tools/test_admin_auth_sessions.sql").read_text()
 integration_test = (ROOT / "tools/test_supabase_jwt_context.py").read_text()
 event_migration = (ROOT / "supabase/migrations/20261127050000_add_auth_session_ids_to_audit_events.sql").read_text()
 investigation_migration = (ROOT / "supabase/migrations/20261127030000_admin_investigation_api_operation_correlation.sql").read_text()
+session_feed_migration = (ROOT / "supabase/migrations/20261127070000_admin_session_activity_feed.sql").read_text()
+event_session_migration = (ROOT / "supabase/migrations/20261127060000_admin_event_session_context.sql").read_text()
 bridge_source = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()
 logger_source = (ROOT / "backend/src/app/ApiOperationAuditLogger.php").read_text()
 bridge_test = (ROOT / "backend/src/tests/Feature/SupabaseBridgeTest.php").read_text()
@@ -203,6 +205,24 @@ for marker in (
     assert marker in investigation_migration, f"Investigation feed does not expose/search session attribution: {marker}"
 
 for marker in (
+    "'account_lifecycle_audit_logs'",
+    "FROM public.account_lifecycle_audit_logs AS l",
+    "'auth_session_id', l.auth_session_id",
+    "'auth_session_id', s.auth_session_id",
+    "'auth_session_id', c.auth_session_id",
+    "'auth_session_id', r.auth_session_id",
+    "'auth_session_id', e.auth_session_id",
+):
+    assert marker in session_feed_migration, f"Session activity feed omits a domain event source: {marker}"
+for marker in (
+    "private.tacresq_current_auth_session_id()",
+    "private.tacresq_stamp_auth_session_id()",
+    "CREATE TRIGGER tacresq_stamp_auth_session_id",
+    "ADD COLUMN IF NOT EXISTS auth_session_id uuid",
+):
+    assert marker in event_session_migration, f"Missing event session stamping contract: {marker}"
+
+for marker in (
     "sessionIdFromVerifiedToken($accessToken, $user['id'])",
     "private function sessionIdFromVerifiedToken",
     "hash_equals($verifiedUserId, $claims['sub'])",
@@ -244,6 +264,15 @@ for marker in (
     "correlation_id, actor_auth_user_id, auth_session_id",
     "'auth_session_id'",
     "Searching the Auth session ID must return both bridge events",
+    "DO $session_event_fixtures$",
+    "10000000-0000-4000-8000-000000000402",
+    "account_lifecycle_audit_logs",
+    "incident_status_logs",
+    "incident_request_edit_logs",
+    "incident_claimability_logs",
+    "incident_assignment_events",
+    "Admin session search did not find every stamped Admin event source",
+    "Requester session search did not find incident status and edit events",
 ):
     assert marker in api_operation_test, f"Missing API-operation session attribution regression: {marker}"
 
