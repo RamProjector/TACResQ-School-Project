@@ -58,6 +58,14 @@ def fixture_session() -> dict[str, Any]:
             "email": "admin@example.test",
             "app_metadata": {"provider": "email", "providers": ["email"]},
             "user_metadata": {},
+            "factors": [{
+                "id": "browser-test-totp-factor",
+                "friendly_name": "Test authenticator",
+                "factor_type": "totp",
+                "status": "verified",
+                "created_at": "2026-01-01T00:00:00.000Z",
+                "updated_at": "2026-01-01T00:00:00.000Z",
+            }],
             "created_at": "2026-01-01T00:00:00.000Z",
         },
     }
@@ -123,21 +131,6 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None) -> None:
                 "nextLevel": "aal2",
                 "currentAuthenticationMethods": [],
             })
-            return
-
-        if "/auth/v1/factors" in url:
-            factors = [{
-                "id": "browser-test-totp-factor",
-                "friendly_name": "Test authenticator",
-                "factor_type": "totp",
-                "status": "verified",
-                "created_at": "2026-01-01T00:00:00.000Z",
-            }]
-            # The GoTrue REST endpoint returns the raw factor array; auth-js
-            # derives its all/totp/phone collections from these records.
-            if request.method == "GET":
-                fulfill_json(route, factors)
-                return
             return
 
         # Unanticipated calls should not be silently converted into fake success.
