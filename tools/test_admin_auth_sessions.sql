@@ -123,7 +123,10 @@ BEGIN
     FROM public.admin_audit_logs
    WHERE action = 'user_role_changed'
      AND reason = 'Disposable audit fixture for session revocation policy'
-     AND actor_user_id = current_setting('test.session_inventory_admin_id')::bigint;
+     AND actor_user_id = (
+       SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
+     );
   IF v_count <> 1 THEN
     RAISE EXCEPTION 'Expected one owner-visible disposable Admin audit fixture row, found %', v_count;
   END IF;
@@ -236,10 +239,7 @@ BEGIN
   SELECT count(*) INTO v_visible_audit_rows
     FROM public.admin_audit_logs
    WHERE reason = 'Disposable audit fixture for session revocation policy'
-     AND actor_user_id = (
-       SELECT id FROM public.profiles
-        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
-     );
+     AND actor_user_id = current_setting('test.session_inventory_admin_id')::bigint;
   IF v_visible_audit_rows <> 1 THEN
     RAISE EXCEPTION 'A current Admin session should retain direct audit-history access (visible_rows %, uid %, role %, aal %, amr %, session_present %, active %, current_user %, select_grant %)',
       v_visible_audit_rows, auth.uid(), private.tacresq_actor_role(), auth.jwt() ->> 'aal',
@@ -506,10 +506,7 @@ BEGIN
   SELECT count(*) INTO v_visible_audit_rows
     FROM public.admin_audit_logs
    WHERE reason = 'Disposable audit fixture for session revocation policy'
-     AND actor_user_id = (
-       SELECT id FROM public.profiles
-        WHERE auth_user_id = '00000000-0000-4000-8000-000000000201'
-     );
+     AND actor_user_id = current_setting('test.session_inventory_admin_id')::bigint;
   IF v_visible_audit_rows <> 0 THEN
     RAISE EXCEPTION 'A revoked Admin session must lose direct audit-history access';
   END IF;
