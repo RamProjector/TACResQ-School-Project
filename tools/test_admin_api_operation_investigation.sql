@@ -48,6 +48,18 @@ VALUES (
   '00000000-0000-4000-8000-000000000401'
 );
 
+-- Synthetic provider-owned Auth audit fixture. This validates the read-only
+-- adapter without pretending the provider audit row has a session or trace ID.
+INSERT INTO auth.audit_log_entries (id, payload, created_at)
+VALUES (
+  '20000000-0000-4000-8000-000000000401',
+  json_build_object(
+    'action', 'login',
+    'user_id', '00000000-0000-4000-8000-000000000401'
+  ),
+  now()
+);
+
 SELECT set_config('request.headers', '{"traceparent":"00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"}', true);
 
 INSERT INTO public.api_operation_logs (
@@ -211,8 +223,39 @@ DO $feed_contract$
 DECLARE
   v_page jsonb;
   v_by_correlation jsonb;
+  v_auth_page jsonb;
+  v_admin_profile_id bigint;
   v_rejected boolean := false;
 BEGIN
+  SELECT id INTO v_admin_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000401';
+  -- The provider audit reader must expose the native event while
+  -- retaining source identity and avoiding inferred session/trace attribution.
+  v_auth_page := public.api_admin_list_investigation_events(
+    10, 0, '', 'authentication', 'supabase_auth_audit_logs',
+    NULL, NULL, NULL, NULL, NULL
+  );
+  IF v_auth_page ->> 'contract_version' <> 'session_trace_v1'
+     OR v_auth_page ->> 'total_count' <> '1'
+     OR jsonb_array_length(v_auth_page -> 'events') <> 1
+     OR NOT EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(v_auth_page -> 'events') AS rows(event)
+        WHERE rows.event ->> 'source' = 'supabase_auth_audit_logs'
+          AND rows.event ->> 'category' = 'authentication'
+          AND rows.event ->> 'event_type' = 'login'
+          AND rows.event ->> 'actor_user_id' = v_admin_profile_id::text
+          AND rows.event -> 'details' ->> 'provider_action' = 'login'
+          AND NOT (rows.event -> 'details' ? 'auth_session_id')
+          AND NOT (rows.event -> 'details' ? 'trace_id')
+          AND NOT (rows.event -> 'details' ? 'ip_address')
+          AND NOT (rows.event -> 'details' ? 'user_agent')
+          AND NOT (rows.event -> 'details' ? 'payload')
+     ) THEN
+    RAISE EXCEPTION 'Native Supabase Auth audit adapter lost provenance, actor mapping, or privacy minimization: %', v_auth_page;
+  END IF;
+
   v_page := public.api_admin_list_investigation_events(
     10, 0, '', 'operations', 'api_operation_logs',
     NULL, NULL, NULL, NULL, NULL
