@@ -7,7 +7,11 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000202', 'session-inventory-target@example.test',
     '{"name":"Session Inventory Target","phone":"+63917000022"}'::jsonb),
   ('00000000-0000-4000-8000-000000000203', 'session-inventory-suspended@example.test',
-    '{"name":"Session Inventory Suspended Admin","phone":"+63917000023"}'::jsonb);
+    '{"name":"Session Inventory Suspended Admin","phone":"+63917000023"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000204', 'session-inventory-non-admin@example.test',
+    '{"name":"Session Inventory Non Admin","phone":"+63917000024"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000205', 'session-inventory-empty@example.test',
+    '{"name":"Session Inventory Empty Target","phone":"+63917000025"}'::jsonb);
 
 UPDATE public.profiles
    SET role = 'admin', account_status = 'active'
@@ -75,7 +79,7 @@ INSERT INTO auth.sessions (
   ),
   (
     '00000000-0000-4000-8000-000000000307',
-    '00000000-0000-4000-8000-000000000202',
+    '00000000-0000-4000-8000-000000000204',
     '2026-11-27 03:10:00+00', '2026-11-27 03:15:00+00',
     '2026-11-27 03:15:00', 'aal2', NULL,
     'non-admin-session-fixture', '192.0.2.27',
@@ -120,7 +124,7 @@ SELECT set_config(
 SELECT set_config(
   'test.session_inventory_suspended_admin_id',
   (SELECT id::text FROM public.profiles
-    WHERE auth_user_id = '00000000-0000-4000-8000-000000000203'),
+    WHERE auth_user_id = '00000000-0000-4000-8000-000000000205'),
   true
 );
 SELECT set_config(
@@ -332,10 +336,10 @@ BEGIN
   END IF;
 
   -- Non-Admin profiles are denied even when their JWT claims contain AAL2/TOTP.
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000202', true);
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000204', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000202","session_id":"00000000-0000-4000-8000-000000000307","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000204","session_id":"00000000-0000-4000-8000-000000000307","aal":"aal2","amr":[{"method":"totp"}]}',
     true
   );
   v_rejected := false;
