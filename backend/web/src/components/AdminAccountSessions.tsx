@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import {
   getAdminAuthSessionsPage,
   type AdminAuthSessionCursor,
@@ -27,6 +27,8 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
   const [pageIndex, setPageIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const requestVersion = useRef(0);
 
   useEffect(() => () => {
@@ -82,6 +84,19 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
     void loadPage(cursors[previousIndex] ?? null);
   }
 
+  async function copySessionId(sessionId: string) {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard access is unavailable.");
+      }
+      await navigator.clipboard.writeText(sessionId);
+      setCopiedSessionId(sessionId);
+      setCopyError(null);
+    } catch {
+      setCopyError("Clipboard access is unavailable. Select the session ID from its title to copy it manually.");
+    }
+  }
+
   return (
     <section className="admin-account-sessions" aria-labelledby={"admin-account-sessions-title-" + profileId}>
       <div className="admin-account-sessions__heading">
@@ -125,7 +140,16 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
                     <li key={session.session_id}>
                       <div className="admin-account-sessions__record">
                         <div className="admin-account-sessions__record-title">
-                          <strong>Session · {session.session_id.slice(-8)}</strong>
+                          <strong title={session.session_id}>Session · {session.session_id.slice(-8)}</strong>
+                          <button
+                            className="admin-account-details"
+                            type="button"
+                            onClick={() => { void copySessionId(session.session_id); }}
+                            aria-label={`Copy full Auth session ID ${session.session_id}`}
+                            title="Copy full Auth session ID"
+                          >
+                            <Copy size={13} /> {copiedSessionId === session.session_id ? "Copied" : "Copy ID"}
+                          </button>
                           <span>Record present</span>
                         </div>
                         <dl>
@@ -148,7 +172,8 @@ export default function AdminAccountSessions({ profileId, accountName }: Props) 
                   <button type="button" onClick={nextPage} disabled={!page.has_more || !page.next_cursor || loading}>Next <ChevronRight size={15} /></button>
                 </div>
               </div>
-              <p className="admin-account-sessions__footnote"><Clock3 size={13} /> This view does not revoke sessions. Existing access tokens can remain valid until their expiry even after refresh-token revocation.</p>
+              {copyError && <p className="admin-account-sessions__message" role="status">{copyError}</p>}
+              <p className="admin-account-sessions__footnote"><Clock3 size={13} /> Read-only inventory; it does not revoke sessions or evaluate each listed session's timeout validity. An already-issued access JWT may remain accepted by ordinary endpoints until expiry after sign-out, while protected TACResQ Admin operations and selected sensitive RLS reads also require the current Auth session record. Copy a session ID to search for linked events in Audit history.</p>
             </>
           ) : (
             <p className="admin-account-sessions__message">Session records have not been loaded.</p>
