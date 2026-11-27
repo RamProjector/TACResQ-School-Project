@@ -355,8 +355,9 @@ The live function-body scan found the following internal-only edges:
 - location wrapper -> tacresq_record_location_v2_internal
 - release wrapper -> tacresq_release_incident_assignment_internal
 - upload reservation predicate -> tacresq_auth_profile_id and tacresq_can_access_incident_chat
+- Admin MFA guard -> tacresq_current_auth_session_valid -> auth.sessions (caller-owned session row locked FOR SHARE)
 
-The five privileged implementation helpers listed above returned authenticated EXECUTE false and anon EXECUTE false. The shared chat predicate also returned authenticated/anon EXECUTE false. This is an important boundary: their legacy internal bodies may perform privileged work without repeating every active-account predicate because the live callers establish the trusted identity and lock first. Keep them non-callable and audit every new caller.
+The five privileged implementation helpers listed above returned authenticated EXECUTE false and anon EXECUTE false. The row-locking Admin session helper is separately inventoried as an internal SECURITY DEFINER function: it has no client EXECUTE grant, pins search_path to pg_catalog, and is called by the shared Admin MFA guard to serialize protected RPCs with Auth session deletion. The shared chat predicate also returned authenticated/anon EXECUTE false. This is an important boundary: their legacy internal bodies may perform privileged work without repeating every active-account predicate because the live callers establish the trusted identity and lock first. Keep them non-callable and audit every new caller.
 
 ### RLS and Storage consumers
 
