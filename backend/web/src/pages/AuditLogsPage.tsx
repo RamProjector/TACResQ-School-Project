@@ -9,7 +9,8 @@ type AuditLogsPageProps = { profile: TacruProfile };
 const PAGE_SIZE = 25;
 const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string> = {
   administrative: "Administrative",
-  authentication: "Authentication",\n  operations: "API operations",
+  authentication: "Authentication",
+  operations: "API operations",
   incident: "Incident",
   assignment: "Assignment",
 };
@@ -20,7 +21,8 @@ const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   incident_claimability_logs: "Incident claiming",
   incident_request_edit_logs: "Requester edits",
   incident_assignment_events: "Responder assignments",
-  app_action_audit_logs: "App actions",\n  api_operation_logs: "Laravel API operations",
+  app_action_audit_logs: "App actions",
+  api_operation_logs: "Laravel API operations",
 };
 
 function formatDate(value: string | null | undefined) {
