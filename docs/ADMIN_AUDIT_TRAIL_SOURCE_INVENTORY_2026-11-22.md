@@ -199,3 +199,117 @@ The connected Supabase database does not yet contain the new investigation reade
 The connected database currently reports zero rows in `auth.audit_log_entries`; the project-level Auth Audit Logs Postgres-storage toggle was not exposed by the available project metadata. Verify Authentication → Audit Logs in Supabase Dashboard before expecting provider events in the feed.
 
 No test, build, security scan, deployment, or production migration was run as part of these commits.
+
+
+## 8. 2026-11-27 follow-up — session revocation, live telemetry, and correlation gaps
+
+This section supersedes the older point-in-time statements above where newer evidence is available. It records the current PR branch and a read-only inspection of the connected project. It does not authorize production deployment or changes.
+
+### 8.1 Current PR #370 session-revocation implementation
+
+The branch now contains `20261127040000_admin_sensitive_session_revocation_guard.sql`.
+
+- `private.tacresq_current_auth_session_valid()` checks that the verified JWT `session_id` identifies an `auth.sessions` row owned by `auth.uid()`. It takes a `FOR SHARE` row lock so a concurrent Auth sign-out/session deletion cannot race through a protected Admin RPC.
+- `private.tacresq_current_auth_session_present_read()` is the non-locking `STABLE` counterpart for restrictive RLS read policies. It avoids adding row locks to read-only queries.
+- The shared Admin MFA guard now requires a current Auth session in addition to active Admin status, AAL2, and TOTP.
+- Direct Admin reads of `admin_audit_logs` and the Admin branch of `incident_assignment_events` require the session-presence check. The dispatcher branch remains independent of Admin MFA/session claims.
+- The row-locking helper is internal-only. The read-only helper is executable by authenticated callers for RLS evaluation; neither helper accepts a caller-supplied user/session identity.
+
+**Exact-head verification:** commit `dce92f5ded6649e82e5f84a0f3a38cf12dbbfdb1` completed all eight PR workflows successfully: TACResQ CI, PostgreSQL 17 RPC grant contract, Security/CodeQL, QA, Frontend Review, read-only profile verification, Automated Code Review, and Gradle dependency submission. The local Supabase job itself also completed successfully.
+
+The disposable local Auth → PostgREST test reported 13 passing assertions, including:
+- Auth-issued JWTs preserve their own `auth.uid()` and `session_id`.
+- A validly signed JWT carrying another user's session ID fails the database ownership check.
+- 24 concurrent requests retain caller isolation.
+- Sign-out deletes the matching `auth.sessions` row.
+- The old, unexpired access JWT remains accepted by ordinary PostgREST JWT verification but fails both database session predicates after sign-out.
+- The revoked refresh token is rejected.
+- The non-locking predicate succeeds through a PostgREST GET/read-only transaction.
+
+This proves the sign-out revocation boundary. It does **not** make an already-issued access JWT cryptographically invalid, and row presence alone does not evaluate every Auth inactivity/max-lifetime policy.
+
+PR #370 remains open and unmerged. These migrations are branch-only; no hosted Supabase migration/ACL change, Render deployment, or production write was performed.
+
+### 8.2 Read-only live telemetry snapshot
+
+A read-only database count and unified-log inspection was performed against the connected project on 2026-11-27. Counts are point-in-time and do not establish that a writer is correctly wired.
+
+| Source | Total rows | Created/occurred in last 24 hours |
+|---|---:|---:|
+| `admin_audit_logs` | 1 | 0 |
+| `api_operation_logs` | 0 | 0 |
+| `app_action_audit_logs` | 0 | 0 |
+| `device_security_events` | 0 | 0 |
+| `incident_assignment_events` | 0 | 0 |
+| `incident_claimability_logs` | 0 | 0 |
+| `incident_request_edit_logs` | 1 | 0 |
+| `incident_status_logs` | 2 | 0 |
+| `fcm_delivery_attempts` | 0 | — |
+| `auth.audit_log_entries` | 0 | 0 |
+| `auth.sessions` | 15 | 0 |
+
+Additional observations from the same 24-hour window:
+
+- `api_admin_list_investigation_events` received 10 requests, all HTTP 200. No request to `api_admin_list_auth_sessions_page` was observed in that window. This is a usage observation, not proof that the session RPC is broken.
+- Supabase Auth service logs recorded login and token-revocation activity. Six `token_revoked` events appeared in the Auth log stream. Gateway log attributes include request/trace IDs and the JWT session ID, but these provider logs are not being ingested into the database-backed Admin investigation sources.
+- The database table `auth.audit_log_entries` remains empty even though provider Auth logs contain events. The project-level Auth Audit Logs Postgres-storage setting is still unverified; do not assume the table is a complete provider audit source.
+- The 12 PostgreSQL ERROR-level log entries observed in this window were tagged with the Supabase management API application, not the TACResQ application. They are excluded from the application's runtime error count. The Admin investigation RPC requests themselves returned 200.
+- One unrelated REST-root request was rejected with an invalid API-key-type 401. It was not an Admin investigation/session RPC failure.
+
+The live schema confirms a structural correlation gap:
+
+| Source | Existing identifier fields | Missing link |
+|---|---|---|
+| `api_operation_logs` | `correlation_id`, `provider_request_id`, actor Auth UUID | No `auth_session_id` |
+| `app_action_audit_logs` | `correlation_id`, actor profile ID | No `auth_session_id` |
+| `device_security_events` | `auth_session_id` | No `correlation_id`; no trusted writer or live rows |
+| `admin_audit_logs` | Source row ID, actor/target profile IDs | No `correlation_id` or `auth_session_id` |
+| `incident_assignment_events` | Source row ID, actor/target profile IDs, timestamp | No `correlation_id` or `auth_session_id` |
+| `auth.sessions` | Auth session ID and owner | No request correlation ID |
+| `auth.audit_log_entries` | Provider audit row/payload when populated | Currently zero rows; no usable session join demonstrated |
+
+### 8.3 Why session and security alerts are not yet correlated
+
+The current UI has separate concepts, not a shared event graph:
+
+- `AdminAccountSessions` displays session metadata but does not show a session-scoped activity timeline.
+- `AdminSecurityStatus` shows current MFA/session posture and a recent authentication-events preview; it is not a device-security telemetry reader.
+- `AdminInvestigationEvent` has a source event ID and source details, but no first-class `correlation_id` or `auth_session_id` fields/filters.
+- The Laravel request middleware creates a request correlation ID and the Laravel Supabase bridge can propagate it. Direct Android and Admin-web Supabase calls bypass that Laravel middleware.
+- Correlation IDs exist on the API-operation and app-action schemas, but both live tables currently have zero rows. The device-security table has an Auth session reference but no correlation ID and no trusted event writer.
+- Supabase's unified provider logs expose request/trace IDs and session IDs, but the Admin database RPC cannot query that log stream. The database-backed Auth audit table is empty.
+
+Therefore the present issue is not merely a missing UI column. The durable event sources are mostly empty, and the sources that do have identifiers use different keys. The UI must not imply that a blank feed means no security activity occurred.
+
+### 8.4 Correct correlation model
+
+Keep these identifiers distinct:
+
+1. **Event ID** — identifies one source row.
+2. **Correlation ID** — identifies one request/operation across trusted components.
+3. **Auth session ID** — identifies the verified Supabase Auth session that performed an operation.
+4. **Provider request ID** — identifies the provider-side request; it is not a substitute for the application correlation ID.
+
+Recommended follow-up work:
+
+- Add `auth_session_id` to authenticated event writers and derive it inside the database from the verified JWT session claim. Never accept a client-supplied user/session ID as authoritative.
+- Generate one correlation ID at a trusted ingress and propagate it to all records created by that operation. Laravel-mediated calls should retain the middleware-generated ID. Direct Supabase RPCs should generate a server-side ID when no trusted request context exists and return it to the caller.
+- Extend the unified investigation RPC and TypeScript event model with first-class nullable `correlation_id` and `auth_session_id` fields, plus exact-match filters. A source that cannot provide an identifier must return null rather than a guessed value.
+- Add a session-scoped related-events view to the account-session UI. Show “no linked events” separately from “source unavailable” or “writer not configured.”
+- Keep device-security events unavailable until a trusted verification/writer path exists. Do not grant client INSERT or create alerts from client-claimed device/session identifiers.
+- Do not correlate by user and timestamp alone. If an event has no shared key, label it as a possible temporal association, never a confirmed link.
+- Verify the Auth Audit Logs storage setting and supported provider access method before promising provider authentication events in the Admin feed. Do not put management API credentials in the browser or add a paid logging service.
+
+### 8.5 Acceptance tests for the correlation follow-up
+
+- A trusted authenticated operation records the exact JWT-derived session ID and one correlation ID across all records it creates.
+- A forged body/header session ID cannot change the stored Auth session ID.
+- Two sessions for the same user remain distinguishable.
+- Multiple requests within one session have different correlation IDs but the same session ID.
+- A provider request ID remains separately attributable.
+- Events without a verified Auth session (system/worker events) retain a null session ID and an explicit system actor.
+- The Admin feed filters by exact session/correlation IDs and preserves source-specific event semantics.
+- Empty, unavailable, and unconfigured sources render distinct UI states.
+- Device-security writes remain denied to browser/mobile clients until the trusted writer and verifier are implemented.
+
+No live data, Auth settings, ACLs, migrations, or deployments were changed during this follow-up.
