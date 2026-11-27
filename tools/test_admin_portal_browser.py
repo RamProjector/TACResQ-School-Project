@@ -464,6 +464,22 @@ def run_browser_tests(browser: Browser) -> list[str]:
         raise AssertionError(f"Analytics export did not produce a CSV: {download.suggested_filename}")
     expect(page.locator(".admin-analytics-export-notice")).to_contain_text("Export prepared:")
     completed.append("analytics page renders validated aggregate metrics and exports a CSV")
+
+    # The authenticated Admin shell must also remain usable on a narrow screen.
+    page.set_viewport_size({"width": 390, "height": 844})
+    expect(page.get_by_role("button", name="Open navigation")).to_be_visible()
+    has_no_horizontal_overflow = page.evaluate(
+        "() => document.documentElement.scrollWidth <= window.innerWidth"
+    )
+    if not has_no_horizontal_overflow:
+        raise AssertionError("The authenticated Admin workspace overflows horizontally at 390px.")
+    page.get_by_role("button", name="Open navigation").click()
+    mobile_navigation = page.get_by_role("dialog", name="Primary navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("button", name="User management").click()
+    expect(mobile_navigation).to_have_count(0)
+    expect(page.get_by_role("heading", name="User management").first).to_be_visible()
+    completed.append("authenticated Admin workspace fits a 390px viewport and mobile navigation opens, routes, and closes")
     page.close()
 
     # Check both responsive layouts on the real login screen.
