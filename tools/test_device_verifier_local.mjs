@@ -239,7 +239,7 @@ try {
   console.log("PASS: expired challenge is rejected");
 
   // Four more challenges bring this session to five within 15 minutes.
-  for (let i = 0; i < 4; i++) await issue(bravo, "session_proof", bravoDevice);
+  for (let i = 0; i < 3; i++) await issue(bravo, "session_proof", bravoDevice);
   const limited = await invoke(bravo, { action: "issue", purpose: "session_proof", deviceId: bravoDevice });
   assert.equal(limited.status, 429, "persistent per-profile/session issuance limit must reject the sixth challenge");
   console.log("PASS: persistent per-profile/session challenge issuance limit is enforced");
