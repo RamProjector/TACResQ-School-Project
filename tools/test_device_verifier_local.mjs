@@ -147,6 +147,21 @@ async function cleanup() {
       DROP TRIGGER IF EXISTS __device_verifier_fail_event ON public.device_security_events;
       DROP FUNCTION IF EXISTS public.__device_verifier_fail_event();
     `);
+    if (createdUsers.length > 0) {
+      const authIds = createdUsers.map((user) => `'${user.id}'::uuid`).join(", ");
+      psql(`
+        DELETE FROM public.device_integrity_checks
+         WHERE profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id IN (${authIds}));
+        DELETE FROM public.device_security_events
+         WHERE profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id IN (${authIds}));
+        DELETE FROM public.device_challenges
+         WHERE profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id IN (${authIds}));
+        DELETE FROM public.device_sessions
+         WHERE profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id IN (${authIds}));
+        DELETE FROM public.user_devices
+         WHERE profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id IN (${authIds}));
+      `);
+    }
   } catch { /* The disposable database may already be stopping. */ }
   for (const user of createdUsers) {
     try {
