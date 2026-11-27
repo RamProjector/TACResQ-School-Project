@@ -54,7 +54,7 @@ async function createUser(label) {
   const password = `${crypto.randomUUID()}Aa1!`;
   const created = await request(`${api}/auth/v1/admin/users`, {
     method: "POST", headers: adminHeaders,
-    body: { email, password, email_confirm: true, user_metadata: { name: `Device Proof ${label}` } },
+    body: { email, password, email_confirm: true, user_metadata: { name: `Device Proof ${label}`, phone: "+63917000000" } },
   });
   assert.ok([200, 201].includes(created.status) && created.data?.id, `synthetic Auth user creation failed: HTTP ${created.status}`);
   const signedIn = await request(`${api}/auth/v1/token?grant_type=password`, {
