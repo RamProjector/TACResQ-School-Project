@@ -274,12 +274,12 @@ BEGIN
     100, 0, app_correlation_id::text,
     'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
-  IF (feed->>'total_count')::integer <> 3
+  IF (feed->>'total_count')::integer <> 4
      OR EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'source' = 'api_operation_logs'
      ) THEN
-    RAISE EXCEPTION 'Transaction correlation search must return only the three app actions in that database transaction: %', feed;
+    RAISE EXCEPTION 'Transaction correlation search must return all four app-action rows, including the system-attributed provisioning event: %', feed;
   END IF;
 
   feed := public.api_admin_list_investigation_events(
