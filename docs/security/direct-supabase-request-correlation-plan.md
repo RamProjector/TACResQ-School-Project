@@ -1,7 +1,7 @@
 # TACResQ Direct Supabase Request Correlation — Research & Implementation Plan
 
 **Date:** 2026-11-27  
-**Status:** Research only; no trace propagation or event schema changes implemented  
+**Status (2026-11-27):** The first trace-correlation slice is implemented in PR #370: nullable trace columns and a private parser/stamping trigger, Admin trace search, Laravel propagation, and per-request Android/browser traceparent generation. Local PostgREST header delivery and 24 concurrent context-isolation checks pass. Hosted behavior and complete distributed-operation tracing remain unverified.  
 **Parent:** PR #370 — Admin IPS / session and security-event correlation  
 **Scope:** Android direct Supabase transport, Admin web Supabase client, Laravel bridge, PostgREST event writers, Admin investigation feed
 
@@ -19,20 +19,20 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 - Release builds set `USE_RENDER_BRIDGE=false`; debug canary builds may opt in to the Render bridge.
 - The bridge allowlist contains 13 functions: `api_active_responder_locations`, `api_all_incidents`, `api_assign_incident`, `api_assign_incident_team`, `api_cancel_my_incident`, `api_create_incident_v4`, `api_me`, `api_my_incidents`, `api_record_location_v2`, `api_set_duty_status`, `api_units`, `api_update_incident_status`, and `api_update_my_incident`.
 - Login/signup/logout, release assignment, claim/claimable operations, notifications, FCM, assignment-history reads, incident chat, and Storage upload/download use direct Supabase endpoints in the reviewed implementation. Several allowlisted bridge calls also remain direct in release because the bridge is disabled there.
-- The shared OkHttp client currently adds `apikey`, `Accept`, and stored Authorization. It does not add W3C trace headers.
+- The shared OkHttp client adds `apikey`, `Accept`, stored Authorization, and a fresh version-00 W3C `traceparent` for each request through `TraceparentInterceptor`.
 
 ### Admin web
 
 - `Home.tsx` calls `auth.signInWithPassword()`, restores sessions, listens for Auth state changes, and signs out locally through Supabase Auth.
 - `AdminMfaGate.tsx` and `AdminSecurityStatus.tsx` call Supabase Auth MFA methods directly: assurance-level reads, factor listing, enrollment, challenge/verification, unenrollment, and global sign-out.
 - `backend/web/src/lib/supabase.ts` calls Admin RPCs directly, including account listing, role changes, account lifecycle, session inventory, analytics, investigation events, and dependency health.
-- `backend/web/package.json` currently declares `@supabase/supabase-js ^2.119.2`. No explicit `tracePropagation`, tracing runtime import, or direct `@opentelemetry/api` dependency is configured.
+- `backend/web/package.json` declares `@supabase/supabase-js ^2.119.2`. The repository uses a custom `global.fetch` wrapper in the Supabase client to add a fresh W3C `traceparent` per request; it does not add an OpenTelemetry SDK, exporter, or paid telemetry service.
 
 ### Laravel bridge
 
 - Laravel generates its own request UUID in `RequestCorrelationId` and records it in `api_operation_logs.correlation_id`.
 - `SupabaseBridge` captures trusted upstream `sb-request-id` (or `x-request-id` fallback) and stores it separately as `provider_request_id`.
-- The bridge currently does not propagate a W3C `traceparent` header to its upstream Supabase requests.
+- The bridge validates inbound `traceparent` syntax and forwards valid context to Auth and allowlisted PostgREST RPC requests. The metadata-only audit writer forwards the same validated context to `api_operation_logs`.
 - The operation logger is fail-open and bounded. It skips persistence if the server-side Supabase URL or secret is unavailable; live Render environment-variable presence was not established by the read-only metadata inspection.
 
 ## 3. Existing event coverage
@@ -54,7 +54,7 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 
 The stored `auth_session_id` is a signed JWT claim used as a historical attribution key. It is not a claim that the Auth session row is still present or that the session remains valid now. There is deliberately no foreign key to `auth.sessions`, so historical event attribution survives sign-out/session deletion. Laravel's `local_account_lifecycle_events` remains a separate Sanctum identity domain and is not joined to Supabase Auth sessions.
 
-The existing sources should remain distinct. Do not manufacture cross-source joins from actor ID plus timestamp proximity.
+The existing sources should remain distinct. Do not manufacture cross-source joins from actor ID plus timestamp proximity. Device challenge registration/session-proof events now have a trusted Edge-verifier writer in PR #370; the registry remains unused by operational client flows until session/device enforcement is implemented.
 
 ### 3.1 PostgREST event-writer inventory
 
@@ -68,7 +68,7 @@ The current SQL writers were inspected before designing the parser migration:
 - `admin_audit_logs`: direct insert in `public.api_admin_set_user_role()`.
 - `account_lifecycle_audit_logs`: direct insert in `public.api_admin_set_account_status()`; this separate immutable ledger is rendered in the Admin lifecycle-history section and is not currently part of the unified investigation-feed union.
 
-These SQL writers execute in the originating database transaction. Migration `20261127060000_admin_event_session_context.sql` attaches a private BEFORE INSERT trigger that stamps the signed Auth `session_id` claim; the writers do not accept a caller-supplied session ID. This is separate from the future W3C trace parser, which still needs to read and validate `traceparent`. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and receives its session ID only from the bridge's verified Auth context; trace propagation through that bridge remains unimplemented. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer. Laravel's `local_account_lifecycle_events` belongs to the separate Sanctum identity domain and must not be assigned a Supabase Auth session or joined as if it shared the PostgREST caller context.
+These SQL writers execute in the originating database transaction. Migration `20261127060000_admin_event_session_context.sql` attaches a private BEFORE INSERT trigger that stamps the signed Auth `session_id` claim; the writers do not accept a caller-supplied session ID. This is separate from the W3C trace parser and BEFORE INSERT trigger implemented in migration `20261127080000`. The Laravel `api_operation_logs` writer is a separate service-key HTTP write and receives its session ID only from the bridge's verified Auth context; valid inbound trace context is propagated to that write. Supabase Auth audit events have a separate provider persistence path, and `device_security_events` still has no trusted event writer. Laravel's `local_account_lifecycle_events` belongs to the separate Sanctum identity domain and must not be assigned a Supabase Auth session or joined as if it shared the PostgREST caller context.
 
 ## 4. Supabase request correlation semantics
 
@@ -135,7 +135,7 @@ A client can supply or replay a trace ID. Validate its syntax and reject all-zer
 - [PostgREST Transactions and request headers](https://docs.postgrest.org/en/stable/references/transactions.html)
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/)
 
-At the time of the original research, no trace propagation, database migration, RLS/grant, Auth setting, credential, Render configuration, or production data was changed. Subsequent repository-only trace-context implementation is recorded in Section 9; it does not change hosted resources.
+At the time of the original research, no trace propagation or database trace schema existed. The repository-only implementation described in Section 9 does not change hosted resources. No production migration, RLS/grant, Auth setting, credential, Render configuration, or production data was changed.
 
 
 ## 9. Repository implementation checkpoint — 2026-11-27
@@ -148,4 +148,4 @@ PR #370 now contains the first database/Admin/Laravel trace-context implementati
 - Browser Supabase-js custom fetch and Android shared OkHttp/bridge interceptors generate a fresh cryptographically random traceparent per request; JVM tests validate format, non-zero IDs, and uniqueness.
 - PHP and SQL runtime/static contracts for invalid input, event stamping, search, and propagation.
 
-This remains partial tracing coverage. Android and browser direct Supabase/Storage requests are not configured to generate/propagate W3C context; device-security events still lack a trusted writer; provider-managed Auth audit entries are not trace-stamped. No hosted migration, service deployment, paid exporter, or telemetry vendor was added. The current change does not alter authorization or infer security alerts from trace IDs.
+This remains request-level correlation, not complete distributed tracing: each HTTP request receives a fresh trace ID, so separate requests in one user action are not automatically parent/child spans. Android and browser direct Supabase/Auth/PostgREST/Storage requests now generate traceparent values; Laravel forwards validated inbound context; trusted database event writers stamp the trace ID. Provider-managed Auth audit entries remain outside this stamping path. Device-security events are stamped when the trusted verifier writes them. Hosted gateway behavior and log retention have not been validated. No hosted migration, service deployment, paid exporter, or telemetry vendor was added. Trace IDs remain observability metadata only and do not alter authorization or trigger security decisions.
