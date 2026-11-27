@@ -396,4 +396,11 @@ The following repository-only changes now exist on PR #370:
 - The local Auth/PostgREST integration harness now probes both predicates with real Auth-issued tokens, a correctly signed cross-user session_id token, and the old access JWT after local sign-out.
 - Migration-history alignment classifies the new migration as an unapplied forward migration. It is not present in the connected project's migration ledger.
 
-**Important:** the test fixture and new helper have not yet been validated by an exact-head CI run. Do not report this implementation as passing until PostgreSQL 16/17 clean replay, the SQL runtime contract, static source checks, and the local Supabase Auth/PostgREST job have completed. No hosted migration, ACL update, Auth-session mutation, or deployment was performed.
+**Validation checkpoint (2026-11-27, commit `e37393440637ed65b25b197cb2cbb8b763568842`):**
+- Static source checks passed.
+- The disposable local Supabase Auth/PostgREST integration assertions passed, including two real Auth-issued user JWTs, `auth.uid()`/`session_id` propagation, session ownership, forged body identity rejection, cross-user session rejection, 24 concurrent identity/header-isolation requests, valid `traceparent` delivery through the local gateway into `request.headers`, sign-out session-row deletion, stale access-JWT database denial, and revoked refresh-token rejection.
+- The local Supabase job was still completing its container/volume cleanup when this checkpoint was recorded; its actual test command had returned all PASS assertions.
+- RPC grant contract, QA prototype capture/stress checks, Frontend Review, read-only profile verification, repository security guardrails, and CodeQL web/Actions had passed. Android builds, Android CodeQL, PostgreSQL 16/17 clean replay, and Laravel/dashboard integration were still running.
+- The local Supabase lane is advisory and must be reported separately from required CI. The local traceparent proof does not establish hosted Supabase behavior or current Android/web client propagation.
+
+No hosted migration, ACL update, Auth-session mutation, Render configuration change, production deployment, or merge was performed. Keep PR #370 open and unmerged until all required checks pass on one exact head.
