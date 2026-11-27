@@ -532,3 +532,27 @@ Research references rechecked 2026-11-27:
 - Supabase, [JavaScript auth.getClaims](https://supabase.com/docs/reference/javascript/auth-getclaims): verifies JWT claims using the project's signing keys.
 - Supabase, [Auth sessions](https://supabase.com/docs/guides/auth/sessions): the signed access JWT includes a `session_id` corresponding to `auth.sessions`.
 - Supabase, [Database connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres): shared transaction pooling is intended for short-lived serverless/Edge connections.
+
+
+## 21. Android Keystore P-256 key manager — isolated implementation
+
+**Added to the Android source on 2026-11-27. It is intentionally not connected to login, SOS, responder, dispatch, chat, FCM, or Admin flows.**
+
+- `app/src/main/java/com/tacresq/app/data/local/DeviceProofKeyStore.kt` creates and loads a non-exportable EC P-256 private key using Android Keystore and `SHA256withECDSA`.
+- The versioned alias is `tacresq_device_proof_p256_v1`, separate from the existing `tacresq_session_aes_gcm_v1` AES-GCM session encryption key.
+- The class exposes only the SPKI public key (standard Base64) and DER signature bytes. It has no private-key export method.
+- The message length is bounded to 2,048 bytes; the DER signature is checked for the expected ASN.1 SEQUENCE framing and P-256-sized range.
+- Key deletion is an explicit recovery hook only. It is not automatically called after a signing error because deleting a registered key requires server-side device revocation/re-registration. There is no automatic key rotation.
+- `app/src/androidTest/java/com/tacresq/app/data/local/DeviceProofKeyStoreTest.kt` covers stable public-key retrieval, valid SHA256withECDSA verification, altered-message rejection, explicit delete/recreate behavior, and separation from the AES session alias.
+
+The existing Android build compiles instrumentation tests, but this workflow does not run AndroidKeyStore tests on a real device/emulator. Therefore the new instrumentation tests are present but **not yet executed**. No emulator was activated, no endpoint was wired into app behavior, and no device registration was enabled.
+
+### Android integration gates
+
+1. Execute the instrumentation suite on supported Android 8.0+ hardware/emulators and confirm Android Keystore returns P-256 SPKI and DER signatures accepted by the server's local verifier suite.
+2. Validate behavior on devices where Android Keystore cannot generate EC P-256 keys; fail closed with a clear unsupported-device result rather than silently falling back to software keys.
+3. Decide and implement Android Key Attestation verification before making hardware-backed claims. This implementation proves possession of a Keystore-held key only; it does not prove StrongBox, hardware backing, Play Integrity, or device integrity.
+4. Implement an authenticated device revocation/key-rotation transaction before exposing `deleteForRecovery()` in user-facing recovery UI. A registered Auth session cannot be rebound to a different device.
+5. Add the Android API client and UX only after the verifier endpoint is deployed with a provisioned dedicated DB login and pooler `session_user` behavior is validated.
+
+**Decision:** the server-side verifier and Android key-storage primitives now exist with local integration and compile-time regression coverage. The Android key manager remains dormant until device-level tests and the production trust-boundary setup are approved.
