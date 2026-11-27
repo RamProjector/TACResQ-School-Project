@@ -112,6 +112,11 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
   return event.actor_user_id === profile.id ? "You" : event.actor_label || "Unknown actor";
 }
 
+function getTechnicalReference(event: AdminInvestigationEvent, key: string): string | null {
+  const value = event.details[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function parseOptionalPositiveId(value: string): number | null {
   if (!value.trim() || !/^[1-9]\d*$/.test(value)) return null;
   const parsed = Number(value);
@@ -471,6 +476,24 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                   <dl>
                     <div><dt>Event reference</dt><dd><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Reference copied" : "Copy technical reference"} title={copiedEventId === event.event_id ? "Copied" : "Copy reference"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy"}</button></dd></div>
                     <div><dt>Source key</dt><dd><code>{event.source}</code></dd></div>
+                    {getTechnicalReference(event, "correlation_id") && (
+                      <div>
+                        <dt>Correlation ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "correlation_id")}</code>
+                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "correlation_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this correlation ID" title="Find related events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
+                    {getTechnicalReference(event, "provider_request_id") && (
+                      <div>
+                        <dt>Provider request ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "provider_request_id")}</code>
+                          <button type="button" onClick={() => { setQuery(getTechnicalReference(event, "provider_request_id") || ""); setPage(0); setExpanded(null); }} aria-label="Find events with this provider request ID" title="Find related events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
                     {event.actor_user_id !== null && <div><dt>Actor profile reference</dt><dd>{event.actor_user_id}</dd></div>}
                     {event.target_user_id !== null && <div><dt>Target profile reference</dt><dd>{event.target_user_id}</dd></div>}
                     {event.incident_id !== null && <div><dt>Incident reference</dt><dd>{event.incident_id}</dd></div>}
