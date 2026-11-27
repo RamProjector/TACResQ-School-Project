@@ -31,7 +31,9 @@ for (const line of (await readFile(edgeEnvPath, "utf8")).split(/\r?\n/)) {
   if (match) edgeEnv[match[1]] = match[2];
 }
 const verifierDbUrl = edgeEnv.TACRESQ_DEVICE_VERIFIER_DATABASE_URL;
-if (!verifierDbUrl?.includes("tacresq_device_verifier@host.docker.internal")) {
+const verifierConnection = verifierDbUrl ? new URL(verifierDbUrl) : null;
+if (verifierConnection?.username !== "tacresq_device_verifier"
+    || verifierConnection.hostname !== "host.docker.internal") {
   throw new Error("Refusing to test a verifier database connection outside the dedicated local login");
 }
 const authHeaders = { apikey: anon, "Content-Type": "application/json" };
