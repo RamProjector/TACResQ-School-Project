@@ -209,8 +209,12 @@ def run_browser_tests(browser: Browser) -> list[str]:
     # Admin credentials alone must not bypass the verified TOTP gate.
     page = browser.new_page(viewport={"width": 1440, "height": 900})
     failed_requests: list[str] = []
-    page.on("requestfailed", lambda request: failed_requests.append(
-        f"{request.method} {request.url}: {request.failure}"
+    requests_in_flight: dict[str, str] = {}
+    page.on("request", lambda request: requests_in_flight.__setitem__(request.url, request.method))
+    page.on("requestfinished", lambda request: requests_in_flight.pop(request.url, None))
+    page.on("requestfailed", lambda request: (
+        failed_requests.append(f"{request.method} {request.url}: {request.failure}"),
+        requests_in_flight.pop(request.url, None),
     ))
     mock_supabase(page, login="valid", role="admin")
     page.goto(BASE_URL, wait_until="domcontentloaded")
@@ -222,7 +226,7 @@ def run_browser_tests(browser: Browser) -> list[str]:
     except AssertionError as error:
         raise AssertionError(
             f"Admin MFA gate did not reach verification. Body: {page.locator('body').inner_text()} "
-            f"Failed requests: {failed_requests}"
+            f"Failed requests: {failed_requests} In-flight requests: {requests_in_flight}"
         ) from error
     expect(page.get_by_text("Enter the current six-digit code from Google Authenticator")).to_be_visible()
     expect(page.locator(".admin-sidebar")).to_have_count(0)
