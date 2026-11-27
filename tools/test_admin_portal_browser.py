@@ -145,7 +145,11 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             params = request.post_data_json or {}
             requested_role = str(params.get("p_role", ""))
             old_role = str(managed_user["role"])
-            if params.get("p_user_id") != managed_user["id"] or requested_role not in {"requester", "responder", "driver", "dispatcher"}:
+            if (
+                params.get("p_user_id") != managed_user["id"]
+                or requested_role not in {"requester", "responder", "driver", "dispatcher"}
+                or params.get("p_reason") != "Operational reassignment approved"
+            ):
                 fulfill_json(route, {"code": "22023", "message": "Invalid test role change"}, status=400)
                 return
             managed_user["role"] = requested_role
