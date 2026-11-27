@@ -156,7 +156,7 @@ final class SupabaseBridge
      * x-request-id fallback supports self-hosted/reverse-proxy deployments.
      * Never accept a caller-supplied value for this provider identifier.
      */
-    private function providerRequestId(\\Illuminate\\Http\\Client\\Response $response): ?string
+    private function providerRequestId(\Illuminate\Http\Client\Response $response): ?string
     {
         $value = $response->header('sb-request-id') ?? $response->header('x-request-id');
         if (!is_string($value)) {
