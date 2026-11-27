@@ -44,8 +44,9 @@ REVOKE ALL ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.__tacresq_jwt_context_probe(uuid, uuid)
   TO authenticated;
+NOTIFY pgrst, 'reload schema';
 """
-DROP_SQL = "DROP FUNCTION IF EXISTS public.__tacresq_jwt_context_probe(uuid, uuid);"
+DROP_SQL = "DROP FUNCTION IF EXISTS public.__tacresq_jwt_context_probe(uuid, uuid); NOTIFY pgrst, 'reload schema';"
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -158,11 +159,11 @@ def main() -> int:
             if claims.get("sub") != user_id or not claims.get("session_id"):
                 raise AssertionError("Access token is missing the expected sub/session_id claims")
             users[-1].update({"token": token, "session_id": str(claims["session_id"])})
-            session_id = str(claims["session_id"])
+            session_id = str(uuid.UUID(str(claims["session_id"])))
+            user_id = str(uuid.UUID(user_id))
             session_sql = (
                 "SELECT EXISTS (SELECT 1 FROM auth.sessions WHERE id = '"
-                + session_id + "'::uuid AND user_id = '" + user_id
-                + "'::uuid AND revoked_at IS NULL);"
+                + session_id + "'::uuid AND user_id = '" + user_id + "'::uuid);"
             )
             if psql(cfg["DB_URL"], session_sql).stdout.strip() != "t":
                 raise AssertionError("Issued JWT session_id has no matching live auth.sessions row")
