@@ -156,6 +156,16 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
+  // The Admin user-detail session action seeds one search through the URL.
+  // Consume that handoff value after initializing state so later manual
+  // searches are not overwritten by a stale session ID on refresh.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("auditQuery")) return;
+    url.searchParams.delete("auditQuery");
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, []);
+
   const dateRangeError = getAuditDateRangeError(from, to);
   const actorFilterId = parseOptionalPositiveId(actorId);
   const targetFilterId = parseOptionalPositiveId(targetId);
