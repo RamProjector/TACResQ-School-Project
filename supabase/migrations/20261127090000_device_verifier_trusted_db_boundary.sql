@@ -46,7 +46,7 @@ FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON SEQUENCE
   public.device_security_events_id_seq,
   public.device_integrity_checks_id_seq
-FROM PUBLIC, anon, authenticated, service_role;
+FROM PUBLIC, anon, authenticated;
 
 CREATE INDEX IF NOT EXISTS device_challenges_profile_session_created_idx
   ON public.device_challenges (profile_id, auth_session_id, created_at DESC);
