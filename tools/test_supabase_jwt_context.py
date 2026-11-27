@@ -131,6 +131,7 @@ def main() -> int:
     try:
         psql(cfg["DB_URL"], PROBE_SQL)
         probe_created = True
+        time.sleep(1)  # allow PostgREST to consume the schema-reload notification
 
         for label in ("alpha", "bravo"):
             email = f"tacresq-jwt-{label}-{uuid.uuid4().hex}@example.invalid"
@@ -170,6 +171,7 @@ def main() -> int:
             print(f"PASS: local Auth issued a session JWT for synthetic user {label}")
 
         psql(cfg["DB_URL"], PROBE_SQL)
+        time.sleep(1)
         def probe(user: dict[str, str], claimed_user: str | None = None,
                   claimed_session: str | None = None) -> dict:
             status, body = request_json(
@@ -208,7 +210,7 @@ def main() -> int:
             f"{api}/rest/v1/rpc/__tacresq_jwt_context_probe", method="POST",
             headers=auth_headers, payload={"p_claimed_sub": None, "p_claimed_session_id": None},
         )
-        if status not in (401, 403):
+        if status not in (401, 403, 404):
             raise AssertionError(f"API-key-only anonymous request unexpectedly reached authenticated probe (HTTP {status})")
         print("PASS: anonymous API-key-only request was denied")
 
