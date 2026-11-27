@@ -44,7 +44,7 @@ final class SupabaseBridge
                 $status >= 500 || $status === 429 ? 'failure' : ($response->successful() ? 'success' : 'rejected'),
                 $status,
                 (int) ((hrtime(true) - $startedAt) / 1_000_000),
-                null,
+                $this->providerRequestId($response),
                 null,
                 $this->correlationId(),
             );
@@ -129,7 +129,7 @@ final class SupabaseBridge
                 $status >= 500 || $status === 429 ? 'failure' : ($status >= 400 ? 'rejected' : 'success'),
                 $status,
                 (int) ((hrtime(true) - $startedAt) / 1_000_000),
-                null,
+                $this->providerRequestId($response),
                 null,
                 $this->correlationId(),
             );
@@ -148,6 +148,23 @@ final class SupabaseBridge
             );
             return ['status' => 502, 'body' => ['message' => 'Supabase is temporarily unavailable.']];
         }
+    }
+
+    /**
+     * Supabase API Gateway returns sb-request-id on responses; it maps to the
+     * provider log request_id and is the stable cross-service join key. The
+     * x-request-id fallback supports self-hosted/reverse-proxy deployments.
+     * Never accept a caller-supplied value for this provider identifier.
+     */
+    private function providerRequestId(\\Illuminate\\Http\\Client\\Response $response): ?string
+    {
+        $value = $response->header('sb-request-id') ?? $response->header('x-request-id');
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim(preg_replace('/[\\x00-\\x1F\\x7F]/', '', $value) ?? '');
+        return $value === '' ? null : mb_substr($value, 0, 255);
     }
 
     private function correlationId(): string
