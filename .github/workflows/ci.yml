@@ -842,9 +842,10 @@ jobs:
         if: steps.scope.outputs.relevant == 'true'
         run: |
           set -euo pipefail
-          # No hosted project is linked and no remote flags are used. Redact
-          # generated local JWTs and key lines from startup output.
-          if ! supabase start 2>&1 | sed -E \
+          # No hosted project is linked and no remote flags are used. The
+          # JWT probe does not send email, so omit Mailpit and avoid its fixed
+          # host port 54324 on shared CI runners. Redact local JWT/key output.
+          if ! supabase start --exclude mailpit 2>&1 | sed -E \
             -e 's/(service_role key:|anon key:|JWT secret:).*/\1 [REDACTED]/I' \
             -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g'; then
             echo "Local Supabase startup or migration application failed."
