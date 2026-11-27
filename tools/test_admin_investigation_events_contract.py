@@ -64,6 +64,7 @@ for marker in (
 for forbidden in ("request_body", "response_body", "access_token", "refresh_token", "user_agent", "ip_address"):
     assert forbidden not in operation_migration.lower(), f"Sensitive API telemetry field exposed: {forbidden}"
 assert "api_operation_logs" in client
+assert 'new Set(["administrative", "authentication", "operations", "incident", "assignment"])' in client
 assert 'api_operation_logs: "Laravel API operations"' in page
 assert 'operations: "API operations"' in page
 assert '<option value="operations">API operations</option>' in page
