@@ -181,6 +181,30 @@ BEGIN
     RAISE EXCEPTION 'App-action rows from one transaction must share one trusted correlation ID; found %', correlation_count;
   END IF;
 
+  -- Bridge telemetry and device-security records must join the same Auth
+  -- session without exposing raw event details or requiring auth.sessions to
+  -- retain the row after sign-out.
+  INSERT INTO public.api_operation_logs (
+    correlation_id, actor_auth_user_id, auth_session_id, provider, operation,
+    source, outcome, http_status, duration_ms, provider_request_id, error_code
+  ) VALUES (
+    correlation_id,
+    '00000000-0000-4000-8000-000000000170',
+    '10000000-0000-4000-8000-000000000170',
+    'supabase', 'rpc.api_me', 'render_api', 'failure', 401, 12,
+    'synthetic-provider-request-170', 'auth_rejected'
+  );
+
+  INSERT INTO public.device_security_events (
+    profile_id, auth_session_id, event_type, severity, details
+  ) VALUES (
+    requester_id,
+    '10000000-0000-4000-8000-000000000170',
+    'proof_rejected',
+    'warning',
+    '{"fixture":"must_not_be_projected"}'::jsonb
+  );
+
   BEGIN
     UPDATE public.app_action_audit_logs
        SET metadata = '{}'::jsonb
@@ -247,10 +271,39 @@ BEGIN
   END IF;
   feed := public.api_admin_list_investigation_events(
     100, 0, correlation_id::text,
-    'all', 'app_action_audit_logs', NULL, NULL, NULL, NULL, NULL
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
   );
-  IF (feed->>'total_count')::integer <> 3 THEN
-    RAISE EXCEPTION 'Transaction correlation search should return all three related app actions; found %', feed->>'total_count';
+  IF (feed->>'total_count')::integer <> 4
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+          AND value->'details'->>'provider_request_id' = 'synthetic-provider-request-170'
+     ) THEN
+    RAISE EXCEPTION 'Cross-source correlation search should return three app actions and their API operation: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, '10000000-0000-4000-8000-000000000170',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 4
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'device_security_events'
+          AND value->>'event_type' = 'proof_rejected'
+          AND value->'details'->>'severity' = 'warning'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+     ) THEN
+    RAISE EXCEPTION 'Auth-session search should correlate app, device-security, and API operation events: %', feed;
+  END IF;
+  IF feed::text ILIKE '%must_not_be_projected%' THEN
+    RAISE EXCEPTION 'Device security feed exposed arbitrary event details';
   END IF;
 
   IF feed::text ILIKE '%Synthetic private chat body%'
