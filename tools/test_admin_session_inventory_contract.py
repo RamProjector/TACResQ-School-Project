@@ -223,6 +223,9 @@ for marker in (
     assert marker in bridge_test, f"Missing bridge session attribution regression: {marker}"
 
 assert "auth_session_id" in logger_test
+assert app_action_test.startswith("BEGIN;")
+assert app_action_test.rstrip().endswith("SELECT 'PASS: committed app actions are audited without private content and are visible only through the protected Admin feed.' AS result;")
+assert "ROLLBACK;" in app_action_test
 for marker in (
     "auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid",
     "auth_session_id = '10000000-0000-4000-8000-000000000171'::uuid",
