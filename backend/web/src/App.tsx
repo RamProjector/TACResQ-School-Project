@@ -43,14 +43,19 @@ function AuthGate() {
   useEffect(() => {
     const client = getSupabase();
     let mounted = true;
+    let authEventVersion = 0;
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
+      // A live auth event is newer than the initial getSession() snapshot.
+      // Prevent that slower snapshot from overwriting a sign-in/sign-out event.
+      authEventVersion += 1;
       setSession(nextSession);
       setChecking(false);
     });
 
+    const initialAuthEventVersion = authEventVersion;
     void client.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
+      if (!mounted || authEventVersion !== initialAuthEventVersion) return;
       if (error) console.error("Unable to restore the Supabase session:", error.message);
       setSession(data.session);
       setChecking(false);
