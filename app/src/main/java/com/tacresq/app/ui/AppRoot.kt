@@ -107,11 +107,8 @@ fun AppRoot(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (
-            granted &&
-            sessionState is SessionState.LoggedIn &&
-            sessionState.session.user.role != Role.ADMIN
-        ) {
+        val loggedInState = sessionState as? SessionState.LoggedIn
+        if (granted && loggedInState != null && loggedInState.session.user.role != Role.ADMIN) {
             scope.launch { container.pushTokenCoordinator.sync(container.repository) }
         }
     }
@@ -128,10 +125,8 @@ fun AppRoot(
     // Reconcile notification permission and token ownership whenever the app returns
     // from Settings; permission can be revoked without changing the auth session.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (
-            sessionState is SessionState.LoggedIn &&
-            sessionState.session.user.role != Role.ADMIN
-        ) {
+        val loggedInState = sessionState as? SessionState.LoggedIn
+        if (loggedInState != null && loggedInState.session.user.role != Role.ADMIN) {
             scope.launch { container.pushTokenCoordinator.sync(container.repository) }
         }
     }
