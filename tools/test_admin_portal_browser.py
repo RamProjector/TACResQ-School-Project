@@ -146,6 +146,18 @@ def mock_supabase(page: Page, *, login: str, role: str | None = None, aal: str =
             fulfill_json(route, {"events": [], "total_count": 0})
             return
 
+        if "/rest/v1/rpc/api_admin_list_auth_sessions_page" in url:
+            fulfill_json(route, {
+                "items": [],
+                "has_more": False,
+                "next_cursor": None,
+                "source": "supabase_auth_sessions",
+                "source_status": "available",
+                "observed_at": datetime.now().astimezone().isoformat(),
+                "status_semantics": "A record being present does not establish that the session is currently valid.",
+            })
+            return
+
         if "/rest/v1/rpc/api_admin_list_investigation_events" in url:
             fulfill_json(route, {
                 "contract_version": "session_trace_v1",
@@ -317,6 +329,10 @@ def run_browser_tests(browser: Browser) -> list[str]:
     expect(page.get_by_role("table", name="Administrator account directory")).to_be_visible()
     expect(page.get_by_text("Test Requester")).to_be_visible()
     expect(page.get_by_text("requester@example.test")).to_be_visible()
+    page.get_by_role("button", name="View details for Test Requester").click()
+    expect(page.get_by_role("heading", name="Authentication sessions")).to_be_visible()
+    page.get_by_role("button", name="View sessions").click()
+    expect(page.get_by_text("No session records were returned for this account by the selected source.")).to_be_visible(timeout=10000)
     page.get_by_role("button", name="Change role for Test Requester").click()
     dialog = page.get_by_role("dialog", name="Change account role")
     expect(dialog).to_be_visible()
