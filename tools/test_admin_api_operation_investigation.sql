@@ -1,5 +1,35 @@
 BEGIN;
 
+DO $trace_parser_contract$
+BEGIN
+  PERFORM set_config('request.headers', '{"traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}', true);
+  IF private.tacresq_current_trace_id() IS DISTINCT FROM '4bf92f3577b34da6a3ce929d0e0e4736' THEN
+    RAISE EXCEPTION 'Valid W3C traceparent did not return its trace ID';
+  END IF;
+  PERFORM set_config('request.headers', '{"traceparent":"00-00000000000000000000000000000000-00f067aa0ba902b7-01"}', true);
+  IF private.tacresq_current_trace_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'All-zero trace ID must be rejected';
+  END IF;
+  PERFORM set_config('request.headers', '{"traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01"}', true);
+  IF private.tacresq_current_trace_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'All-zero span ID must be rejected';
+  END IF;
+  PERFORM set_config('request.headers', '{"traceparent":"01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}', true);
+  IF private.tacresq_current_trace_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'Unsupported traceparent version must be rejected';
+  END IF;
+  PERFORM set_config('request.headers', '{"x-request-id":"not-a-trace"}', true);
+  IF private.tacresq_current_trace_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'Missing traceparent must return NULL';
+  END IF;
+  PERFORM set_config('request.headers', 'not-json', true);
+  IF private.tacresq_current_trace_id() IS NOT NULL THEN
+    RAISE EXCEPTION 'Malformed request headers must return NULL';
+  END IF;
+END;
+$trace_parser_contract$;
+
+
 -- Synthetic-only fixtures for the disposable clean-replay database.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
@@ -17,6 +47,8 @@ VALUES (
   '10000000-0000-4000-8000-000000000401',
   '00000000-0000-4000-8000-000000000401'
 );
+
+SELECT set_config('request.headers', '{"traceparent":"00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"}', true);
 
 INSERT INTO public.api_operation_logs (
   correlation_id, actor_auth_user_id, auth_session_id, provider, operation, source, outcome,
@@ -70,6 +102,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims',
     '{"sub":"00000000-0000-4000-8000-000000000402","session_id":"10000000-0000-4000-8000-000000000402","aal":"aal1","amr":[{"method":"password"}]}'::text,
     true);
+  PERFORM set_config('request.headers', '{"traceparent":"00-cccccccccccccccccccccccccccccccc-dddddddddddddddd-01"}', true);
 
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude, status
@@ -90,6 +123,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims',
     '{"sub":"00000000-0000-4000-8000-000000000401","session_id":"10000000-0000-4000-8000-000000000401","aal":"aal2","amr":[{"method":"totp"}]}'::text,
     true);
+  PERFORM set_config('request.headers', '{"traceparent":"00-11111111111111111111111111111111-2222222222222222-01"}', true);
 
   INSERT INTO public.incident_claimability_logs (
     incident_id, actor_profile_id, source_rpc, previous_claimable,
@@ -187,6 +221,8 @@ BEGIN
          = '00000000-0000-4000-8000-000000000410'
        AND rows.event -> 'details' ->> 'auth_session_id'
          = '10000000-0000-4000-8000-000000000401'
+       AND rows.event -> 'details' ->> 'trace_id'
+         = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   ) THEN
     RAISE EXCEPTION 'Auth operation event is missing its provider/correlation metadata: %', v_page;
   END IF;
@@ -253,6 +289,22 @@ BEGIN
     RAISE EXCEPTION 'Admin session search did not find every stamped Admin event source: %', v_by_correlation;
   END IF;
 
+  v_by_correlation := public.api_admin_list_investigation_events(
+    25, 0, '11111111111111111111111111111111',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF jsonb_array_length(v_by_correlation -> 'events') <> 4 THEN
+    RAISE EXCEPTION 'Exact trace-ID search must find the four Admin event rows: %', v_by_correlation;
+  END IF;
+
+  v_by_correlation := public.api_admin_list_investigation_events(
+    25, 0, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'operations', 'api_operation_logs', NULL, NULL, NULL, NULL, NULL
+  );
+  IF jsonb_array_length(v_by_correlation -> 'events') <> 2 THEN
+    RAISE EXCEPTION 'Trace-ID search must find both bridge audit writes: %', v_by_correlation;
+  END IF;
+
   -- The requester session must also find its incident status and edit events,
   -- while the query itself remains authorized by the separate Admin session.
   v_by_correlation := public.api_admin_list_investigation_events(
@@ -264,6 +316,8 @@ BEGIN
      WHERE rows.event ->> 'source' = 'incident_status_logs'
        AND rows.event -> 'details' ->> 'auth_session_id'
          = '10000000-0000-4000-8000-000000000402'
+       AND rows.event -> 'details' ->> 'trace_id'
+         = 'cccccccccccccccccccccccccccccccc'
   ) OR NOT EXISTS (
     SELECT 1 FROM jsonb_array_elements(v_by_correlation -> 'events') AS rows(event)
      WHERE rows.event ->> 'source' = 'incident_request_edit_logs'
