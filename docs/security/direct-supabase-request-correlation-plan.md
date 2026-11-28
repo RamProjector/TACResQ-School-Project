@@ -1,7 +1,7 @@
 # TACResQ Direct Supabase Request Correlation — Research & Implementation Plan
 
 **Date:** 2026-11-27  
-**Status (2026-11-27):** The first trace-correlation slice is implemented in PR #370: nullable trace columns and a private parser/stamping trigger, Admin trace search, Laravel propagation, and per-request Android/browser traceparent generation. Local PostgREST header delivery and 24 concurrent context-isolation checks pass. Hosted behavior and complete distributed-operation tracing remain unverified.  
+**Status (2026-11-28):** The first trace-correlation slice is implemented in PR #370, including nullable trace columns and a private parser/stamping trigger, Admin trace search, Laravel propagation, and per-request Android/browser traceparent generation. An OkHttp MockWebServer integration test now exercises the Android interceptor over real HTTP, including caller-header replacement and per-request uniqueness. Local PostgREST header delivery and 24 concurrent context-isolation checks pass. Hosted behavior and complete distributed-operation tracing remain unverified.  
 **Parent:** PR #370 — Admin IPS / session and security-event correlation  
 **Scope:** Android direct Supabase transport, Admin web Supabase client, Laravel bridge, PostgREST event writers, Admin investigation feed
 
@@ -39,14 +39,14 @@ Consequently, direct Android/browser Auth, RPC, and Storage requests do not pass
 
 | Source | Existing coverage | Auth-session correlation | Trace limitation |
 |---|---|---|---|
-| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | Present when the bridge validated a user JWT and extracted its signed `session_id`; direct Android/browser calls that bypass Laravel are not represented here | Laravel request `correlation_id` and provider request ID remain separate; W3C trace propagation is not implemented |
-| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | Present from the signed PostgREST JWT `session_id`; NULL for system/no-user actions | `correlation_id` remains transaction-local; no propagated trace ID |
-| `incident_status_logs` | Incident status changes | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
-| `incident_claimability_logs` | Claimability transitions | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
-| `incident_request_edit_logs` | Requester edit history | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
-| `incident_assignment_events` | Assignment/release/team closure | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
-| `admin_audit_logs` | Role-change audit | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | No trace ID |
-| `account_lifecycle_audit_logs` | Suspension/reactivation; dedicated protected reader plus unified investigation-feed source | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | Has a row-local `correlation_id`; no trace ID |
+| `api_operation_logs` | Laravel bridge Auth validation and allowlisted RPC operations | Present when the bridge validated a user JWT and extracted its signed `session_id`; direct Android/browser calls that bypass Laravel are not represented here | Validated inbound W3C trace context is stamped on the bridge's trusted audit write; Laravel request `correlation_id`, provider request ID, and trace ID remain distinct |
+| `app_action_audit_logs` | Selected triggers for incident message send, notification read, and duty-status change | Present from the signed PostgREST JWT `session_id`; NULL for system/no-user actions | The trusted insert trigger stamps the trace ID from the validated request header when present |
+| `incident_status_logs` | Incident status changes | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID when present |
+| `incident_claimability_logs` | Claimability transitions | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID when present |
+| `incident_request_edit_logs` | Requester edit history | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID when present |
+| `incident_assignment_events` | Assignment/release/team closure | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID when present |
+| `admin_audit_logs` | Role-change audit | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID when present |
+| `account_lifecycle_audit_logs` | Suspension/reactivation; dedicated protected reader plus unified investigation-feed source | Stamped from the signed JWT by the trusted BEFORE INSERT trigger; exposed in the unified feed | The trusted insert trigger stamps nullable W3C trace ID; its row-local `correlation_id` remains separate |
 | `auth.audit_log_entries` | Provider Auth events when Postgres persistence is enabled | Not exposed by the current feed; do not infer a session ID from undocumented payload fields | Optional persistence; project setting remains unverified |
 | `device_security_events` | Private registry table exists and has an Auth-session metadata column and capture trigger | Column/trigger exist, but no trusted writer populates it | No trusted challenge/proof writers; do not treat client events as authoritative |
 
