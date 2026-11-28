@@ -46,3 +46,16 @@ The existing Android Keystore contract test also passed and checks the fixed end
 6. Obtain independent security and maintainer review.
 
 No production Supabase migration, role/password, Edge Function deployment, Auth setting, Render configuration, user data, or operational client flow was changed by this transport implementation.
+
+## Exact-head CI evidence — 2026-11-28
+
+The implementation source commit was 8d5b7b98b7524d5a890723bbd8920793b6a1a80a. Its six workflow runs all completed successfully:
+
+- TACResQ CI: 46110222316
+- TACResQ Security: 46110222322
+- TACResQ QA: 46110222350
+- RPC grant contract: 46110222348
+- TACResQ Frontend Review: 46110222312
+- Read-only profile verification: 46110222349
+
+The TACResQ CI run uploaded the Android build artifact (artifact ID 15249622111, SHA-256 ee0602cb0668a84deade3189b0c96bde6ca7379854567d6882f4c2a40fc30054) and Android Lint report (artifact ID 15249472160). The release APK build succeeded, but signing verification was skipped because signing configuration was not supplied. The manual Android emulator workflow was not dispatched.
