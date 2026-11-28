@@ -59,14 +59,36 @@ def main() -> None:
     # device-level test gates are approved. A future integration must update
     # this contract rather than silently wiring proof into emergency flows.
     app_sources = list((ROOT / "app/src/main").rglob("*.kt"))
-    references = [
+    key_references = [
         path.relative_to(ROOT).as_posix()
         for path in app_sources
         if path != SOURCE and "DeviceProofKeyStore" in path.read_text(encoding="utf-8")
     ]
-    require(not references, f"device proof must remain isolated from app flows for now: {references}")
+    require(not key_references, f"device proof key manager must remain isolated from app flows: {key_references}")
 
-    print("PASS: Android Keystore P-256 key manager remains isolated, non-exportable, and separately tested")
+    verifier_api = ROOT / "app/src/main/java/com/tacresq/app/data/remote/DeviceProofVerifierApi.kt"
+    require(verifier_api.is_file(), "isolated device verifier transport must be present")
+    verifier_source = verifier_api.read_text(encoding="utf-8")
+    for marker, description in [
+        ('functions/v1/tacresq-device-verifier', "fixed verifier Edge Function endpoint"),
+        ('@Header("apikey")', "publishable-key request header"),
+        ('@Header("Authorization")', "caller-authenticated bearer header"),
+        ('TraceparentInterceptor()', "per-request trace context"),
+        ('parsed.scheme == "https"', "HTTPS requirement outside loopback tests"),
+        ('"registration"', "registration purpose"),
+        ('"session_proof"', "session-proof purpose"),
+    ]:
+        require(marker in verifier_source, f"missing {description}")
+    require("HttpLoggingInterceptor" not in verifier_source, "device proof transport must not log authorization or proof payloads")
+
+    verifier_references = [
+        path.relative_to(ROOT).as_posix()
+        for path in app_sources
+        if path != verifier_api and "DeviceProofVerifierApi" in path.read_text(encoding="utf-8")
+    ]
+    require(not verifier_references, f"device verifier transport must remain dormant until hosted/device gates pass: {verifier_references}")
+
+    print("PASS: Android Keystore and verifier transport remain isolated, non-exportable, and separately tested")
 
 
 if __name__ == "__main__":
