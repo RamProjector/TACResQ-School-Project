@@ -344,7 +344,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <details className="audit-page__coverage-details">
         <summary>Audit coverage and limitations</summary>
-        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Nine source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, direct-client API/Storage activity, and FCM delivery attempts are not included. Device-security rows are read when present, but no trusted server-side writer currently creates them.</span></div>
+        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Ten source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, direct-client API/Storage activity, and FCM delivery attempts are not included. Device-security rows are read when present, but no trusted server-side writer currently creates them.</span></div>
       </details>
 
       <details className="audit-page__coverage-details">
@@ -354,6 +354,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <h3 id="audit-sources-included">Included sources</h3>
             <ul>
               <li><strong>Admin role changes</strong><span>Feed reader: integrated. Shows role-change records and recorded reasons; an empty result is not a health check for the writer.</span></li>
+              <li><strong>Account lifecycle</strong><span>Dedicated lifecycle reader and investigation source: integrated for recorded suspension/reactivation events. These rows describe recorded transitions, not a complete account-status history; an empty result is not a status check.</span></li>
               <li><strong>Supabase Auth</strong><span>Feed reader: integrated for the optional Postgres mirror only. Supabase provider Auth audit events are separately available in external log storage; this page does not query that external stream. The project’s Postgres-persistence setting is not observable here, so an empty database result cannot distinguish disabled persistence from no rows captured and cannot establish that authentication activity did not occur.</span></li>
               <li><strong>Incident status</strong><span>Feed reader: integrated. Shows recorded resulting-status outcomes; not necessarily a complete before-and-after transition. No rows means no matching records were returned.</span></li>
               <li><strong>Incident claiming</strong><span>Feed reader: integrated. Shows recorded claimability history; an empty result does not verify trigger health or prove no claimability changes occurred.</span></li>
@@ -362,7 +363,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Bounded metadata includes the verified Auth session ID when the action has a user JWT; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
               <li><strong>Device security events</strong><span>Feed reader: integrated. Sanitized event type, severity, and recorded Auth session ID are searchable alongside API operations. No trusted server-side event writer is implemented yet, so an empty result is not a device-health signal.</span></li>
               <li><strong>Laravel API operations</strong><span>Feed reader: integrated for bridge-mediated requests. Records request correlation ID, provider request ID, and verified Auth session ID when available. This best-effort source does not cover direct Android/browser Supabase or Storage calls.</span></li>
-              <li><strong>Device-security events</strong><span>Feed reader: integrated for sanitized event type, severity, and Auth session ID. No trusted server-side writer currently creates these rows, and the live source is empty; an empty result is not evidence that devices are safe.</span></li>
+              
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">

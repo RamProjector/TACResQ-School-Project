@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql").read_text()
@@ -379,5 +380,27 @@ for marker in (
     "Additional nested details omitted",
 ):
     assert marker in page, f"Missing bounded audit-detail rendering guard: {marker}"
+
+# The visible source inventory must match the ten distinct sources in the
+# investigation contract plus its dedicated lifecycle reader. A duplicated
+# device-security row previously hid the missing Account lifecycle source.
+included_sources = page.split('<section aria-labelledby="audit-sources-included">', 1)[1].split("</section>", 1)[0]
+included_labels = re.findall(r"<li><strong>([^<]+)</strong>", included_sources)
+expected_labels = {
+    "Admin role changes",
+    "Account lifecycle",
+    "Supabase Auth",
+    "Incident status",
+    "Incident claiming",
+    "Requester edits",
+    "Responder assignments",
+    "App actions",
+    "Device security events",
+    "Laravel API operations",
+}
+assert len(included_labels) == 10, f"Expected 10 included source rows, got {len(included_labels)}: {included_labels}"
+assert len(set(included_labels)) == len(included_labels), f"Duplicate source labels: {included_labels}"
+assert set(included_labels) == expected_labels, f"Coverage inventory does not match source readers: {included_labels}"
+assert "Ten source readers are queried;" in page
 
 print("PASS: Admin investigation source, authorization, privacy, and UI contracts are present.")
