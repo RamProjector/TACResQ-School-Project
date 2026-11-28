@@ -2348,3 +2348,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Remaining gates:** manual Android device execution; hosted transaction-pooler identity/TLS validation; hosted verifier role/routines/Edge Function deployment under explicit approval; separately reviewed client integration, sensitive-operation enforcement and revocation/recovery; manual Admin UI acceptance; independent human security/maintainer review. Keep device registry and verifier dormant; requester SOS and emergency workflows must remain available from new/unverified devices.
 - **Safety:** no production Supabase migration, DB role/password, Auth setting, Edge Function, Render configuration, deployment, or user data was changed.
 - **Next:** continue with the next independently testable repository-side security or Admin IPS improvement. Do not activate hosted/device functionality or merge solely on automated CI.
+
+
+## 2026-11-28 — Canonical device UUID input hardening
+
+- **Finding:** Java UUID.fromString accepts abbreviated UUID group forms and silently normalizes them. The Android verifier transport previously normalized a caller-provided device ID before sending it, which could turn malformed input into a different valid identifier.
+- **Implementation:** require the same canonical UUID pattern used by the verifier before UUID.fromString normalization in session-proof challenge issuance.
+- **Regression:** added a MockWebServer test proving abbreviated input 1-1-1-1-1 is rejected before any network request.
+- **Safety:** server ownership/session checks remain authoritative; verifier transport stays dormant; no operational Android, SOS, dispatch, chat, notification, Admin, production Supabase, or Render behavior changed.
+- **Branch/PR:** docs/admin-ips-ui-master-plan, PR #370; parent head c83b9f0ec8c03032159aecf6211444844a2686d6.
+- **Validation:** exact-head workflows pending; no result claimed.

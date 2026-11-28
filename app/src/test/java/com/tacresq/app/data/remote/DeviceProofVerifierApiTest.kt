@@ -106,6 +106,24 @@ class DeviceProofVerifierApiTest {
     }
 
     @Test
+    fun nonCanonicalDeviceIdentifiersAreRejectedBeforeNetwork() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val api = DeviceProofVerifierApi.createForTesting(server.url("/").toString(), PUBLISHABLE_KEY)
+            // java.util.UUID.fromString accepts abbreviated groups and silently normalizes them.
+            val failure = runCatching {
+                api.issueSessionProofChallenge(ACCESS_TOKEN, "1-1-1-1-1")
+            }
+
+            assertTrue(failure.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun sessionProofNeverSendsAReplacementPublicKey() = runBlocking {
         val server = MockWebServer()
         server.enqueue(

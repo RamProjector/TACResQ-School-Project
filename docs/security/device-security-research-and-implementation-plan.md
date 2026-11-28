@@ -642,3 +642,21 @@ The Android client-side DER validation implementation is recorded in commit c082
 The Android JVM tests specifically exercised a valid minimal DER signature and rejected raw 64-byte P1363, zero-scalar, negative-scalar, and padded Base64URL signatures before network activity. Android Lint, debug/release builds, and instrumentation-test compilation passed. Actual instrumentation execution was not run; release signing verification was skipped because signing credentials were absent.
 
 The Android APK and Lint artifacts are retained by GitHub Actions under run 46115636286 (APK artifact 15251956274; Lint artifact 15252315088). This validates the repository-side protocol slice only. It does not validate a physical device, hosted pooler identity/TLS, hosted verifier deployment, production integration, or independent review.
+
+
+## 2026-11-28 — Canonical device UUID input validation
+
+### Source finding
+
+The Android transport normalized a caller-supplied session-proof device identifier with java.util.UUID.fromString before sending it. That parser accepts some abbreviated UUID group forms and silently expands them into a different canonical UUID. Although the Edge Function enforces a canonical UUID pattern and the database remains the authorization boundary, the client could transform malformed input into a different valid identifier rather than reject it.
+
+### Implemented correction
+
+- Require the requested device ID to match the same canonical UUID pattern used for verifier challenge/response identifiers before calling UUID.fromString.
+- Retain normalization only after canonical validation, preserving a consistent lowercase wire value without accepting abbreviated group forms.
+- Add a MockWebServer regression asserting the abbreviated input 1-1-1-1-1 fails before any network request.
+- Preserve server-side ownership/session checks as authoritative; client validation is not an authorization boundary.
+
+**Validation status:** exact-head CI is pending for this follow-up. No passing result is claimed until the new commit's workflows finish.
+
+**Safety:** the verifier remains dormant; no operational client flow, production Supabase/Render state, user data, or emergency/SOS behavior changed.

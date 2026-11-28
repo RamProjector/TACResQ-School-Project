@@ -105,3 +105,8 @@ GitHub Actions run 46115636286 uploaded:
 - Android Lint report artifact 15252315088 (44,438 bytes; SHA-256 9c6305cdb9944722fa474f5d1c277928b2ad528aefca33267e1b5068f355f9a8).
 
 The exact-head check-run inventory was 16 success, one neutral aggregate CodeQL check, and one skipped CodeRabbit check. Both individual CodeQL analysis jobs passed. These results validate the isolated client protocol and repository contracts only; they do not establish hosted verifier deployment, pooler identity/TLS, physical-device behavior, production readiness, or independent human review.
+
+
+## Canonical device identifier validation — 2026-11-28
+
+Session-proof challenge issuance now rejects malformed or abbreviated UUID input before normalization. This prevents java.util.UUID.fromString from silently expanding abbreviated UUID groups into a different identifier. A MockWebServer regression verifies the malformed value 1-1-1-1-1 produces no HTTP request. Server-side ownership and session checks remain authoritative; this client-side validation is not an authorization substitute. Exact-head CI is pending.

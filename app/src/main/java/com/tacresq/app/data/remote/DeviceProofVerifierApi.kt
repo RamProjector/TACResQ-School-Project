@@ -34,6 +34,9 @@ class DeviceProofVerifierApi private constructor(
         accessToken: String,
         deviceId: String,
     ): DeviceProofChallenge {
+        require(deviceId.matches(UUID_PATTERN)) {
+            "Device identifier must be a canonical UUID."
+        }
         val normalizedDeviceId = UUID.fromString(deviceId).toString()
         return issue(accessToken, DeviceProofPurpose.SESSION_PROOF, normalizedDeviceId)
     }
