@@ -29,6 +29,12 @@ Column-only PostgREST PATCH behavior must be verified with an isolated disposabl
 
 This section is an evidence inventory and staged least-privilege proposal, not an approved production migration. No hosted ACL, default privilege, table data, migration ledger, or deployment was changed during the review. Re-run the read-only catalog inventory and clean PostgreSQL 16/17 migration contracts after any future approved grant change. Obtain a complete writer map, owner approval, rollback plan, and hosted validation before rollout.
 
+### 73.7 Applied migration source gap — actor-role lookup volatility
+
+The connected project's migration ledger includes `20261125030354_make_actor_role_lookup_read_only_safe`, but no recoverable source migration for that applied version is present in this branch. The live actor-role helper is documented as **STABLE SECURITY DEFINER**, while a checked-in historical source definition is **VOLATILE**. This is a source/ledger mismatch, not authorization to synthesize or replay a replacement migration.
+
+Keep the gap explicit in migration-history alignment. Before any future change, inspect the hosted function definition and effective grants through an owner-approved read-only review, compare the intended volatility and function body with all callers, and add a new forward migration only after compatibility and clean-replay tests. Do not rewrite the applied migration ledger or infer SQL from the version name.
+
 ### 73.6 candidate least-privilege service-role matrix (not yet migrated)
 
 | Candidate area | Required next evidence | Current disposition |
