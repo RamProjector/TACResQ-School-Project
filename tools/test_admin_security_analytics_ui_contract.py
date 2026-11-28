@@ -117,6 +117,6 @@ assert "active Admin + AAL2/TOTP" in SECURITY
 assert "expected-status compare-and-set" in SECURITY
 assert "atomic lifecycle audit" in SECURITY
 assert "not complete suspension enforcement across every direct RPC, Storage bucket, Edge Function, or legacy Laravel/Sanctum path" in SECURITY
-assert "already-issued access JWTs are not globally revoked by this action" in SECURITY
+assert "Already-issued access JWTs are not globally revoked by this action" in SECURITY
 assert "EXECUTE remains revoked from client roles" not in SECURITY
 assert "No suspend/reactivate action is exposed here." not in SECURITY
