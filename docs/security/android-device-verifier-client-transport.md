@@ -1,6 +1,6 @@
 # TACResQ Android device-verifier transport — implementation note
 
-**Status:** Implemented as an isolated Android client-protocol slice in PR #370. The latest code head 226b9df60c2cbbd6dcbe8057287bedd0468f420a passed all six workflow groups, including canonical-message and transport JVM tests, repository source contracts, Android instrumentation-test compilation, Android Lint, demo/Supabase debug builds, release APK build, local Supabase verifier integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, and Android/Web CodeQL. Physical emulator/device execution, hosted verifier availability, and operational device registration remain unverified.
+**Status:** Implemented as an isolated Android client-protocol slice in PR #370. Exact implementation head c0822ef66e6df0a04df82cd3348aef7ec545f20f passed all six major workflow groups and 16 of 18 check runs; aggregate CodeQL was neutral while both individual CodeQL analysis jobs passed, and CodeRabbit was skipped by repository eligibility policy. Canonical-message and transport JVM tests, Android Lint, instrumentation-test compilation, demo/Supabase debug builds, release APK build, local Supabase verifier integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, QA, and Frontend Review passed. Actual physical emulator/device execution and release-signature verification were not performed; signing credentials were not configured. Hosted verifier availability, hosted pooler identity/TLS, and operational device registration remain unverified.
 
 ## Scope
 
@@ -94,3 +94,14 @@ The Android transport now mirrors the server verifier's strict DER contract befo
 - Reject raw 64-byte IEEE P1363 signatures, zero/negative scalars, non-minimal encodings, and padded/non-canonical Base64URL before any HTTP request.
 
 The server remains authoritative and repeats strict DER validation. This client-side check is defense in depth and does not activate the verifier transport or device registry in operational flows. Exact-head CI for this change is pending; no test result is claimed here.
+
+
+## Exact implementation validation — 2026-11-28
+
+Commit c0822ef66e6df0a04df82cd3348aef7ec545f20f passed all six major workflow groups. Android JVM tests, Lint, instrumentation-test compilation, both debug APK variants, and the release APK build passed. Release-signature verification was skipped because no signing configuration was supplied. Actual device instrumentation was not run.
+
+GitHub Actions run 46115636286 uploaded:
+- Android APK archive artifact 15251956274 (113,994,119 bytes; SHA-256 184857378301d011cbcfa7c53ea2a2e998ee4325000b8704d14b8ac599444938).
+- Android Lint report artifact 15252315088 (44,438 bytes; SHA-256 9c6305cdb9944722fa474f5d1c277928b2ad528aefca33267e1b5068f355f9a8).
+
+The exact-head check-run inventory was 16 success, one neutral aggregate CodeQL check, and one skipped CodeRabbit check. Both individual CodeQL analysis jobs passed. These results validate the isolated client protocol and repository contracts only; they do not establish hosted verifier deployment, pooler identity/TLS, physical-device behavior, production readiness, or independent human review.
