@@ -148,9 +148,12 @@ class DeviceProofVerifierApi private constructor(
         require(challenge.profileId.matches(Regex("^[1-9][0-9]{0,18}$"))) {
             "Device challenge profile reference is invalid."
         }
-        require(challenge.deviceUid == "-" || challenge.deviceUid.matches(UUID_PATTERN)) {
-            "Device challenge device reference is invalid."
+        val validDeviceReference = when (challenge.purpose) {
+            DeviceProofPurpose.REGISTRATION.wireValue -> challenge.deviceUid == "-"
+            DeviceProofPurpose.SESSION_PROOF.wireValue -> challenge.deviceUid.matches(UUID_PATTERN)
+            else -> false
         }
+        require(validDeviceReference) { "Device challenge device reference does not match its purpose." }
         require(challenge.expiresAt.isNotBlank()) { "Device challenge expiry is missing." }
     }
 
