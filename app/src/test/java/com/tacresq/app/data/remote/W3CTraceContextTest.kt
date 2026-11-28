@@ -1,5 +1,9 @@
 package com.tacresq.app.data.remote
 
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,5 +25,46 @@ class W3CTraceContextTest {
         val second = W3CTraceContext.newTraceparent()
 
         assertNotEquals(first, second)
+    }
+
+    @Test
+    fun interceptorAddsFreshValidTraceparentAndReplacesCallerValue() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+
+        try {
+            val client = OkHttpClient.Builder()
+                .addInterceptor(TraceparentInterceptor())
+                .build()
+            val supplied = Request.Builder()
+                .url(server.url("/first"))
+                .header(
+                    "traceparent",
+                    "00-11111111111111111111111111111111-2222222222222222-01",
+                )
+                .build()
+
+            client.newCall(supplied).execute().use { response ->
+                assertTrue(response.isSuccessful)
+            }
+            client.newCall(
+                Request.Builder().url(server.url("/second")).build(),
+            ).execute().use { response ->
+                assertTrue(response.isSuccessful)
+            }
+
+            val first = server.takeRequest().getHeader("traceparent")
+            val second = server.takeRequest().getHeader("traceparent")
+            val pattern = Regex("^00-([0-9a-f]{32})-([0-9a-f]{16})-01$")
+
+            assertTrue("First request must carry a valid traceparent", pattern.matches(first.orEmpty()))
+            assertTrue("Second request must carry a valid traceparent", pattern.matches(second.orEmpty()))
+            assertNotEquals("Caller-supplied trace context must be replaced", "00-11111111111111111111111111111111-2222222222222222-01", first)
+            assertNotEquals("Separate requests must not reuse the same traceparent", first, second)
+        } finally {
+            server.shutdown()
+        }
     }
 }
