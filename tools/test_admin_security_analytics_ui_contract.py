@@ -106,11 +106,16 @@ assert "}, [activeSection, settingsPage, continuityPage, preferencesDirty, confi
 assert 'aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true"' in SECURITY
 assert 'aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true"' in SECURITY
 
-# Staged account suspension must remain explicitly unavailable until the
-# transition RPC grant, same-token coverage, deployment, and session behavior
-# have been independently verified.
-assert "The database transition function is staged but EXECUTE remains revoked from client roles." in SECURITY
-assert "Remaining same-JWT authorization coverage, migration/deployment verification, and the Admin workflow are not complete." in SECURITY
-assert "Current-session enforcement is implemented for protected Admin RPCs and selected sensitive RLS reads" in SECURITY
-assert "ordinary unguarded PostgREST paths may still accept an unexpired access JWT" in SECURITY
-assert "No suspend/reactivate action is exposed here." in SECURITY
+# The current branch exposes a narrow Admin lifecycle workflow, while
+# explicitly separating branch implementation from hosted deployment and
+# incomplete same-JWT enforcement across every application surface.
+assert "User management page implements reason-required suspend/reactivate actions for ordinary non-Admin accounts." in SECURITY
+assert "Migration 20261125020926 grants the narrow transition RPC to authenticated clients" in SECURITY
+assert "active Admin + AAL2/TOTP" in SECURITY
+assert "expected-status compare-and-set" in SECURITY
+assert "atomic lifecycle audit" in SECURITY
+assert "do not prove the migration is deployed in the hosted project" in SECURITY
+assert "not yet proven across every direct RPC, Storage, Edge Function, and legacy Laravel/Sanctum path" in SECURITY
+assert "already-issued access JWTs are not globally revoked by this action" in SECURITY
+assert "EXECUTE remains revoked from client roles" not in SECURITY
+assert "No suspend/reactivate action is exposed here." not in SECURITY
