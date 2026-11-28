@@ -7,8 +7,8 @@ import java.util.Base64
  * Builds the exact versioned message that the Supabase device verifier expects.
  *
  * The caller must obtain sessionId from the authenticated Supabase session.
- * This helper is intentionally not connected to DeviceProofKeyStore or an
- * operational application flow until hosted verifier and device gates pass.
+ * This helper remains isolated from signing-key storage and all operational
+ * application flows until hosted verifier and device gates pass.
  */
 object DeviceProofMessage {
     private val uuidPattern = Regex(
