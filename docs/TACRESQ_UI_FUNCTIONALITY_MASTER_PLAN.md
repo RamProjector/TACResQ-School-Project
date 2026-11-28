@@ -1,5 +1,5 @@
 
-## -Infinity. Admin session inventory loading cancellation
+## Admin session inventory loading cancellation
 
 **Observed source defect (2026-11-28):** `AdminAccountSessions.tsx` already has a request-generation cancellation guard. Closing the expanded inventory increments the generation, clears its page/error state, and sets loading false so a late Supabase RPC response is ignored. The header's View/Hide sessions button was nevertheless disabled whenever `loading` was true. This made the existing cancellation path unreachable during the initial request and left the panel impossible to close until the request settled.
 
