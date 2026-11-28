@@ -1,6 +1,6 @@
 # TACResQ Android device-verifier transport — implementation note
 
-**Status:** Implemented as an isolated Android transport in PR #370. Automated JVM and repository-contract validation is pending on the new PR head. This is not evidence of hosted verifier availability or operational device registration.
+**Status:** Implemented as an isolated Android transport in PR #370. Exact head 8d5b7b98b7524d5a890723bbd8920793b6a1a80a passed all six workflow groups, including Android JVM tests, source contracts, Android instrumentation-test compilation, Android Lint, demo/Supabase debug builds, release APK build, local Supabase verifier integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, and Android/Web CodeQL. Physical emulator/device execution, hosted verifier availability, and operational device registration remain unverified.
 
 ## Scope
 
@@ -24,7 +24,7 @@ This is deliberate. A transport client is not proof that the verifier is deploye
 
 ## Automated test coverage added
 
-The Android JVM test suite now covers:
+The Android JVM test suite passed on the exact head above and covers:
 
 - Authenticated POST path, publishable-key and Bearer headers.
 - Registration challenge parsing and request shape.
@@ -34,16 +34,15 @@ The Android JVM test suite now covers:
 - Preservation of HTTP authorization errors.
 - Rejection of non-loopback HTTP origins.
 
-The existing Android Keystore contract test additionally checks the fixed endpoint, authentication headers, trace context, HTTPS restriction, absence of request logging, and lack of operational call sites.
+The existing Android Keystore contract test also passed and checks the fixed endpoint, authentication headers, trace context, HTTPS restriction, absence of request logging, and lack of operational call sites.
 
 ## Remaining release gates
 
-1. Run the new JVM tests and source contracts on the exact PR head.
-2. Execute Android Keystore instrumentation tests on supported Android emulators/devices; CI compilation alone is insufficient.
-3. Verify the hosted Supabase transaction-pooler session_user identity and TLS behavior through a controlled, owner-approved check.
-4. Deploy the verifier Edge Function and migration/role boundary together only after explicit production approval.
-5. Add a separately reviewed registration/session-proof workflow with recovery and revocation UX.
-6. Add server-side checks for selected sensitive operations only after proving that requester SOS and other emergency paths remain available from new devices.
-7. Obtain independent security and maintainer review.
+1. Execute Android Keystore instrumentation tests on supported Android emulators/devices; CI compilation alone is insufficient.
+2. Verify the hosted Supabase transaction-pooler session_user identity and TLS behavior through a controlled, owner-approved check.
+3. Deploy the verifier Edge Function and migration/role boundary together only after explicit production approval.
+4. Add a separately reviewed registration/session-proof workflow with recovery and revocation UX.
+5. Add server-side checks for selected sensitive operations only after proving that requester SOS and other emergency paths remain available from new devices.
+6. Obtain independent security and maintainer review.
 
 No production Supabase migration, role/password, Edge Function deployment, Auth setting, Render configuration, user data, or operational client flow was changed by this transport implementation.
