@@ -62,7 +62,10 @@ class W3CTraceContextTest {
             assertTrue("First request must carry a valid traceparent", pattern.matches(first.orEmpty()))
             assertTrue("Second request must carry a valid traceparent", pattern.matches(second.orEmpty()))
             assertNotEquals("Caller-supplied trace context must be replaced", "00-11111111111111111111111111111111-2222222222222222-01", first)
-            assertNotEquals("Separate requests must not reuse the same traceparent", first, second)
+            val firstMatch = pattern.matchEntire(first.orEmpty())!!
+            val secondMatch = pattern.matchEntire(second.orEmpty())!!
+            assertNotEquals("Separate requests must not reuse the same trace ID", firstMatch.groupValues[1], secondMatch.groupValues[1])
+            assertNotEquals("Separate requests must not reuse the same span ID", firstMatch.groupValues[2], secondMatch.groupValues[2])
         } finally {
             server.shutdown()
         }
