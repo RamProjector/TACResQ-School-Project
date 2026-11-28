@@ -196,7 +196,7 @@ class DeviceProofVerifierApi private constructor(
             require(parsed.encodedPath == "/" && parsed.query == null && parsed.fragment == null) {
                 "Supabase URL must be a project origin."
             }
-            require(parsed.isHttps || (parsed.isHttp && parsed.host in setOf("localhost", "127.0.0.1"))) {
+            require(parsed.scheme == "https" || (parsed.scheme == "http" && parsed.host in setOf("localhost", "127.0.0.1"))) {
                 "Device verifier transport requires HTTPS outside loopback tests."
             }
             val retrofit = Retrofit.Builder()
