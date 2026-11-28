@@ -32,7 +32,7 @@ assert "release or complete active incident assignments" in transition
 
 # Security-page inventory must distinguish branch implementation from hosted rollout.
 assert "User management page implements reason-required suspend/reactivate actions" in security
-assert "does not prove the migration is deployed in the hosted project" in security
+assert "do not prove the migration is deployed in the hosted project" in security
 assert "not yet proven across every direct RPC, Storage, Edge Function, and legacy Laravel/Sanctum path" in security
 assert "No suspend/reactivate action is exposed here." not in security
 assert "EXECUTE remains revoked from client roles" not in security
