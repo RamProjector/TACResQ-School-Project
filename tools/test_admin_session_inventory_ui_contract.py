@@ -63,6 +63,18 @@ for marker in (
 ):
     assert marker in component, f"Missing session inventory UI behavior: {marker}"
 
+# The inventory can always be collapsed, including while its request is pending.
+# Collapsing invalidates that request so a late response cannot reopen or repopulate it.
+toggle_start = component.index('aria-expanded={expanded}')
+toggle_end = component.index('</button>', toggle_start)
+toggle_control = component[toggle_start:toggle_end]
+assert 'onClick={toggleInventory}' in toggle_control
+assert 'disabled={loading}' not in toggle_control
+assert 'if (expanded):' not in component
+assert 'requestVersion.current += 1' in component
+assert 'setExpanded(false)' in component
+assert 'setLoading(false)' in component
+
 for forbidden in (
     "signOut(",
     "revokeSession(",

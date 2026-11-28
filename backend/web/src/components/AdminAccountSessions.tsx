@@ -109,7 +109,6 @@ export default function AdminAccountSessions({ profileId, accountName, onFindSes
           type="button"
           aria-expanded={expanded}
           onClick={toggleInventory}
-          disabled={loading}
         >
           {expanded ? "Hide sessions" : "View sessions"}
         </button>
