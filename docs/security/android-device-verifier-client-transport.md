@@ -14,7 +14,7 @@ The Android application now has a dedicated DeviceProofVerifierApi transport for
 - Requires HTTPS for non-loopback origins. Plain HTTP is accepted only for localhost/127.0.0.1 test servers.
 - Does not install an HTTP body/header logging interceptor.
 
-The transport supports the two server-defined purposes only: registration and session_proof. Registration submits the public SPKI key and bounded device metadata. Session proof does not accept or send a replacement public key.
+The transport supports the two server-defined purposes only: registration and session_proof. Registration submits the public SPKI key and bounded device metadata. Session proof does not accept or send a replacement public key. DeviceProofMessage builds the exact server-defined eight-line, versioned proof message, binds the Auth session ID and device UID, and requires a canonical 32-byte Base64URL challenge.
 
 ## Isolation boundary
 
@@ -24,7 +24,7 @@ This is deliberate. A transport client is not proof that the verifier is deploye
 
 ## Automated test coverage added
 
-The Android JVM test suite passed on the exact head above and covers:
+The Android JVM test suite covers the authenticated transport and the canonical proof-message builder. It validates the server's exact newline-delimited message format, registration/session purpose binding, profile/session/device identifiers, and canonical challenge encoding.
 
 - Authenticated POST path, publishable-key and Bearer headers.
 - Registration challenge parsing and request shape.
@@ -34,9 +34,11 @@ The Android JVM test suite passed on the exact head above and covers:
 - Preservation of HTTP authorization errors.
 - Rejection of non-loopback HTTP origins.
 
-The existing Android Keystore contract test also passed and checks the fixed endpoint, authentication headers, trace context, HTTPS restriction, absence of request logging, and lack of operational call sites.
+The existing Android Keystore contract test also checks the fixed endpoint, authentication headers, trace context, HTTPS restriction, absence of request logging, and that neither the transport nor the message builder has operational call sites.
 
 ## Remaining release gates
+
+The new canonical message builder and its JVM tests were added after the previously validated transport-only commit. The exact latest PR head must pass its own Android JVM, source-contract, and full workflow checks before this expanded client-protocol slice is considered validated.
 
 1. Execute Android Keystore instrumentation tests on supported Android emulators/devices; CI compilation alone is insufficient.
 2. Verify the hosted Supabase transaction-pooler session_user identity and TLS behavior through a controlled, owner-approved check.
