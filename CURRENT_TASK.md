@@ -2275,3 +2275,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Re-reviewed the device verifier Edge Function, private SQL verifier routines, P-256 crypto helper, Android Keystore manager, and instrumentation tests. The verifier foundation is implemented and locally tested; operational client integration and enforcement remain intentionally dormant pending hosted transaction-pooler identity/TLS validation, real device/emulator testing, independent security review, and recovery/revocation design.
 - No production Supabase/Auth/Render/Edge Function changes, deployment, user-data changes, or merge occurred. PR #370 remains open; no human review/review threads were recorded.
 - Next: complete device/emulator and hosted-pooler validation with authorized environment access, obtain independent maintainer/security review, then implement the separately reviewed client integration/revocation UX without blocking requester SOS. Manual Admin UI acceptance and owner confirmation of hosted Auth audit persistence remain open.
+
+
+## 2026-11-28 — Manual Android instrumentation diagnostics
+
+- Latest validated PR head before this follow-up: `bde453193e2351f3462a3f2105a091b9ac46c665`; all six PR workflow groups passed.
+- Preserved the existing manual-only emulator policy. Updated `.github/workflows/android-emulator-manual.yml` to capture adb logcat and device properties on failure and always upload connected Android instrumentation XML/HTML reports under `tacresq-android-instrumentation-results` with seven-day retention.
+- Updated `tools/test_android_emulator_kvm.py` to enforce KVM setup ordering, failure diagnostics, always-run artifact upload, and expected result paths.
+- Commits: `cd29120c7fac0a3a8bc7a90527f686863a5388ff`, `f31aa21b1619800466157933763c1bbfa26318ca`.
+- This is instrumentation observability, not proof of test execution. The available GitHub integration does not expose workflow dispatch. Device-level Keystore tests remain pending until the manual workflow is actually run. Hosted pooler identity/TLS, independent security review, operational client integration/revocation/recovery, manual Admin acceptance, and owner-approved deployment remain open. No production changes or merge.
