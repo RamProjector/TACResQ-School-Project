@@ -98,7 +98,9 @@ class DeviceProofVerifierApiTest {
                 SIGNATURE,
             )
             val body = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("session_proof", "session_proof")
+            assertEquals("verify", body.get("action").asString)
+            assertEquals(CHALLENGE_ID, body.get("challengeId").asString)
+            assertEquals(SIGNATURE, body.get("signatureDerBase64Url").asString)
             assertFalse(body.has("publicKeySpkiBase64"))
         } finally {
             server.shutdown()
