@@ -1,6 +1,6 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** schema and partial server-side enforcement are committed on `security/admin-account-suspension-runtime-foundation`. An atomic Admin suspend/reactivate RPC is implemented but its EXECUTE grant is deliberately revoked from all client roles; no Admin control is exposed, and full enforcement is not yet complete. No account has been suspended in a connected environment; no live Supabase migration has been applied.
+**Historical status snapshot (superseded 28 Nov 2026):** The initial foundation phase described a revoked transition RPC and no Admin UI. The current branch has since added the User Management Active/Suspended directory state, reason-required suspend/reactivate dialog, recent lifecycle history, and the authenticated-only transition RPC grant in migration `20261125020926_admin_account_lifecycle_compare_and_set.sql`. The RPC itself independently checks active Admin + AAL2/TOTP and enforces the reviewed transition constraints. Hosted migration deployment and complete same-valid-JWT enforcement across all direct RPC, Storage, Edge Function, and legacy Laravel/Sanctum paths remain unverified/incomplete. No connected production account was suspended.
 
 ## Implemented database foundation
 
@@ -85,3 +85,15 @@ Reactivation changes only account lifecycle state. It must not silently restore 
 ## Release gate
 
 Keep this PR draft until the remaining RPC, Storage, Edge Function, bridge, Admin transition, and concurrency boundaries are implemented and tested on one exact commit. Do not apply the migrations to a connected project or expose Admin controls before that gate is met.
+
+
+## Current branch status correction — 2026-11-28
+
+The earlier sections below describe the initial foundation-only stage and must not be read as the current UI/grant state. On the current Admin IPS branch:
+
+- The Admin User Management page displays each ordinary account's Active/Suspended state and exposes reason-required Suspend/Reactivate actions; Admin accounts remain excluded from this workflow.
+- The browser calls `api_admin_set_account_status` with the expected prior state. The final branch migration `20261125020926_admin_account_lifecycle_compare_and_set.sql` grants EXECUTE to `authenticated`, not PUBLIC/anon, and the function enforces active Admin + AAL2/TOTP, self/Admin-target exclusion, target row locking, compare-and-set, active-assignment protection, and atomic append-only lifecycle audit.
+- Clean PostgreSQL/local Supabase migration replay, RPC privilege/runtime contracts, and the mocked Admin Playwright flow have passed on reviewed branch heads.
+- This is not a production deployment claim. The hosted migration ledger has not been confirmed to include these changes. End-to-end suspension enforcement remains incomplete across all callable RPCs, Storage buckets, Edge Functions, and legacy Laravel/Sanctum identity paths. A status transition does not instantly revoke already-issued access-token JWTs.
+- The Security page should describe this as **implemented in branch / hosted rollout unverified / complete enforcement incomplete**, not as an unavailable RPC or absent Admin workflow.
+- No production account or connected Supabase/Render configuration was changed by this status correction.
