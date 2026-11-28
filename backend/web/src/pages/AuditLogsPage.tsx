@@ -10,17 +10,21 @@ const PAGE_SIZE = 25;
 const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string> = {
   administrative: "Administrative",
   authentication: "Authentication",
+  operations: "API operations",
   incident: "Incident",
   assignment: "Assignment",
 };
 const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   admin_audit_logs: "Admin role changes",
+  account_lifecycle_audit_logs: "Account lifecycle",
   supabase_auth_audit_logs: "Supabase Auth",
   incident_status_logs: "Incident status",
   incident_claimability_logs: "Incident claiming",
   incident_request_edit_logs: "Requester edits",
   incident_assignment_events: "Responder assignments",
   app_action_audit_logs: "App actions",
+  device_security_events: "Device security events",
+  api_operation_logs: "Laravel API operations",
 };
 
 function formatDate(value: string | null | undefined) {
@@ -110,6 +114,11 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
   return event.actor_user_id === profile.id ? "You" : event.actor_label || "Unknown actor";
 }
 
+function getTechnicalReference(event: AdminInvestigationEvent, key: string): string | null {
+  const value = event.details[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function parseOptionalPositiveId(value: string): number | null {
   if (!value.trim() || !/^[1-9]\d*$/.test(value)) return null;
   const parsed = Number(value);
@@ -131,7 +140,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [lifecycleRefreshVersion, setLifecycleRefreshVersion] = useState(0);
   const lifecyclePageSize = 5;
   const [total, setTotal] = useState(0);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get("auditQuery") ?? "");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
   const [source, setSource] = useState<AdminInvestigationSource>("all");
   const [from, setFrom] = useState(() => new URLSearchParams(window.location.search).get("auditFrom") ?? "");
@@ -147,6 +156,16 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
+
+  // The Admin user-detail session action seeds one search through the URL.
+  // Consume that handoff value after initializing state so later manual
+  // searches are not overwritten by a stale session ID on refresh.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("auditQuery")) return;
+    url.searchParams.delete("auditQuery");
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, []);
 
   const dateRangeError = getAuditDateRangeError(from, to);
   const actorFilterId = parseOptionalPositiveId(actorId);
@@ -280,6 +299,24 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setPage(0);
   }
 
+  // Correlation searches must cross source/category boundaries. Retaining a
+  // previous source, date, actor, target, or incident filter can hide the very
+  // related events this action is meant to find.
+  function findRelatedEvents(reference: string) {
+    const value = reference.trim();
+    if (!value) return;
+    setQuery(value);
+    setCategory("all");
+    setSource("all");
+    setFrom("");
+    setTo("");
+    setActorId("");
+    setTargetId("");
+    setIncidentId("");
+    setPage(0);
+    setExpanded(null);
+  }
+
   const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize);
   const pageCount = Math.ceil(total / PAGE_SIZE);
   const notificationReadCount = events.filter((event) =>
@@ -307,7 +344,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <details className="audit-page__coverage-details">
         <summary>Audit coverage and limitations</summary>
-        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span></div>
+        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Ten source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, direct-client API/Storage activity, and FCM delivery attempts are not included. Device-security rows are read when present, but no trusted server-side writer currently creates them.</span></div>
       </details>
 
       <details className="audit-page__coverage-details">
@@ -317,21 +354,22 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <h3 id="audit-sources-included">Included sources</h3>
             <ul>
               <li><strong>Admin role changes</strong><span>Feed reader: integrated. Shows role-change records and recorded reasons; an empty result is not a health check for the writer.</span></li>
-              <li><strong>Supabase Auth</strong><span>Feed reader: integrated. Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting; this setting is not verified by the page. Empty results cannot establish that authentication activity did not occur.</span></li>
+              <li><strong>Account lifecycle</strong><span>Dedicated lifecycle reader and investigation source: integrated for recorded suspension/reactivation events. These rows describe recorded transitions, not a complete account-status history; an empty result is not a status check.</span></li>
+              <li><strong>Supabase Auth</strong><span>Feed reader: integrated for the optional Postgres mirror only. Supabase provider Auth audit events are separately available in external log storage; this page does not query that external stream. The project’s Postgres-persistence setting is not observable here, so an empty database result cannot distinguish disabled persistence from no rows captured and cannot establish that authentication activity did not occur.</span></li>
               <li><strong>Incident status</strong><span>Feed reader: integrated. Shows recorded resulting-status outcomes; not necessarily a complete before-and-after transition. No rows means no matching records were returned.</span></li>
               <li><strong>Incident claiming</strong><span>Feed reader: integrated. Shows recorded claimability history; an empty result does not verify trigger health or prove no claimability changes occurred.</span></li>
               <li><strong>Requester edits</strong><span>Feed reader: integrated. Shows allowlisted changed-field names only; private before/after snapshots are excluded. Empty results are not a writer-health check.</span></li>
               <li><strong>Responder assignments</strong><span>Feed reader: integrated. Shows recorded assignment, release, and team-closure events; an empty result may simply mean none were recorded in the selected range.</span></li>
-              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
+              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Bounded metadata includes the verified Auth session ID when the action has a user JWT; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
+              <li><strong>Device security events</strong><span>Feed reader: integrated. Sanitized event type, severity, and recorded Auth session ID are searchable alongside API operations. No trusted server-side event writer is implemented yet, so an empty result is not a device-health signal.</span></li>
+              <li><strong>Laravel API operations</strong><span>Feed reader: integrated for bridge-mediated requests. Records request correlation ID, provider request ID, and verified Auth session ID when available. This best-effort source does not cover direct Android/browser Supabase or Storage calls.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
             <h3 id="audit-sources-gaps">Not yet covered</h3>
             <ul>
               <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
-              <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
               <li><strong>Direct-client API and Storage activity</strong><span>Laravel telemetry does not cover direct Android or browser Supabase calls.</span></li>
-              <li><strong>Laravel API operation telemetry</strong><span>The server-side telemetry source is not included in this feed, is best-effort, and covers only Laravel-mediated requests—not direct Android/browser Supabase or Storage calls.</span></li>
               <li><strong>FCM delivery attempts</strong><span>The server-only delivery-attempt ledger is not included in this feed. Provider acceptance does not prove device receipt or user acknowledgement.</span></li>
               <li><strong>Retention and integrity policy</strong><span>A single reviewed retention schedule, export-control policy, and cross-source integrity/restore standard is not established for every audit source.</span></li>
             </ul>
@@ -393,9 +431,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
-          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events or details" aria-label="Search investigation history" />
+          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events, trace IDs, correlation IDs or session IDs" aria-label="Search investigation history" />
         </label>
-        <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
+        <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="operations">API operations</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
@@ -460,7 +498,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                   <div><dt>Event source</dt><dd>{sourceDisplay(event.source)}</dd></div>
                   <div><dt>Performed by</dt><dd>{actorDisplay(event, profile)}</dd></div>
                   <div><dt>Related record</dt><dd>{event.target_label || (event.incident_id !== null ? "Incident activity" : "Not applicable")}</dd></div>
-                  {Object.entries(event.details).filter(([key]) => key !== "edit_number").map(([key, value]) => (
+                  {Object.entries(event.details).filter(([key]) => key !== "edit_number" && key !== "trace_id").map(([key, value]) => (
                     <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
                   ))}
                 </dl>
@@ -469,6 +507,42 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                   <dl>
                     <div><dt>Event reference</dt><dd><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Reference copied" : "Copy technical reference"} title={copiedEventId === event.event_id ? "Copied" : "Copy reference"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy"}</button></dd></div>
                     <div><dt>Source key</dt><dd><code>{event.source}</code></dd></div>
+                    {getTechnicalReference(event, "trace_id") && (
+                      <div>
+                        <dt>W3C trace ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "trace_id")}</code>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "trace_id") || "")} aria-label="Find events with this W3C trace ID" title="Find traced events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
+                    {getTechnicalReference(event, "correlation_id") && (
+                      <div>
+                        <dt>Correlation ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "correlation_id")}</code>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "correlation_id") || "")} aria-label="Find events with this correlation ID" title="Find related events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
+                    {getTechnicalReference(event, "auth_session_id") && (
+                      <div>
+                        <dt>Auth session ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "auth_session_id")}</code>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")} aria-label="Find events from this Auth session" title="Find session activity">Find related</button>
+                        </dd>
+                      </div>
+                    )}
+                    {getTechnicalReference(event, "provider_request_id") && (
+                      <div>
+                        <dt>Provider request ID</dt>
+                        <dd>
+                          <code>{getTechnicalReference(event, "provider_request_id")}</code>
+                          <button type="button" onClick={() => findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")} aria-label="Find events with this provider request ID" title="Find related events">Find related</button>
+                        </dd>
+                      </div>
+                    )}
                     {event.actor_user_id !== null && <div><dt>Actor profile reference</dt><dd>{event.actor_user_id}</dd></div>}
                     {event.target_user_id !== null && <div><dt>Target profile reference</dt><dd>{event.target_user_id}</dd></div>}
                     {event.incident_id !== null && <div><dt>Incident reference</dt><dd>{event.incident_id}</dd></div>}
@@ -491,7 +565,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || page + 1 >= pageCount}>Next <ChevronRight size={14} /></button>
         </div>
       </nav>
-      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, and metadata-only app-action records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads administrative role-change and account-lifecycle, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, metadata-only app-action, device-security, and Laravel API-operation records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Auth session IDs are recorded only when the source has a verified JWT context; W3C trace IDs, Laravel correlation IDs, Auth session IDs, and provider request IDs remain distinct. Trace IDs are caller-influenced observability references, not identity or security verdicts. A trace ID appears only when a valid traceparent reaches the event writer; the shared Android and browser Supabase transports now generate one per request, while calls that bypass those transports and provider-managed Auth audit rows remain outside this trace coverage. This page reads only the optional Supabase Auth Audit Logs Postgres mirror, not the separate external provider log stream. The project's mirror setting is not verified here; an empty table cannot distinguish disabled persistence from no rows captured and does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. Device-security rows are included when present but have no trusted server-side writer yet; direct-client API/Storage activity and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }

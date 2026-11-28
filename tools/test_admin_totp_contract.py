@@ -77,7 +77,9 @@ assert "api_admin_list_audit_logs_page" in supabase_client
 assert "Technical references" in audit_page, "Internal identifiers must be available only in the separate technical-reference disclosure."
 assert "Actor profile ID" not in audit_page and "Target profile ID" not in audit_page, "The normal audit filters must not expose numeric profile-ID fields."
 assert "This interface is read-only." in audit_page
-assert "Authentication events depend on Supabase Auth Audit Logs Postgres storage" in audit_page
+assert "This page reads only the optional Supabase Auth Audit Logs Postgres mirror" in audit_page
+assert "this page does not query that external stream" in audit_page
+assert "The project's mirror setting is not verified here" in audit_page
 assert "Denied privileged RPC attempts are not yet durably represented in this feed." in audit_page
 assert "const lifecyclePageSize = 5;" in audit_page and "getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize)" in audit_page, "Audit history must load the separate trusted account lifecycle source with bounded pagination."
 assert "Account suspension and reactivation" in audit_page

@@ -32,7 +32,7 @@ assert "setTodayActivityCount(result.total_count)" in ADMIN
 assert "setTodayActivityEvents(result.events)" in ADMIN
 assert "todayActivityEvents.length" in ADMIN
 assert "todayActivityCount === 0" in ADMIN
-assert "Today's activity is an exact count from the protected investigation feed" in ADMIN
+assert "Today's activity is the exact count returned by the protected investigation feed since Manila midnight" in ADMIN
 assert "not a complete record of every action or denied attempt" in ADMIN
 assert "todayActivityError ? \"Unavailable\"" in ADMIN
 assert "todayActivityLoading" in ADMIN

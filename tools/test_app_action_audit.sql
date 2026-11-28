@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Verify metadata-only app-action audit writes and Admin investigation visibility.
 -- All fixtures are synthetic and run only in the clean PostgreSQL CI replay.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
@@ -16,6 +18,9 @@ DECLARE
   v_incident_id bigint;
   notification_id bigint;
   event_count integer;
+  correlation_count integer;
+  app_correlation_id uuid;
+  api_correlation_id uuid := '10000000-0000-4000-8000-000000000410';
   feed jsonb;
 BEGIN
   SELECT id INTO requester_id FROM public.profiles
@@ -36,6 +41,12 @@ BEGIN
   -- below we separately assert the authenticated responder's own transition.
   UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
 
+  INSERT INTO auth.sessions (id, user_id)
+  VALUES
+    ('10000000-0000-4000-8000-000000000170', '00000000-0000-4000-8000-000000000170'),
+    ('10000000-0000-4000-8000-000000000171', '00000000-0000-4000-8000-000000000171'),
+    ('10000000-0000-4000-8000-000000000172', '00000000-0000-4000-8000-000000000172');
+
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
     location_recorded_at, location_source
@@ -48,12 +59,18 @@ BEGIN
   -- role, target profile, and before/after values, never location or secrets.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000171', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000171","session_id":"10000000-0000-4000-8000-000000000171","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   UPDATE public.profiles SET duty_status = 'available' WHERE id = responder_id;
 
   -- Exercise the real authenticated chat RPC. The audit trigger must not copy
   -- the message body or any attachment payload/path into its metadata.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000170', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000170","session_id":"10000000-0000-4000-8000-000000000170","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   PERFORM public.api_send_incident_message(
     v_incident_id, 'Synthetic private chat body must not enter audit metadata',
     '00000000-0000-4000-8000-000000000170'::uuid
@@ -76,6 +93,9 @@ BEGIN
   -- denied/no-op result must not create a successful-action audit row.
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000171', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000171","session_id":"10000000-0000-4000-8000-000000000171","aal":"aal1","amr":[{"method":"password"}]}',
+    false);
   IF public.api_mark_notification_read(notification_id) THEN
     RAISE EXCEPTION 'Unrelated responder must not read this notification';
   END IF;
@@ -90,6 +110,7 @@ BEGIN
        AND audit.incident_id = v_incident_id
        AND audit.outcome = 'success'
        AND audit.metadata->>'message_kind' = 'text'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid
   ) OR NOT EXISTS (
     SELECT 1 FROM public.app_action_audit_logs AS audit
      WHERE audit.action = 'notification_marked_read'
@@ -98,6 +119,7 @@ BEGIN
        AND audit.target_id = notification_id::text
        AND audit.target_user_id = requester_id
        AND audit.metadata->>'notification_type' = 'incident_message'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000170'::uuid
   ) OR NOT EXISTS (
     SELECT 1 FROM public.app_action_audit_logs AS audit
      WHERE audit.action = 'duty_status_changed'
@@ -106,6 +128,7 @@ BEGIN
        AND audit.target_user_id = responder_id
        AND audit.metadata->>'previous_status' = 'off_duty'
        AND audit.metadata->>'new_status' = 'available'
+       AND audit.auth_session_id = '10000000-0000-4000-8000-000000000171'::uuid
   ) THEN
     RAISE EXCEPTION 'App-action audit rows do not preserve the expected actor, target, outcome, or safe metadata';
   END IF;
@@ -150,6 +173,40 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
   END IF;
+  SELECT count(DISTINCT audit.correlation_id), min(audit.correlation_id::text)::uuid
+    INTO correlation_count, app_correlation_id
+    FROM public.app_action_audit_logs audit
+   WHERE audit.actor_profile_id IN (requester_id, responder_id)
+     AND audit.action IN (
+       'duty_status_changed', 'incident_message_sent', 'notification_marked_read'
+     );
+  IF correlation_count <> 1 OR app_correlation_id IS NULL THEN
+    RAISE EXCEPTION 'App-action rows from one transaction must share one trusted correlation ID; found %', correlation_count;
+  END IF;
+
+  -- Bridge telemetry and device-security records must join the same Auth
+  -- session without exposing raw event details or requiring auth.sessions to
+  -- retain the row after sign-out.
+  INSERT INTO public.api_operation_logs (
+    correlation_id, actor_auth_user_id, auth_session_id, provider, operation,
+    source, outcome, http_status, duration_ms, provider_request_id, error_code
+  ) VALUES (
+    api_correlation_id,
+    '00000000-0000-4000-8000-000000000170',
+    '10000000-0000-4000-8000-000000000170',
+    'supabase', 'rpc.api_me', 'render_api', 'failure', 401, 12,
+    'synthetic-provider-request-170', 'auth_rejected'
+  );
+
+  INSERT INTO public.device_security_events (
+    profile_id, auth_session_id, event_type, severity, details
+  ) VALUES (
+    requester_id,
+    '10000000-0000-4000-8000-000000000170',
+    'proof_rejected',
+    'warning',
+    '{"fixture":"must_not_be_projected"}'::jsonb
+  );
 
   BEGIN
     UPDATE public.app_action_audit_logs
@@ -171,7 +228,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000172', false);
   PERFORM set_config('request.jwt.claims',
-    '{"sub":"00000000-0000-4000-8000-000000000172","aal":"aal2","amr":[{"method":"totp"}]}',
+    '{"sub":"00000000-0000-4000-8000-000000000172","session_id":"10000000-0000-4000-8000-000000000172","aal":"aal2","amr":[{"method":"totp"}]}',
     false);
   feed := public.api_admin_list_investigation_events(
     100, 0, '', 'all', 'app_action_audit_logs',
@@ -188,6 +245,7 @@ BEGIN
           AND value->'details'->>'target_id' IS NOT NULL
           AND value->'details'->>'outcome' = 'success'
           AND value->'details'->>'correlation_id' IS NOT NULL
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
@@ -195,14 +253,72 @@ BEGIN
           AND value->'details'->>'target_type' = 'notification'
           AND value->'details'->>'target_id' = notification_id::text
           AND value->'details'->>'actor_role' = 'requester'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'duty_status_changed'
           AND value->'details'->>'actor_role' = 'responder'
           AND value->'details'->'metadata'->>'new_status' = 'available'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000171'
      ) THEN
     RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, '10000000-0000-4000-8000-000000000170',
+    'all', 'app_action_audit_logs', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 2 THEN
+    RAISE EXCEPTION 'Session-ID search should return only the requester session actions; found %', feed->>'total_count';
+  END IF;
+  feed := public.api_admin_list_investigation_events(
+    100, 0, app_correlation_id::text,
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 4
+     OR EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+     ) THEN
+    RAISE EXCEPTION 'Transaction correlation search must return all four app-action rows, including the system-attributed provisioning event: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, api_correlation_id::text,
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+          AND value->'details'->>'provider_request_id' = 'synthetic-provider-request-170'
+     ) THEN
+    RAISE EXCEPTION 'Request correlation search must return only the related Laravel API operation: %', feed;
+  END IF;
+
+  feed := public.api_admin_list_investigation_events(
+    100, 0, '10000000-0000-4000-8000-000000000170',
+    'all', 'all', NULL, NULL, NULL, NULL, NULL
+  );
+  IF (feed->>'total_count')::integer <> 4
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'device_security_events'
+          AND value->>'event_type' = 'proof_rejected'
+          AND value->'details'->>'severity' = 'warning'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
+        WHERE value->>'source' = 'api_operation_logs'
+          AND value->'details'->>'auth_session_id' = '10000000-0000-4000-8000-000000000170'
+     ) THEN
+    RAISE EXCEPTION 'Auth-session search should correlate app, device-security, and API operation events: %', feed;
+  END IF;
+  IF feed::text ILIKE '%must_not_be_projected%' THEN
+    RAISE EXCEPTION 'Device security feed exposed arbitrary event details';
   END IF;
 
   IF feed::text ILIKE '%Synthetic private chat body%'
@@ -214,4 +330,6 @@ END;
 $app_action_audit_fixture$;
 
 RESET ROLE;
+ROLLBACK;
+
 SELECT 'PASS: committed app actions are audited without private content and are visible only through the protected Admin feed.' AS result;

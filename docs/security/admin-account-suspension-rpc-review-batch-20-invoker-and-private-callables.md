@@ -26,7 +26,7 @@
 
 ### Legacy RPC exposure
 
-The older `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` signatures remain authenticated-callable in the replay catalog. They must not be dismissed as obsolete based only on Android's current client version. Before implementation, inspect their effective bodies, direct grants, and call sites. Either:
+The pre-migration live catalog showed `api_create_incident`, `api_create_incident_v2`, and `api_create_incident_v3` as authenticated-callable invoker functions. Section 72 on PR #370 supersedes that grant state: current Android and Laravel clients call v4 only, authenticated lacks direct INSERT on incidents, and the forward migration revokes API-role EXECUTE on v1/v2/v3 while preserving v3 as an owner-called implementation under v4. Historical APK distribution remains unknown, so signatures are retained and not dropped. Any future server/client compatibility path requires a separate guarded wrapper and explicit review. Either:
 - route them through the same guarded current implementation, or
 - revoke client EXECUTE if repository compatibility checks prove no supported client still needs them.
 
@@ -90,3 +90,24 @@ Review boundary: the wrappers retain the existing operation-specific validation 
 The responder/driver directory and dispatcher incident queue are now included in the account-lifecycle read review. `api_units()` previously used a raw dispatcher-role lookup inside a SECURITY DEFINER body; it now delegates through a private, non-client-callable implementation after an active-profile `FOR SHARE` lock. `api_all_incidents()` uses the shared active-aware role helper while remaining SECURITY INVOKER.
 
 The added replay contract checks these distinctions explicitly. It does not establish runtime behavior until the complete migration chain is replayed against a disposable PostgreSQL/Supabase-compatible database and the resulting privilege catalog is inspected.
+
+
+## Current-branch inventory reconciliation
+
+This review's earlier aggregate counts and callable classifications are historical. The current branch SQL contracts require 38 authenticated-callable public application API functions (24 SECURITY DEFINER and 14 SECURITY INVOKER) and 13 authenticated-callable private SECURITY DEFINER helpers. The raw 75/24/51 schema-wide aggregate was extension-schema-dependent and has been replaced by an explicit API signature register. The exact private signature list is in tools/test_account_suspension_private_definer_inventory.sql.
+
+Specific corrections:
+- api_unregister_fcm_token(text) is classified as a public SECURITY DEFINER function in the current crosswalk and inventory, not an invoker.
+- api_assign_incident_team(bigint,bigint[]) is a public SECURITY INVOKER wrapper delegating to private.tacresq_assign_incident_team_guarded(bigint,bigint[]), not a public definer.
+- api_set_duty_status(text) is the exact duty mutation signature; the older unresolved status is stale.
+- api_reserve_incident_image_upload(bigint,text,bigint,uuid) is the exact reservation signature.
+- The aggregate invoker count includes extension routines. Continue separating extension functions from application RPCs.
+
+These figures are contract expectations, not a fresh replay output. A complete per-signature invoker-to-table/view/RLS/helper/trigger graph and same-valid-JWT integration run remain release requirements.
+
+
+## Live catalog reconciliation — 2026-11-26
+
+The connected TACResQ Supabase database has 14 authenticated-callable public application API SECURITY INVOKER functions, not 51. The old 51 aggregate counted functions by public schema and varied with extension installation schema. The connected project places pgcrypto, uuid-ossp, and pg_stat_statements in extensions. The exact 14 application invoker signatures are listed in the callable crosswalk's live-catalog reconciliation. There are 24 public API definers and 13 directly authenticated-callable private definers.
+
+A separate public trigger-only function, public.tacresq_require_incident_location(), is attached to incidents_require_location_before_write but currently has effective EXECUTE for PUBLIC, anon, authenticated, and service_role. The trigger does not need those direct grants. Branch migration 20261126100000_revoke_incident_trigger_function_client_execute.sql revokes them, and the disposable replay contract verifies that the trigger remains attached while direct EXECUTE is false. Do not describe this as production-fixed until the migration is applied through the approved process.

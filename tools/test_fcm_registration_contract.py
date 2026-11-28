@@ -38,6 +38,18 @@ logout_start = app_root.index("val logout: () -> Unit")
 logout_end = app_root.index("LaunchedEffect(sessionState)", logout_start)
 logout_flow = app_root[logout_start:logout_end]
 assert logout_flow.index("pushTokenCoordinator.unregister") < logout_flow.index("container.repository.logout()")
+permission_start = app_root.index("val notificationPermissionLauncher")
+permission_end = app_root.index("val logout: () -> Unit", permission_start)
+permission_flow = app_root[permission_start:permission_end]
+assert "loggedInState.session.user.role != Role.ADMIN" in permission_flow
+assert permission_flow.index("role != Role.ADMIN") < permission_flow.index("pushTokenCoordinator.sync")
+
+resume_start = app_root.index("LifecycleEventEffect(Lifecycle.Event.ON_RESUME)")
+resume_end = app_root.index("LaunchedEffect(sessionState)", resume_start)
+resume_flow = app_root[resume_start:resume_end]
+assert "loggedInState.session.user.role != Role.ADMIN" in resume_flow
+assert resume_flow.index("role != Role.ADMIN") < resume_flow.index("pushTokenCoordinator.sync")
+
 admin_gate = app_root.index("if (loggedInState.session.user.role == Role.ADMIN)")
 admin_gate_end = app_root.index("container.pushTokenCoordinator.sync", admin_gate)
 admin_gate_body = app_root[admin_gate:admin_gate_end]

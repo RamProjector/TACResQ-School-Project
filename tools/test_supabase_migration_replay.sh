@@ -11,6 +11,17 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN BYPASSRLS;
+
+-- Reproduce the live PostgreSQL public-schema defaults for objects
+-- created by the postgres migration owner. The hosted defaults grant broad
+-- table, sequence and function privileges to anon, authenticated and
+-- service_role; migrations must explicitly narrow each new object.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT ALL PRIVILEGES ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT ALL PRIVILEGES ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
 CREATE SCHEMA auth;
 -- Supabase Auth's investigation feed reads only these allowlisted audit fields.
 CREATE TABLE auth.audit_log_entries (
@@ -25,6 +36,28 @@ CREATE TABLE auth.users (
   raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Minimal provider-owned Auth session fixture. The Admin session reader must
+-- compile and execute against this private relation without granting API roles
+-- direct access to it.
+CREATE TABLE auth.sessions (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz,
+  updated_at timestamptz,
+  factor_id uuid,
+  aal text,
+  not_after timestamptz,
+  refreshed_at timestamp without time zone,
+  user_agent text,
+  ip inet,
+  tag text,
+  oauth_client_id uuid,
+  refresh_token_hmac_key text,
+  refresh_token_counter bigint,
+  scopes text
+);
+ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
 CREATE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
@@ -90,6 +123,9 @@ for migration in supabase/migrations/*.sql; do
   echo "Applying ${migration}"
   psql -v ON_ERROR_STOP=1 -f "${migration}"
 done
+
+# Verify retired requester-create RPC grants and the retained v4 -> v3 owner call.
+psql -v ON_ERROR_STOP=1 -f tools/test_legacy_incident_create_rpc_privileges.sql
 
 # Keep the account-suspension callable definer inventory in sync with reviewed signatures.
 psql -v ON_ERROR_STOP=1 -f tools/test_account_suspension_definer_inventory.sql
@@ -1009,6 +1045,12 @@ BEGIN
 END;
 $admin_provision_fixture$;
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000128',
+  '00000000-0000-4000-8000-000000000128'
+);
+
 DO $admin_authorization_test$
 DECLARE
   admin_profile_id bigint;
@@ -1047,7 +1089,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
     true
   );
   -- Function EXECUTE grants are asserted above. Direct audit-table RLS is
@@ -1124,7 +1166,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
     true
   );
 
@@ -1274,7 +1316,7 @@ BEGIN
   -- A password-only AAL1 session must not see audit rows, even for an Admin.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1285,7 +1327,7 @@ BEGIN
   -- AAL2 without a TOTP method must also be denied.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1296,7 +1338,7 @@ BEGIN
   -- The verified TOTP session must retain the intended Admin read access.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1307,7 +1349,7 @@ BEGIN
   -- RFC-8176 string-form AMR claims are also accepted by the MFA policy.
   PERFORM set_config(
     'request.jwt.claims',
-    '{"aal":"aal2","amr":["password","totp"]}',
+    '{"session_id":"10000000-0000-4000-8000-000000000128","aal":"aal2","amr":["password","totp"]}',
     true
   );
   SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
@@ -1873,6 +1915,7 @@ DO $account_suspension_privilege_baseline$
 DECLARE
   anon_oid oid;
   authenticated_oid oid;
+  privilege_name text;
 BEGIN
   SELECT oid INTO anon_oid FROM pg_catalog.pg_roles WHERE rolname = 'anon';
   SELECT oid INTO authenticated_oid FROM pg_catalog.pg_roles WHERE rolname = 'authenticated';
@@ -1905,9 +1948,10 @@ BEGIN
     SELECT 1
     FROM pg_catalog.pg_default_acl AS defaults
     CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
-    WHERE expanded.grantee IN (0::oid, anon_oid, authenticated_oid)
+    WHERE defaults.defaclnamespace = 0
+      AND expanded.grantee IN (0::oid, anon_oid, authenticated_oid)
   ) THEN
-    RAISE EXCEPTION 'Global/schema default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
+    RAISE EXCEPTION 'Global default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
   END IF;
 
   IF EXISTS (
@@ -1938,10 +1982,52 @@ BEGIN
         has_sequence_privilege('anon', sequence.oid, 'USAGE')
         OR has_sequence_privilege('anon', sequence.oid, 'SELECT')
         OR has_sequence_privilege('anon', sequence.oid, 'UPDATE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'SELECT')
         OR has_sequence_privilege('authenticated', sequence.oid, 'UPDATE')
       )
   ) THEN
-    RAISE EXCEPTION 'Public sequence grants must not expose anon access or authenticated UPDATE/setval capability';
+    RAISE EXCEPTION 'Public sequence grants must not expose anon or authenticated sequence access';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS sequence
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = sequence.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND sequence.relkind = 'S'
+      AND sequence.relname NOT IN (
+        'api_operation_logs_id_seq',
+        'incidents_id_seq',
+        'location_logs_id_seq',
+        'device_security_events_id_seq',
+        'device_integrity_checks_id_seq'
+      )
+      AND (
+        has_sequence_privilege('service_role', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('service_role', sequence.oid, 'SELECT')
+        OR has_sequence_privilege('service_role', sequence.oid, 'UPDATE')
+      )
+  ) THEN
+    RAISE EXCEPTION 'service_role must not retain access to RPC/trigger-owned application sequences';
+  END IF;
+
+  FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT'] LOOP
+    IF NOT has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', privilege_name)
+       OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Trusted direct-insert/legacy RPC sequence consumers lost required % privilege', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF has_sequence_privilege('service_role', 'public.api_operation_logs_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.incidents_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Trusted server sequence consumers must not retain UPDATE/setval';
   END IF;
 
   IF EXISTS (
@@ -1962,6 +2048,61 @@ BEGIN
   END IF;
 END;
 $account_suspension_privilege_baseline$;
+SQL
+
+# PostgreSQL 17 adds MAINTAIN to table ACLs. PG16 keeps this test conditional;
+# the same replay on PG17 must prove authenticated clients cannot run maintenance
+# commands while retaining their normal read and narrowly scoped duty updates.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $pg17_maintain_privilege_contract$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_class AS relation_row
+      JOIN pg_catalog.pg_namespace AS schema_row
+        ON schema_row.oid = relation_row.relnamespace
+      WHERE schema_row.nspname = 'public'
+        AND relation_row.relkind IN ('r', 'p')
+        AND (
+          has_table_privilege('anon', relation_row.oid, 'MAINTAIN')
+          OR has_table_privilege('authenticated', relation_row.oid, 'MAINTAIN')
+          OR has_table_privilege('service_role', relation_row.oid, 'MAINTAIN')
+        )
+    ) THEN
+      RAISE EXCEPTION 'API roles must not retain PostgreSQL 17 MAINTAIN on public application tables';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_default_acl AS default_acl
+      CROSS JOIN LATERAL pg_catalog.aclexplode(default_acl.defaclacl) AS acl_row
+      WHERE default_acl.defaclrole = 'postgres'::regrole::oid
+        AND default_acl.defaclnamespace = 'public'::regnamespace
+        AND default_acl.defaclobjtype = 'r'
+        AND acl_row.grantee IN (
+          0::oid,
+          'anon'::regrole::oid,
+          'authenticated'::regrole::oid,
+          'service_role'::regrole::oid
+        )
+        AND acl_row.privilege_type = 'MAINTAIN'
+    ) THEN
+      RAISE EXCEPTION 'Postgres/public default ACL must not grant MAINTAIN to API roles for future tables';
+    END IF;
+
+    IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+       OR NOT has_table_privilege('authenticated', 'public.incidents', 'SELECT')
+       OR NOT has_column_privilege('authenticated', 'public.profiles', 'duty_status', 'UPDATE')
+       OR NOT has_column_privilege('authenticated', 'public.profiles', 'updated_at', 'UPDATE') THEN
+      RAISE EXCEPTION 'PostgreSQL 17 MAINTAIN reduction must preserve the normal profile/incident client workflow';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Skipping PostgreSQL 17 MAINTAIN assertion on server version %',
+      current_setting('server_version');
+  END IF;
+END;
+$pg17_maintain_privilege_contract$;
 SQL
 
 # Preserve the audit-log MFA gate as a RESTRICTIVE policy. A second
@@ -2009,3 +2150,110 @@ BEGIN
 END;
 $admin_audit_policy_contract$;
 SQL
+
+
+# Verify the trigger-only incident invariant has no direct client/service EXECUTE
+# path after the full migration replay. The application DML path remains protected
+# by the enabled row trigger; callers do not need EXECUTE on the trigger function.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $incident_location_trigger_grant_contract$
+DECLARE
+  trigger_function oid := to_regprocedure(
+    'public.tacresq_require_incident_location()'
+  );
+  bound_trigger_count integer;
+  enabled_trigger_count integer;
+BEGIN
+  IF trigger_function IS NULL THEN
+    RAISE EXCEPTION 'Required incident location trigger function is missing';
+  END IF;
+
+  SELECT count(*),
+         count(*) FILTER (WHERE trigger_row.tgenabled = 'O')
+    INTO bound_trigger_count, enabled_trigger_count
+    FROM pg_catalog.pg_trigger AS trigger_row
+   WHERE NOT trigger_row.tgisinternal
+     AND trigger_row.tgfoid = trigger_function
+     AND trigger_row.tgrelid = 'public.incidents'::regclass
+     AND trigger_row.tgname = 'incidents_require_location_before_write';
+
+  IF bound_trigger_count <> 1 OR enabled_trigger_count <> 1 THEN
+    RAISE EXCEPTION
+      'Expected exactly one enabled incidents_require_location_before_write binding on public.incidents; found % binding(s), % enabled',
+      bound_trigger_count, enabled_trigger_count;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_proc AS function_row
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        coalesce(
+          function_row.proacl,
+          pg_catalog.acldefault('f', function_row.proowner)
+        )
+      ) AS privilege_row
+     WHERE function_row.oid = trigger_function
+       AND privilege_row.grantee = 0
+       AND privilege_row.privilege_type = 'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'PUBLIC must not retain EXECUTE on the trigger-only incident location function';
+  END IF;
+
+  IF has_function_privilege('anon', trigger_function, 'EXECUTE')
+     OR has_function_privilege('authenticated', trigger_function, 'EXECUTE')
+     OR has_function_privilege('service_role', trigger_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Client and service roles must not directly EXECUTE the trigger-only incident location function';
+  END IF;
+
+  IF NOT has_function_privilege('postgres', trigger_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'The function owner must retain EXECUTE on the trigger-only incident location function';
+  END IF;
+END;
+$incident_location_trigger_grant_contract$;
+SQL
+
+# Preserve the sequence access still required by authenticated legacy incident-create RPCs.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $legacy_incident_sequence_privilege_contract$
+BEGIN
+  IF has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'USAGE')
+     OR has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.incidents_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not access incidents_id_seq without direct table INSERT';
+  END IF;
+
+  IF has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.location_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not access location_logs_id_seq';
+  END IF;
+
+  IF has_sequence_privilege('anon', 'public.incidents_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.incidents_id_seq', 'SELECT')
+     OR has_sequence_privilege('anon', 'public.incidents_id_seq', 'UPDATE')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('anon', 'public.location_logs_id_seq', 'UPDATE')
+     OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.incidents_id_seq', 'SELECT')
+     OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.incidents_id_seq', 'UPDATE')
+     OR has_sequence_privilege('service_role', 'public.location_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Unexpected anon or service-role sequence privilege';
+  END IF;
+END;
+$legacy_incident_sequence_privilege_contract$;
+SQL
+
+# Verify the backend-only device registry and dedicated verifier execution boundary.
+psql -v ON_ERROR_STOP=1 -f tools/test_device_security_privileges.sql
+
+# Verify the service-role Admin audit boundary and preserve authenticated Admin RPC grants.
+psql -v ON_ERROR_STOP=1 -f tools/test_service_role_admin_audit_privileges.sql
+
+# Exercise protected Auth session pagination, MFA authorization, and field minimization.
+psql -v ON_ERROR_STOP=1 -f tools/test_admin_auth_sessions.sql
+
+# Exercise Admin API-operation source filters, provider IDs, W3C trace search/stamping, session attribution, and MFA denial.
+psql -v ON_ERROR_STOP=1 -f tools/test_admin_api_operation_investigation.sql

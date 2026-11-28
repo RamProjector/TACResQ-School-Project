@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
+app = (ROOT / "backend/web/src/App.tsx").read_text()
 dockerfile = (ROOT / "backend/Dockerfile").read_text()
 web_routes = (ROOT / "backend/src/routes/web.php").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
@@ -173,6 +174,24 @@ assert "setTodayActivityCount(result.total_count)" in admin_console
 assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
 assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
+
+# Overview workspace uses the available content width, keeps activity primary, and preserves honest scope disclosures.
+assert '<div className="admin-overview-summary" hidden={activeSection !== "overview"}>' in admin_console
+assert 'className="admin-overview-grid" aria-label="Overview workspace"' in admin_console
+assert admin_console.index('className="admin-panel admin-overview-activity"') < admin_console.index('className="admin-panel admin-health-panel"')
+assert '<nav className="admin-overview-shortcuts" aria-label="Additional Admin workspaces"' in admin_console
+assert '<details className="admin-overview-disclosure">' in admin_console
+assert 'id="admin-health-limitations" className="admin-overview-disclosure admin-health-limitations"' in admin_console
+assert "exact count returned by the protected investigation feed since Manila midnight" in admin_console
+assert "not a complete record of every action or denied attempt" in admin_console
+assert "This preview includes only recorded events available through the protected investigation feed." in admin_console
+assert "Provider acceptance, device delivery, and user receipt are different outcomes." in admin_console
+assert ".admin-overview-grid" in admin_resolution_css
+assert "container-name: admin-workspace;" in admin_resolution_css
+assert "@container admin-workspace (min-width: 1080px)" in admin_resolution_css
+assert "grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);" in admin_resolution_css
+assert ".admin-overview-shortcuts button:focus-visible" in admin_resolution_css
+assert ".admin-overview-disclosure summary:focus-visible" in admin_resolution_css
 
 # Dependency diagnostics count the same three probes, expose loading limits, and avoid noisy live announcements.
 assert 'aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading}' in admin_console
@@ -425,3 +444,10 @@ for required_text in (
 ):
     assert required_text in admin_console, f"Privacy request readiness is missing: {required_text}"
 assert "No personal-data export, correction, deletion, blocking, or retention operation is performed from this page." in admin_console
+
+
+# A delayed initial session snapshot must never overwrite a newer auth event.
+assert "let authEventVersion = 0;" in app
+assert "const initialAuthEventVersion = authEventVersion;" in app
+assert "authEventVersion += 1;" in app
+assert "if (!mounted || authEventVersion !== initialAuthEventVersion) return;" in app

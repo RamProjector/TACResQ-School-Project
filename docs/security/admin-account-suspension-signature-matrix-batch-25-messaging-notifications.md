@@ -25,3 +25,12 @@
 - Pagination and idempotency responses reveal no protected history to suspended callers.
 
 **Status:** Catalog/source review only. No Deno provider-spy suite or HTTP Storage integration suite is claimed as executed.
+
+
+## Current-branch signature reconciliation
+
+The image reservation row's exact callable signature is public.api_reserve_incident_image_upload(bigint,text,bigint,uuid). It is an authenticated-callable public SECURITY DEFINER entry point in the current 24-signature public definer inventory. Its active-account/idempotency guard must execute before returning a prior reservation or creating a new one.
+
+The current private callable inventory also includes private.tacresq_upload_reservation_allows_insert(text,text,bigint), an authenticated-callable SECURITY DEFINER helper used by the Storage reservation policy chain. Treat this helper as an independent callable entry point and inspect its exact grants and behavior; do not infer its safety only from the public reservation RPC.
+
+The earlier source note that the private active-responder location helper lacked current guard proof is historical; the current crosswalk and lifecycle migrations describe its guarded wrapper and inaccessible internal query. Keep Storage HTTP upload/download and Deno provider-spy tests as outstanding until those tests actually execute.

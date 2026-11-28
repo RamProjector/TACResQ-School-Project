@@ -1,6 +1,6 @@
 # Account-suspension private callable-definer source trace — batch 23
 
-**Scope:** the eleven private `SECURITY DEFINER` functions that the clean replay reports as directly executable by `authenticated`. This is a source-level trace of current authorization assumptions, not a claim that suspension is enforced.
+**Historical scope:** the original eleven private `SECURITY DEFINER` functions identified before the account-lifecycle guard migrations. The gap descriptions below are historical and are superseded by the live 13-helper audit appended at the end of this file and the 2026-11-26 callable crosswalk. Do not treat the old suspension gaps as current findings without rechecking the live catalog.
 
 ## Function-by-function findings
 
@@ -36,3 +36,25 @@
 ## Validation boundary
 
 This batch records source behavior and the guard locations required by the next implementation. It adds no account-state column, migration, runtime guard, UI, or live Supabase change. The eleven-function SQL inventory gate only ensures the callable surface does not silently drift; it does not prove authorization safety.
+
+
+## Superseding live helper audit — 2026-11-26
+
+The connected TACResQ Supabase catalog now reports 13 authenticated-callable private SECURITY DEFINER helpers, not the original eleven described above. The two additional helpers are:
+
+- private.tacresq_auth_profile_id_for_token_cleanup()
+- private.tacresq_current_account_active_read()
+
+The earlier table contains historical findings that have since been addressed. In particular:
+
+- tacresq_auth_profile_id() now resolves only active profiles and holds FOR SHARE.
+- tacresq_auth_can_access_incident_chat() now resolves through the active profile helper before evaluating chat membership.
+- tacresq_actor_role() returns a role only for active profiles.
+- tacresq_is_incident_assignee() requires an active profile and holds FOR SHARE.
+- tacresq_assign_incident_team_guarded(), tacresq_dispatch_update_incident_status(), tacresq_record_location_v2(), tacresq_active_responder_locations(), and tacresq_release_incident_assignment() have active-account checks at their callable boundaries.
+- tacresq_upload_reservation_allows_insert() resolves an active profile before its compatibility/strict reservation branch.
+- The internal implementations for assignment, location, release, active-location retrieval, and shared chat access are not directly executable by authenticated or anon in the live catalog. The guarded wrapper call graph must remain the only path to the privileged assignment/location/release implementations.
+
+The live helper audit is in docs/security/admin-account-suspension-callable-definer-crosswalk.md under “Private callable-helper dependency audit — live catalog, 2026-11-26”. That section also records the Storage/RLS consumers, FCM self-cleanup exception, private-schema API exposure caveat, Supabase Advisor snapshot, and remaining runtime tests.
+
+No live data or schema was changed during this audit. The findings are catalog/source observations; same-valid-JWT, Storage HTTP, and concurrency tests remain open.

@@ -6,7 +6,7 @@
 
 - The current idempotent creation path `api_create_incident_v4` requires an authenticated requester, locks that requester's profile row, and ties the client request UUID to a normalized payload. Reusing the same UUID with different content is rejected; retrying the same payload returns the saved response.
 - The database trigger serializes inserts on the requester profile row and rejects a second incident unless the previous one is resolved or cancelled. This applies to legacy creation RPCs too because it is an INSERT trigger, not only a check in the newest RPC.
-- Older `api_create_incident` and `api_create_incident_v2/v3` signatures remain for client compatibility. They should not be removed without checking Android/API versions, but all paths must continue to pass through the same trigger and incident field guards.
+- The pre-migration catalog retained authenticated EXECUTE on v1/v2/v3, but authenticated had no direct INSERT on `public.incidents`; these invoker functions were not a working client compatibility path. Current Android/Laravel use v4 only. PR #370 Section 72 revokes API-role EXECUTE on the old signatures while retaining v3 for the owner-executed v4 call. Keep the signatures; do not drop them without a separate historical-client review.
 - Creation is authenticated and requester-role constrained in the newer RPCs. The oldest compatibility RPC is SECURITY INVOKER and its execute grant is restricted to authenticated callers.
 
 ## Edit boundary

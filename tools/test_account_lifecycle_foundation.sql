@@ -90,6 +90,27 @@ BEGIN
     RAISE EXCEPTION 'Authenticated clients must not directly update account lifecycle fields';
   END IF;
 
+  IF has_table_privilege('authenticated', 'public.profiles', 'UPDATE') THEN
+    RAISE EXCEPTION 'Authenticated users must not retain table-level UPDATE on profiles';
+  END IF;
+  IF NOT has_column_privilege('authenticated', 'public.profiles', 'duty_status', 'UPDATE')
+     OR NOT has_column_privilege('authenticated', 'public.profiles', 'updated_at', 'UPDATE') THEN
+    RAISE EXCEPTION 'The SECURITY INVOKER duty-status RPC lost its narrow profile column grants';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_attribute AS profile_column
+    WHERE profile_column.attrelid = 'public.profiles'::regclass
+      AND profile_column.attnum > 0
+      AND NOT profile_column.attisdropped
+      AND profile_column.attname NOT IN ('duty_status', 'updated_at')
+      AND has_column_privilege(
+        'authenticated', 'public.profiles', profile_column.attname, 'UPDATE'
+      )
+  ) THEN
+    RAISE EXCEPTION 'Authenticated profile UPDATE must be limited to duty_status and updated_at';
+  END IF;
+
   -- No directly granted public table may bypass RLS entirely.
   IF EXISTS (
     SELECT 1
@@ -216,6 +237,22 @@ BEGIN
        AND NOT t.tgisinternal
   ) THEN
     RAISE EXCEPTION 'Legacy and current incident creation paths must be covered by the active-account INSERT trigger';
+  END IF;
+
+  -- The location invariant function is a trigger implementation, not a
+  -- PostgREST RPC. Trigger execution does not require caller EXECUTE grants.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_trigger t
+     WHERE t.tgrelid = 'public.incidents'::regclass
+       AND t.tgname = 'incidents_require_location_before_write'
+       AND t.tgenabled = 'O'
+       AND t.tgfoid = to_regprocedure('public.tacresq_require_incident_location()')
+       AND NOT t.tgisinternal
+  ) OR has_function_privilege('anon', 'public.tacresq_require_incident_location()', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.tacresq_require_incident_location()', 'EXECUTE')
+    OR has_function_privilege('service_role', 'public.tacresq_require_incident_location()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Incident location trigger must remain attached and not directly executable by client/service roles';
   END IF;
 END;
 $schema_contract$;
@@ -523,10 +560,16 @@ UPDATE public.profiles
        suspension_reason = 'Synthetic suspended Admin fixture'
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000992',
+  '00000000-0000-4000-8000-000000000992'
+);
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000992', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000992","aal":"aal2","amr":[{"method":"totp"}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000992","session_id":"10000000-0000-4000-8000-000000000992","aal":"aal2","amr":[{"method":"totp"}]}',
   false
 );
 SET ROLE authenticated;
@@ -603,10 +646,42 @@ UPDATE public.profiles
    SET role = 'admin', duty_status = NULL
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
 
+INSERT INTO auth.sessions (id, user_id)
+VALUES (
+  '10000000-0000-4000-8000-000000000995',
+  '00000000-0000-4000-8000-000000000995'
+);
+
+-- Reuse a valid responder JWT to prove the invoker duty-status RPC still has
+-- its narrow column grants while direct lifecycle-field mutation is denied.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000993', false);
+SELECT set_config('request.jwt.claims', '', false);
+SET ROLE authenticated;
+DO $profile_update_boundary$
+BEGIN
+  PERFORM public.api_set_duty_status('available');
+  BEGIN
+    UPDATE public.profiles
+       SET account_status = 'suspended',
+           suspended_at = clock_timestamp(),
+           suspended_by = (
+             SELECT id FROM public.profiles
+              WHERE auth_user_id = auth.uid()
+           ),
+           suspension_reason = 'Direct self-suspension must be denied'
+     WHERE auth_user_id = auth.uid();
+    RAISE EXCEPTION 'Authenticated responder unexpectedly changed account lifecycle fields directly';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$profile_update_boundary$;
+RESET ROLE;
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000995', false);
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000000995","aal":"aal2","amr":[{"method":"totp"}]}',
+  '{"sub":"00000000-0000-4000-8000-000000000995","session_id":"10000000-0000-4000-8000-000000000995","aal":"aal2","amr":[{"method":"totp"}]}',
   false
 );
 

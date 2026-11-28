@@ -21,7 +21,7 @@ jobs:
       PGDATABASE: tacresq_test
     services:
       postgres:
-        image: postgres:16.15-bookworm@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
+        image: postgres:17.12-bookworm@sha256:1eff563f6c868b9b433566e9f3cf6e5c79fbd3b95bf70ec7277d376cdbfc50d7
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

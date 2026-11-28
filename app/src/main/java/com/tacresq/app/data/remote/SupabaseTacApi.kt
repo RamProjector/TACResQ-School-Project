@@ -274,6 +274,7 @@ class SupabaseTacApi private constructor(
                         .header("Accept", "application/json")
                     chain.proceed(withStoredSessionAuthorization(request.build(), tokenProvider))
                 }
+                .addInterceptor(TraceparentInterceptor())
                 .addInterceptor(logging)
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
@@ -292,6 +293,7 @@ class SupabaseTacApi private constructor(
                         tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
                         chain.proceed(request.build())
                     }
+                    .addInterceptor(TraceparentInterceptor())
                     .addInterceptor(logging)
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(20, TimeUnit.SECONDS)

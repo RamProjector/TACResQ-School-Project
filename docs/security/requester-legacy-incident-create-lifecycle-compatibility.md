@@ -1,40 +1,49 @@
-# Legacy requester incident-create lifecycle compatibility
+# Legacy requester incident-create RPC execution boundary
 
-**Scope:** Source review of the older Android-compatible incident creation RPCs and the account-lifecycle write trigger. This is not a live catalog attestation or a claim that the migration has been applied to a connected Supabase project.
+**Scope:** Current-branch Android/Laravel call-site review plus a read-only live PostgreSQL privilege snapshot. The proposed forward migration is branch-only; it has not been applied to the connected Supabase project.
 
-## Compatibility RPCs reviewed
+## Signatures and current callers
 
-The migration `20261019214218_incident_one_time_location.sql` defines:
+The historical migrations define three invoker functions:
 
 - `public.api_create_incident(text,text,double precision,double precision,real)`
 - `public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamptz)`
+- `public.api_create_incident_v3(text,text,double precision,double precision,real,text,timestamptz,text)`
 
-Both are SECURITY INVOKER functions. They validate requester role and request fields, then INSERT into `public.incidents`. They predate the explicit `account_status = 'active'` check added to the current `api_create_incident_v4` entry point.
+The current Android Retrofit API (`SupabaseTacApi.kt`) and Laravel bridge allowlist call `api_create_incident_v4` only. Repository search found no current Android or Laravel client call to v1/v2/v3. The current v4 function is SECURITY DEFINER, requires an active requester before idempotency lookup, and delegates the validated insert to v3 under its owner context.
 
-Do not remove these compatibility signatures without confirming the minimum supported Android version and its RPC usage.
+## Why the old grants are not compatibility
 
-## Lifecycle protection
+The connected read-only catalog reported authenticated and service_role had EXECUTE on v1/v2/v3. However, authenticated had no direct INSERT privilege on `public.incidents`. Since the three legacy functions are SECURITY INVOKER and directly INSERT into that table, their authenticated EXECUTE grants did not provide a functioning client write path. Function EXECUTE and table INSERT are independent privilege gates.
 
-Migration `20261123120000_account_lifecycle_write_guard_triggers.sql` installs `tacresq_active_account_write_guard` on every public table. Its private SECURITY DEFINER trigger function calls `private.tacresq_current_account_active()` whenever an end-user JWT is present. The active-state helper resolves the JWT subject against the current profile and takes a `FOR SHARE` lock.
+The older functions also predate v4's explicit active-account check. The incident write trigger provides a further active-account enforcement layer, but it does not make an invoker function usable when its caller lacks table INSERT.
 
-Because the guard runs as a table trigger, it also applies to writes made inside SECURITY DEFINER RPCs that bypass ordinary RLS. For the legacy creation functions, the INSERT into `public.incidents` is therefore rejected when the caller's account is suspended, even if the old RPC body itself does not contain the newer explicit lifecycle check.
+## Branch change
 
-The new replay assertion specifically verifies that `public.incidents` has the enabled trigger bound to `private.tacresq_reject_suspended_account_write()`. The existing same-valid-JWT contract also checks that a suspended caller cannot perform protected table writes through a disposable SECURITY DEFINER function.
+Forward migration `20261127010000_revoke_legacy_incident_create_rpc_execute.sql`:
 
-## Boundaries and remaining verification
+- Revokes all function privileges from PUBLIC, anon, authenticated, and service_role on v1/v2/v3.
+- Retains all three signatures; no function is dropped or rewritten.
+- Preserves the function owner's implicit EXECUTE privilege.
+- Keeps v3 callable internally by SECURITY DEFINER v4; v1 and v2 have no current in-repository call sites.
+- Leaves the current v4 grants and behavior unchanged.
 
-- The current v4 creation RPC performs its own active-requester check before idempotency lookup; retain that explicit guard.
-- The legacy functions are invoker functions and remain subject to their ordinary grants/RLS as well as the incident INSERT trigger.
-- The generic write trigger is a second enforcement layer, not a substitute for reviewing each RPC's role, ownership, validation, and response behavior.
-- The trigger intentionally permits trusted server operations that have no end-user `auth.uid()`; those service/Auth paths require their own service-role boundary review.
-- Migration replay and same-valid-JWT tests have not been executed here. No live Supabase project was queried or modified.
-- Do not claim immediate JWT invalidation. The protection is enforced when a protected operation reaches the database.
+The service_role grant is also removed because the current Laravel bridge allowlist exposes v4 only and v4 calls v3 as its owner. Any future server-side use of the legacy signatures must be introduced through a separately reviewed, narrowly scoped API rather than by restoring broad EXECUTE.
 
-## Release checks
+## Runtime and source contracts
 
-1. Replay all migrations in order in a disposable PostgreSQL environment.
-2. Verify the enabled incident trigger and its exact function OID in the resulting catalog.
-3. Call each compatibility RPC with an active requester and confirm the established response contract remains intact.
-4. Reuse the same still-valid JWT after suspension and verify each legacy create RPC fails before an incident row is inserted.
-5. Confirm an unrelated active requester and trusted server-side no-user-JWT operations retain their intended behavior.
-6. Keep compatibility RPC retirement separate from this lifecycle guard and base it on supported-client evidence.
+The clean PostgreSQL replay test verifies:
+
+1. The three historical signatures still exist.
+2. anon, authenticated, service_role, and PUBLIC do not have EXECUTE on them.
+3. postgres (the function owner in the replay fixture) retains EXECUTE on v3.
+4. v4 remains SECURITY DEFINER, remains callable by authenticated, and its body still delegates to v3.
+5. Android and Laravel client source continues to call v4 and does not name the legacy signatures.
+
+The existing v4 lifecycle/idempotency tests remain responsible for active-requester, retry, and one-active-incident behavior. These grant tests do not replace a full Android-device emergency workflow.
+
+## Deployment and compatibility boundary
+
+This is a forward-only repository change. No hosted Supabase ACL, migration ledger, user data, Render configuration, or deployment was changed. The connected project remains on the pre-migration grants until the normal approved migration process is run.
+
+The source review establishes the current checked-in client contract, not the exact minimum supported APK version or every historical APK distributed to users. However, the old invoker RPCs already lack the direct authenticated INSERT privilege required to perform their insert. The migration removes misleading callable grants; it does not remove a currently working authenticated write path. Preserve the function signatures and do not drop them as part of this grant cleanup.

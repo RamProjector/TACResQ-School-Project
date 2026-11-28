@@ -3,10 +3,11 @@ package com.tacresq.app.data.local
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.security.KeyFactory
+import java.security.KeyStore
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
 import org.junit.After
-import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -19,65 +20,92 @@ class DeviceProofKeyStoreTest {
     private val store = DeviceProofKeyStore()
 
     @Before
-    fun clearPriorTestKey() {
+    fun removeOnlyTheDeviceProofAliasBeforeEachTest() {
         store.deleteForRecovery()
     }
 
     @After
-    fun removeTestKey() {
+    fun removeOnlyTheDeviceProofAliasAfterEachTest() {
         store.deleteForRecovery()
     }
 
     @Test
-    fun createsStableP256PublicKeyAndSignsWithAndroidDerEcdsa() {
-        val message = "TACRESQ-DEVICE-PROOF\nv1\nsynthetic-instrumentation".toByteArray(Charsets.UTF_8)
+    fun publicKeyIsStableAndUsesP256Spki() {
+        val first = store.getOrCreatePublicKey()
+        val second = store.getOrCreatePublicKey()
 
-        val firstPublicKey = store.publicKeySpkiBase64()
-        val secondPublicKey = DeviceProofKeyStore().publicKeySpkiBase64()
-        assertTrue(store.hasKey())
-        assertArrayEquals(firstPublicKey.toByteArray(), secondPublicKey.toByteArray())
+        assertEquals(first.spkiBase64, second.spkiBase64)
+        val encoded = Base64.decode(first.spkiBase64, Base64.DEFAULT)
+        val publicKey = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(encoded))
 
-        val publicKeyBytes = Base64.decode(firstPublicKey, Base64.NO_WRAP)
-        val publicKey = KeyFactory.getInstance("EC")
-            .generatePublic(X509EncodedKeySpec(publicKeyBytes))
-        val signatureDer = store.sign(message)
-        assertTrue(signatureDer.size in 8..72)
-        assertTrue(signatureDer.first() == 0x30.toByte())
-
-        val verifier = Signature.getInstance("SHA256withECDSA")
-        verifier.initVerify(publicKey)
-        verifier.update(message)
-        assertTrue(verifier.verify(signatureDer))
+        assertEquals("EC", publicKey.algorithm)
+        assertEquals(256, (publicKey as java.security.interfaces.ECKey).params.curve.field.fieldSize)
+        assertTrue(DeviceProofKeySecurityLevel.values().contains(first.securityLevel))
     }
 
     @Test
-    fun signatureDoesNotVerifyAfterMessageMutation() {
-        val message = "TACRESQ-DEVICE-PROOF\nv1\noriginal".toByteArray(Charsets.UTF_8)
-        val publicKey = KeyFactory.getInstance("EC").generatePublic(
-            X509EncodedKeySpec(Base64.decode(store.publicKeySpkiBase64(), Base64.NO_WRAP))
+    fun sha256WithEcdsaSignatureVerifiesAndUsesDerSequence() {
+        val publicKey = store.getOrCreatePublicKey()
+        val message = "TACRESQ-DEVICE-PROOF\nv1\nsynthetic-registration".toByteArray(Charsets.UTF_8)
+        val signatureBytes = store.sign(message)
+
+        assertTrue(signatureBytes.size in 8..72)
+        assertEquals(0x30, signatureBytes[0].toInt() and 0xff)
+
+        val verifier = Signature.getInstance("SHA256withECDSA")
+        verifier.initVerify(
+            KeyFactory.getInstance("EC").generatePublic(
+                X509EncodedKeySpec(Base64.decode(publicKey.spkiBase64, Base64.DEFAULT))
+            )
         )
-        val signatureDer = store.sign(message)
-        val verifier = Signature.getInstance("SHA256withECDSA")
-        verifier.initVerify(publicKey)
-        verifier.update(message + "-changed".toByteArray(Charsets.UTF_8))
-        assertFalse(verifier.verify(signatureDer))
+        verifier.update(message)
+        assertTrue(verifier.verify(signatureBytes))
     }
 
     @Test
-    fun explicitRecoveryDeletesAndRegeneratesASeparateKey() {
-        val originalPublicKey = store.publicKeySpkiBase64()
-        assertTrue(store.hasKey())
+    fun alteredMessageDoesNotVerify() {
+        val publicKey = store.getOrCreatePublicKey()
+        val signatureBytes = store.sign("original-device-proof".toByteArray(Charsets.UTF_8))
+        val verifier = Signature.getInstance("SHA256withECDSA")
+        verifier.initVerify(
+            KeyFactory.getInstance("EC").generatePublic(
+                X509EncodedKeySpec(Base64.decode(publicKey.spkiBase64, Base64.DEFAULT))
+            )
+        )
+        verifier.update("altered-device-proof".toByteArray(Charsets.UTF_8))
+
+        assertFalse(verifier.verify(signatureBytes))
+    }
+
+    @Test
+    fun explicitRecoveryDeletesOnlyTheVersionedProofAliasAndCreatesANewKeyOnRequest() {
+        val first = store.getOrCreatePublicKey()
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        assertTrue(keyStore.containsAlias(DeviceProofKeyStore.KEY_ALIAS))
+        assertNotEquals("tacresq_session_aes_gcm_v1", DeviceProofKeyStore.KEY_ALIAS)
 
         store.deleteForRecovery()
-        assertFalse(store.hasKey())
+        assertFalse(keyStoreContainsProofAlias())
 
-        val rotatedPublicKey = store.publicKeySpkiBase64()
-        assertTrue(store.hasKey())
-        assertNotEquals(originalPublicKey, rotatedPublicKey)
+        val second = store.getOrCreatePublicKey()
+        assertNotEquals(first.spkiBase64, second.spkiBase64)
+        assertTrue(keyStoreContainsProofAlias())
     }
 
     @Test
-    fun deviceProofAliasIsNotTheSessionEncryptionAlias() {
-        assertNotEquals("tacresq_session_aes_gcm_v1", DeviceProofKeyStore.DEVICE_PROOF_KEY_ALIAS)
+    fun signingRequiresAnExistingKeyAndBoundsTheMessage() {
+        val missingKeyFailure = runCatching { store.sign(byteArrayOf(1)) }.exceptionOrNull()
+        assertTrue(missingKeyFailure is IllegalStateException)
+
+        store.getOrCreatePublicKey()
+        val oversized = ByteArray(2049)
+        val oversizedFailure = runCatching { store.sign(oversized) }.exceptionOrNull()
+        assertTrue(oversizedFailure is IllegalArgumentException)
     }
+
+    private fun keyStoreContainsProofAlias(): Boolean =
+        KeyStore.getInstance("AndroidKeyStore").run {
+            load(null)
+            containsAlias(DeviceProofKeyStore.KEY_ALIAS)
+        }
 }

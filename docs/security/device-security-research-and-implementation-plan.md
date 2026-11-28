@@ -1,6 +1,6 @@
 # TACResQ Device Security & Identification — Research and Implementation Plan
 
-**Status:** Phase 1 private registry foundation and generic Laravel account-wide Sanctum token revocation are present in PR #335; CI validation pending; not deployed  
+**Status (2026-11-28):** Phase 1 private device registry foundation, Phase 2 trusted verifier-to-database challenge flow, isolated Android Keystore P-256 key manager, canonical Android proof-message builder, and isolated verifier transport with strict client-side DER and canonical UUID validation are implemented in PR #370. Exact source head `708779f1a076d28e7303fe010fa2c3810aadb108` passed all six major workflow groups and 16 of 18 check runs; aggregate CodeQL was neutral (both Android and Web/Actions analyses succeeded) and CodeRabbit was skipped by repository eligibility policy. Android JVM tests, Android Lint, instrumentation-test compilation, demo/Supabase debug APKs, release APK build, local Supabase integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, QA, and Frontend Review passed. Release-signature verification was skipped because signing credentials were not configured. Actual manual emulator/device execution remains unverified; hosted Supabase verifier role/routines/function remain undeployed; hosted transaction-pooler identity/TLS remains unverified; operational client integration/enforcement/revocation/recovery remain outstanding. Independent human security/maintainer review and manual Admin UI acceptance remain outstanding. Keep device proof dormant and preserve requester SOS availability. No production settings, schema, secrets, data, or services were changed.
 **Scope:** Android app, dispatcher/admin web clients, Supabase backend, and Render bridge where applicable  
 **Design principle:** Device recognition is a risk signal. Authentication and server-side authorization remain authoritative.
 
@@ -229,7 +229,7 @@ Before choosing the exact implementation, inspect the current Supabase project c
 
 **Schema detail confirmed:** `device_sessions.auth_session_id` is `NOT NULL` and unique; `device_challenges.auth_session_id` is nullable in the foundation migration. A registration challenge may have no device ID, but issuance and proof still need to bind it to a verified Supabase session. Do not interpret the nullable challenge column as permission to accept an unbound session.
 
-**Current implementation status:** no challenge issuance endpoint, signature verifier, device-session binding, or sensitive-operation enforcement has been implemented. The Laravel bridge and Sanctum logout endpoints are not substitutes for those controls. Keep the registry private until the Supabase-side transaction and request-path enforcement are complete.
+**Current implementation status:** the PR now contains an authenticated Edge Function challenge endpoint, P-256 signature verification, a dedicated non-login-by-default PostgreSQL verifier role, narrowly granted private transaction functions, live Auth-session checks, atomic device/session binding, and append-only event writes. The disposable local integration suite passes replay, cross-user/session, wrong-key, altered-challenge, concurrency, expiry, rate-limit, stale-session, bypass, and transaction-rollback cases. Sensitive-operation enforcement is still absent: a verified device association is not yet consulted by incident/dispatch/chat/other protected operations. The Laravel bridge and Sanctum logout endpoints remain separate identity paths. Keep the registry private and do not connect it to operational client flows until enforcement and independent review are complete.
 
 
 ## 13. Client RPC inventory and device-proof scope (verified branch source review)
@@ -276,20 +276,22 @@ Device proof should initially establish and maintain a cryptographic association
 
 This is a deliberately conservative first rollout. If later threat modeling identifies a specific high-risk operation that needs device step-up, add it as a narrow server-enforced policy with a fallback/recovery route and emergency-safe failure behavior. Do not implement UI-only checks.
 
-### Remaining implementation blockers
+### Remaining implementation and release gates
 
-1. Confirm the exact verified Supabase JWT session claim available in the deployed PostgREST request context and test it using a real authenticated request. The current Laravel getUser() bridge validates a token but does not expose verified session_id claims to the bridge controller.
-2. Decide whether challenge issuance/signature verification belongs in a Supabase Edge Function or another trusted server component. The selected path must retain the original user JWT when calling the database, while keeping secret/service-role credentials server-only.
-3. Verify available cryptographic libraries/extensions and deployment conventions before selecting ES256 or Ed25519 verification. The schema currently permits both; the initial implementation should select one supported algorithm rather than claim both are implemented.
-4. Inventory all data surfaces that need device binding, including direct table reads, Storage operations, and any web-only paths—not just named RPCs.
-5. Add server-side enforcement and isolated PostgreSQL/HTTP tests before Android or web UI integration. Existing clients must continue operating safely while the registry remains unused.
+1. Validate the dedicated verifier role through the actual hosted Supabase shared transaction pooler, including whether `session_user` remains `tacresq_device_verifier` for the private-function gate. Local direct-PostgreSQL success does not prove pooler identity behavior.
+2. Provision the role password and Edge Function connection secret only through an approved, controlled deployment procedure; never store them in Git or client configuration.
+3. Execute the added Android Keystore P-256 instrumentation tests on supported Android 8.0+ hardware/emulators, confirm SPKI/DER compatibility with the server verifier, and complete key invalidation/rotation recovery. The isolated key manager now exists; do not reuse the app's AES-GCM session-encryption key.
+4. Add server-enforced session/device checks only to individually justified sensitive operations, with explicit recovery paths. Preserve requester SOS, emergency location submission, chat, responder claim, dispatcher assignment, and Admin TOTP/AAL2 behavior unless a separately reviewed policy establishes a safe exception.
+5. Implement device revocation and session-revocation lifecycle with audit records, then user-facing My Devices and protected Admin Device Security screens.
+6. Add a trusted per-IP rate limit if the deployed Edge platform exposes a verified client address; never trust arbitrary forwarding headers.
+7. Obtain independent security review and controlled hosted validation before deploying migrations, enabling the Edge Function, provisioning the role, or wiring clients.
 
-**Scope decision:** do not add device-proof parameters to the existing emergency/dispatch RPC signatures in this phase. First deliver a narrowly scoped registration and session-binding protocol, prove replay resistance and ownership, then separately propose any additional operation-level enforcement based on a concrete threat and safe fallback.
+**Scope decision:** keep this verifier as an isolated, unused registration/session-proof service until the above gates pass. Do not add device-proof parameters to emergency/dispatch RPCs or turn device recognition into an SOS prerequisite.
 
 
 ## 14. Cryptographic runtime feasibility (repository-only review)
 
-The current migration baseline enables pgcrypto, but the repository search found no Supabase Edge Function source tree, no Supabase config.toml, and no Deno.serve implementation. This means there is currently no established Edge Function deployment/test convention to extend. Do not assume an Edge Function already exists or that adding a source file alone deploys it.
+The current migration baseline enables pgcrypto. The repository now includes `supabase/functions/tacresq-device-verifier/index.ts`, shared WebCrypto P-256 primitives, a local Edge Function integration script, and a dedicated advisory CI job. There is still no `supabase/config.toml`; no per-function JWT-verification override is committed, so retain the platform's default JWT verification behavior and keep the handler's own `getClaims` verification. The older `tacresq-notify` function remains a separate service-role integration and is not part of this verifier's trust boundary.
 
 pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but its presence does not establish a supported P-256/ES256 signature-verification primitive. Do not implement a home-grown ECDSA verifier in SQL or mistake digest/hash support for public-key signature verification.
 
@@ -309,7 +311,7 @@ pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but it
 A focused source review on this branch confirms the following implementation facts:
 
 - `tools/test_supabase_migration_replay.sh` creates minimal `auth.uid()` and `auth.jwt()` compatibility functions. The latter reads `request.jwt.claims`, but the replay fixtures do not currently set or assert a `session_id` claim, exercise missing/malformed session claims, or test device-session ownership. The script is a migration replay harness against a supplied PostgreSQL database; it is not a running Supabase Auth/PostgREST integration environment.
-- No `supabase/config.toml` exists on this branch, and repository search found no Edge Function source tree or `Deno.serve` implementation. The current repository therefore does not demonstrate a configured local Supabase function workflow or a deployed challenge-verifier convention.
+- No `supabase/config.toml` exists on this branch; this is intentional at present because no function-specific JWT override is required. The device-verifier function and local Supabase function workflow are now checked in and exercised by the advisory CI lane. The function is not deployed.
 - Android `app/build.gradle.kts` sets `minSdk = 26`. `app/src/main/java/com/tacresq/app/data/local/SessionStore.kt` creates one Android Keystore AES key (`tacresq_session_aes_gcm_v1`) for AES/GCM/NoPadding encryption. That key is symmetric and is used for local data encryption; it is not a signing key and must not be reused as the device identity key.
 - The reviewed Android session store does not implement a P-256 key pair, public-key export, `SHA256withECDSA` signing, signature encoding conversion, key invalidation handling, or device-key rotation. Existing Keystore use proves only the local AES-GCM storage path.
 - The migration replay harness's `auth.jwt()` stub is suitable for deterministic SQL claim tests by setting `request.jwt.claims` within a transaction, but that alone cannot prove that a real signed Supabase JWT's session claim survives an Edge Function/proxy/PostgREST hop.
@@ -346,7 +348,7 @@ Official references checked 22 November 2026:
 A read-only inspection of the connected Supabase project `TACResQ-School-Project` (project ref `kttguamhznoflzagfutr`, region `ap-southeast-1`) on 22 November 2026 corrected the earlier repository-only assessment:
 
 - The live project is `ACTIVE_HEALTHY` and has one active Edge Function: `tacresq-notify`, version 2, with `verify_jwt = true`.
-- The function source is not present in this Git branch, and the repository still has no `supabase/config.toml` or checked-in Edge Function directory. The project therefore has a deployed function precedent, but not a version-controlled local function workflow.
+- The earlier source-recovery snapshot predates the checked-in `tacresq-device-verifier` Edge Function and its local integration workflow. Current implementation and validation details are recorded in Section 20.
 - The deployed notification function uses `admin.auth.getUser(userToken)` to validate the caller, then uses a service-role Supabase client for profile/incident/FCM queries. This is a notification-specific privileged workflow. It does not implement device challenge issuance, P-256 signature verification, challenge replay protection, or session-to-device binding.
 - Important for the future verifier: validating a bearer token with `auth.getUser()` through an admin client does not by itself establish that a subsequent service-role database query runs with the caller's `auth.uid()` and `auth.jwt()` context. A verifier must deliberately preserve the original user JWT on the database operation or use a narrowly scoped, independently verified server-side transaction design. Do not assume the notification function's service-role query pattern is sufficient for session-bound proof.
 - The live migration history includes `device_security_registry_foundation`, `bound_device_registry_metadata`, and `require_totp_for_admin_rpcs`. This confirms those migrations are recorded in the connected project; it does not prove that device-verifier behavior exists. The device registry remains backend-only and currently has no client-facing verifier flow.
@@ -388,3 +390,286 @@ The repository's Laravel `FcmNotificationDispatcher` claims bounded delivery wor
 
 **Release gate:** the active Edge Function and the Laravel queue worker must not both deliver the same event family. Establish the actual production caller/scheduler topology before enabling, disabling, or changing either path.
 
+
+
+## 18. Verified Supabase JWT context: local integration proof (required before device writes)
+
+Current Supabase Edge Function guidance explicitly supports forwarding the caller's Authorization header into a publishable-key Supabase client so PostgREST evaluates the request under the original user's JWT and RLS context. The current official guide also documents the newer @supabase/server withSupabase({ auth: 'user' }) pattern, which provides a caller-scoped ctx.supabase and verified ctx.jwtClaims. The current TACResQ function is a legacy supabase-js@2 implementation, so use the compatible, documented caller-scoped client pattern for the first isolated proof rather than silently changing runtime dependencies.
+
+References (rechecked 2026-11-27):
+- Supabase, [Integrating With Supabase Auth](https://supabase.com/docs/guides/functions/auth-legacy-jwt) — forward the request Authorization header into a publishable/anon-key client; queries then execute in the caller's RLS context.
+- Supabase, [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth) — authenticated user mode, verify_jwt = true, caller-scoped ctx.supabase, and verified ctx.jwtClaims.
+- Supabase, [JWT Claims Reference](https://supabase.com/docs/guides/auth/jwt-fields) — the signed Auth JWT includes sub and session_id claims.
+
+### Isolated test topology
+
+Do not run this proof against the hosted TACResQ project and do not create a production test RPC. Use a disposable Supabase local stack with synthetic users and a temporary probe RPC that is created only inside the disposable database and is not included in production migrations.
+
+1. **Completed in PR #370:** pin the Supabase CLI, start an isolated local Auth/PostgREST/Edge Runtime stack, prove signed JWT subject/session propagation, provision an ephemeral dedicated verifier login, and exercise the actual Edge Function against disposable PostgreSQL. This is local evidence only; it does not prove hosted pooler identity behavior or deployment readiness.
+2. Start local Supabase in an isolated CI job; assert the resolved API URL is loopback/local before creating users or issuing any request. Fail closed if the URL contains the hosted TACResQ project ref or is not a local address.
+3. Create two disposable Auth users through the local Auth admin API using only the local service-role secret in the CI process. Sign each user in through the local Auth API using the publishable key and obtain real access JWTs. Keep all credentials in process memory; never print or upload them.
+4. Create a temporary SQL probe function in the local database only. It must return auth.uid(), auth.jwt() ->> 'session_id', and auth.jwt() ->> 'role'; grant execute only to authenticated. The probe must not exist in the migration directory or any deployed schema.
+5. Run a temporary test Edge Function with JWT verification enabled. In its request handler, construct a user-scoped client using the local publishable key and the incoming Authorization header, then call the probe RPC. Do not instantiate or use a service-role client for this call.
+6. Invoke the function with User A's real access JWT and assert the SQL-returned subject equals User A's Auth UUID, the SQL-returned session ID equals the session_id claim from the actual signed JWT, and the SQL role is authenticated.
+7. Repeat for User B and assert there is no cross-user/session contamination when requests execute concurrently.
+8. Negative cases: no Authorization header, malformed token, expired token, anonymous/publishable key without a user JWT, and a body containing forged profile_id/session_id values must never produce an authenticated probe result. The database-returned claims must remain unchanged when the body/header contains spoofed IDs.
+9. Verify the Edge Function's configured JWT gateway rejects invalid JWTs; do not disable JWT verification for this function. Ensure all test users, local containers, temporary probe functions, and volumes are destroyed even after failure.
+
+### Device challenge verifier acceptance tests after context proof
+
+- Verify the user JWT is forwarded to PostgREST exactly as received; only the publishable key is supplied as apikey.
+- The database function derives the owner from auth.uid() and the session from auth.jwt()->>'session_id'; no caller-provided profile/session field can override either.
+- Check that the session ID exists in auth.sessions and is not revoked/expired according to the selected session-validity policy before binding it.
+- Use one short-lived purpose-bound challenge. Challenge consumption, signature-verification result recording, device/session binding, and append-only event insertion must be atomic. Two concurrent submissions of the same challenge must result in exactly one success.
+- Negative tests cover wrong user, wrong session, wrong device key, wrong purpose, expired challenge, malformed SPKI, unsupported curve/algorithm, malformed DER signature, invalid signature, replay, revoked device, and revoked Auth session.
+- Test that a failure rolls back all state changes and creates only the explicitly defined rejection event (if policy calls for one); it must never leave a partially bound device session.
+- Keep Admin TOTP/AAL2 requirements independent of device proof. Device recognition never grants a role and never blocks requester SOS submission.
+
+### Explicit implementation decision and runtime evidence
+
+The original disposable local Auth-to-PostgREST identity proof **passed** on commit `c545506d8810d38b04c7a76afc293b580e823406` in PR #370. It used real Auth-issued JWTs for two synthetic local users and verified PostgreSQL `auth.uid()`, signed `session_id` propagation, cross-user isolation under concurrent requests, rejection of missing/malformed/expired/anonymous credentials, and resistance to body-supplied identity spoofing. The proof ran only against a disposable loopback Supabase stack; it did not use hosted TACResQ data or credentials.
+
+The extended local revocation and trace-context proof **passed on commit `4145dbece6ec0099e366cad4c04abb9bb585c2d4`** in PR #370. It confirms that the matching `auth.sessions` row is deleted on local sign-out, the old unexpired access JWT remains accepted by ordinary stateless PostgREST JWT verification, the database session predicates reject it, and the revoked refresh token is rejected. It also sends real `traceparent` headers through the local gateway/PostgREST path, confirms the database parser returns the expected trace ID, and repeats the assertion across 24 concurrent requests with isolated identities and trace IDs. The Admin investigation SQL contract separately passed trace stamping, exact trace-ID search, and session attribution. CI path detection includes `tools/test_supabase_jwt_context.py`, so changes to this integration proof trigger the local job.
+
+Do not conflate the original JWT-context proof with immediate access-token invalidation. A stale access JWT can remain cryptographically valid until expiry; sensitive operations that require immediate sign-out enforcement must independently check the signed `session_id` against `auth.sessions`. Do not treat documentation, a mocked Laravel HTTP test, a decoded JWT payload, or PostgreSQL-only CI as a substitute for the disposable Auth/PostgREST runtime proof.
+
+
+### Supabase-supported test conventions
+
+Supabase's current Edge Function testing guide recommends Deno's built-in test runner under a functions test directory, and its development guide uses the Supabase CLI local stack plus `supabase functions serve`. This is a suitable convention for the disposable JWT-context probe. Keep the local test-only SQL fixture outside `supabase/migrations`; the committed function tests must not introduce a public production RPC just to inspect claims.
+
+References:
+- [Testing your Edge Functions](https://supabase.com/docs/guides/functions/unit-test)
+- [Edge Function development environment](https://supabase.com/docs/guides/functions/development-environment)
+- [Local development workflow](https://supabase.com/docs/guides/local-development/cli-workflows)
+
+The current CI's RPC grant contract uses a standalone PostgreSQL 17 service and the repository's custom migration replay script. That is useful database coverage but it does not start Supabase Auth, PostgREST, or the Edge Runtime. Add the full local-stack job as a separate advisory lane first; do not replace or weaken the existing fast source and database gates. Promote it to required only after repeatable startup, runtime, and cleanup are demonstrated.
+
+
+## 19. First cryptographic implementation slice — P-256 proof primitives
+
+**Implemented in repository on 2026-11-27; not an endpoint and not enabled in any client flow.**
+
+The first Android device-key algorithm is now explicitly P-256 / ES256. The reusable runtime-neutral module at supabase/functions/_shared/device_proof_crypto.mjs provides:
+
+- CSPRNG generation of exactly 32 challenge bytes and a lowercase SHA-256 challenge hash. The caller receives the base64url challenge once; only the hash is intended for database persistence.
+- Construction of the exact newline-delimited TACRESQ-DEVICE-PROOF v1 message from server-issued challenge, purpose, profile, Auth session, and device identifiers.
+- Strict ASN.1 DER ECDSA signature parsing and conversion to the 64-byte P1363 representation expected by WebCrypto. It rejects negative/non-minimal integers, malformed lengths, trailing bytes, zero/out-of-range scalars, and oversized signatures.
+- SPKI P-256 public-key import and SHA-256 ECDSA signature verification using the runtime WebCrypto API.
+- Canonical base64/base64url validation; no private-key import or export API exists in this module.
+
+tools/test_device_proof_crypto.mjs uses ephemeral WebCrypto-generated P-256 key pairs and covers valid proof verification, altered-message rejection, wrong-key rejection, DER parser negative cases, exact signed-message construction, purpose/device mismatch, random challenge uniqueness, SHA-256 hash agreement, and canonical base64url handling. The test is wired into the Node 22 source-check job and runs without a third-party dependency or external service.
+
+### Security boundary retained
+
+Historical checkpoint: this primitive-only slice did not itself issue challenges or register devices. It was subsequently extended by the trusted verifier implementation in Section 20. The registry remains private and unused by operational clients; no hosted function, production migration, Vault secret, database role password, client key, Android API integration, or Admin control was deployed.
+
+### Remaining gates before a verifier endpoint
+
+1. Implement and test the database transaction contract for issuance, proof acceptance, conditional single-use consumption, device/session association, and event insertion. The verifier must not expose a direct authenticated RPC that can be called without cryptographic verification.
+2. Establish a trusted verifier-to-database attestation boundary. A caller-scoped JWT preserves auth.uid() and auth.jwt(), but an ordinary authenticated RPC cannot distinguish a request forwarded by the Edge verifier from a direct client call. A service-role request loses caller JWT context. Do not bridge this gap by trusting a boolean or caller-supplied profile/session ID.
+3. Use an explicit, server-held verifier proof (for example, a narrowly scoped HMAC attestation checked by a private SQL function with a separately provisioned secret) or a transaction design that independently verifies the original JWT and session inside the trusted boundary. Secret provisioning must be documented and tested locally; never put the secret in migrations or client bundles.
+4. Add persistent per-account/session issuance throttles and a trusted per-IP rate-limit strategy. Do not use in-memory Edge instance counters as a security control.
+5. Add a disposable local Supabase Edge Function integration test proving original JWT identity/session preservation, direct-RPC bypass resistance, concurrent one-winner consumption, rollback on event failure, wrong-user/session/purpose/device rejection, expiry, replay, and revoked-session rejection.
+6. Implement a separate Android P-256 Keystore key alias and test real SHA256withECDSA DER output, SPKI serialization, key invalidation, and key rotation on supported Android versions. Do not reuse the existing AES-GCM session-encryption key.
+7. Keep requester SOS, location reporting, chat, responder claim, dispatch assignment, and Admin TOTP/AAL2 behavior unchanged until a separate operation-specific enforcement review is approved.
+
+**Decision:** the cryptographic primitive is ready for isolated reuse and CI regression coverage; the server trust boundary is not ready. Do not deploy or expose device registration/proof until all remaining gates pass.
+
+
+## 20. Trusted verifier-to-database boundary — implementation slice
+
+**Implemented in the repository on 2026-11-27; local disposable integration validation is now wired into the advisory Supabase CI lane. It has not been deployed or provisioned in the hosted project.**
+
+### Selected trust boundary
+
+The verifier uses a dedicated PostgreSQL login named `tacresq_device_verifier`, not the Supabase `service_role` and not a client-callable PostgREST RPC.
+
+- The migration creates the role as `NOLOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOREPLICATION`, and `NOBYPASSRLS`. A password is deliberately not stored in migration source.
+- The Edge Function verifies the incoming bearer token with Supabase Auth `getClaims`, reads the verified `sub` and `session_id`, and uses a dedicated server-only database connection string. The new migration revokes legacy direct `service_role` table grants from all five device-registry tables; it preserves the existing `service_role` USAGE/SELECT-only sequence grants required by the repository's RPC contract. The dedicated verifier receives no direct table or sequence privileges; only the SECURITY DEFINER routines can mutate registry state.
+- Three functions in the non-exposed `private` schema check `session_user = 'tacresq_device_verifier'`. They are `SECURITY DEFINER` with a fixed `pg_catalog` search path, owned by the migration owner, and executable only by that dedicated login. The login has no direct table privileges.
+- The database functions independently map the verified Auth UUID through `profiles.auth_user_id`, resolve the bigint profile ID, and verify that the supplied Auth session row exists and belongs to that Auth user. A stale but cryptographically valid access JWT after sign-out therefore cannot issue or complete a device proof.
+- The Edge Function verifies P-256 signatures before calling the atomic completion function. The dedicated database credential is the attestation that the caller is the trusted verifier; ordinary authenticated users, anon, and `service_role` cannot call the private functions or bypass signature verification through PostgREST.
+- The completion function consumes the challenge, creates/updates the device, binds the Auth session, and appends the security event in one transaction. A failed write rolls the entire transaction back.
+
+This replaces the earlier HMAC-attestation proposal. It avoids keeping a matching HMAC key in both Edge secrets and Vault, and avoids returning a database-held signing secret to the Edge runtime. The security property now depends on protecting one dedicated database credential and limiting that role to the three private function grants.
+
+### Implemented endpoint contract
+
+`supabase/functions/tacresq-device-verifier/index.ts` currently supports only Android P-256:
+
+1. `POST action=issue` with `registration` or `session_proof`. The database generates 32 CSPRNG bytes, stores only SHA-256, returns the raw base64url challenge once, and applies persistent limits of five issuances per Auth session and twenty per profile/account in 15 minutes, serialized with a profile-scoped transaction advisory lock. Challenges expire after two minutes.
+2. `POST action=verify` with challenge ID, raw challenge, DER-encoded ECDSA signature (base64url), and a proposed SPKI public key for registration. For session proof, the server loads the already registered public key; clients cannot replace it through this route.
+3. The Edge Function reconstructs the exact v1 signed message using database-returned challenge context and the verified Auth claims. It validates the P-256 SPKI and DER signature using the shared crypto module.
+4. Only after successful verification does it call the database completion function. Registration creates the device and binds the current Auth session; session proof refreshes an existing same-device binding. A live Auth session cannot be rebound to a different device.
+
+Malformed signatures, wrong keys, altered challenge bytes, cross-profile/session requests, expired/replayed challenges, and rate-limit exhaustion are rejected with bounded responses. Tokens, raw challenges, signatures, and keys are not written to application logs or event details.
+
+### Local integration coverage added
+
+- `tools/prepare_device_verifier_local_env.py` provisions a random password only for the disposable local database role and writes a mode-0600 Edge environment file. It refuses non-loopback Supabase and PostgreSQL URLs.
+- `tools/test_device_verifier_local.mjs` exercises the real Edge Function against local Supabase Auth and PostgreSQL: valid registration, same-user cross-session denial, cross-user/cross-device denial, malformed and wrong-key signatures, altered challenge bytes, successful replay denial, two concurrent submissions with exactly one winner, expired challenge rejection, per-session and multi-session account rate limits, expired Auth-session rejection, stale JWT after sign-out, direct table/RPC bypass denial, and transaction rollback when the event insert is forced to fail.
+- `tools/test_device_security_privileges.sql` now asserts the dedicated role has only the required private function execution grants, no direct registry-table privileges, and no client/service-role execution grants. The clean PostgreSQL migration replay runs this contract.
+- The advisory local Supabase CI job now provisions the disposable login, serves the Edge Function, runs the HTTP integration suite, and removes temporary credentials and containers.
+
+### Operational and release gates that remain
+
+- The hosted role remains `NOLOGIN`; no password or Edge secret was provisioned in the connected project. No hosted deployment, migration, or database setting was changed.
+- Before a controlled deployment, provision a strong role password out-of-band and configure `TACRESQ_DEVICE_VERIFIER_DATABASE_URL` as an Edge Function secret using the project-provided shared transaction-pooler connection string. Supabase recommends transaction pooling for short-lived Edge Function database connections; confirm that `session_user` is preserved through the selected pooler before enabling the endpoint. Never put the password in Git, migration SQL, logs, or the Android/web bundle.
+- The local test currently uses a loopback direct database URL, not the hosted pooler. Pooler identity behavior and TLS must be validated in a separate controlled environment before production deployment.
+- Persistent per-session and per-profile/account issuance throttling is implemented. A trusted per-IP rate limit is not yet implemented; do not infer a trusted client IP from an arbitrary request header.
+- Android Keystore key generation, key invalidation/rotation, device UI, user self-service revocation, Admin device console, Play Integrity, WebAuthn, and operation-level device enforcement are not implemented.
+- `step_up` is intentionally not exposed yet. Admin TOTP/AAL2 remains independent and authoritative. Requester SOS, emergency location submission, dispatch, responder claims, chat, and existing operations are unchanged.
+- No production migrations, Edge Function deployment, Vault changes, database role password, service-role key, or Render settings were modified.
+
+### Current decision
+
+The trust boundary is now concrete in source: a dedicated login, private function-only grants, verified JWT claims, live Auth-session checks, and atomic database completion. It is eligible for isolated CI validation only. Do not expose it to clients or deploy it until the disposable Edge Function integration suite passes consistently, the pooler preserves the dedicated login identity, and the implementation receives independent security review.
+
+Research references rechecked 2026-11-27:
+- Supabase, [Integrating with Postgres from Edge Functions](https://supabase.com/docs/guides/functions/connect-to-postgres): Edge Functions can use a Postgres client directly; short-lived serverless connections should use the shared transaction pooler.
+- Supabase, [Securing Edge Functions](https://supabase.com/docs/guides/functions/auth): user JWT verification and caller authentication modes; keep JWT verification enabled.
+- Supabase, [JavaScript auth.getClaims](https://supabase.com/docs/reference/javascript/auth-getclaims): verifies JWT claims using the project's signing keys.
+- Supabase, [Auth sessions](https://supabase.com/docs/guides/auth/sessions): the signed access JWT includes a `session_id` corresponding to `auth.sessions`.
+- Supabase, [Database connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres): shared transaction pooling is intended for short-lived serverless/Edge connections.
+
+
+## 21. Android Keystore P-256 key manager — isolated implementation
+
+**Added to the Android source on 2026-11-27. It is intentionally not connected to login, SOS, responder, dispatch, chat, FCM, or Admin flows.**
+
+- `app/src/main/java/com/tacresq/app/data/local/DeviceProofKeyStore.kt` creates and loads a non-exportable EC P-256 private key using Android Keystore and `SHA256withECDSA`.
+- The versioned alias is `tacresq_device_proof_p256_v1`, separate from the existing `tacresq_session_aes_gcm_v1` AES-GCM session encryption key.
+- The class exposes only the SPKI public key (standard Base64) and DER signature bytes. It has no private-key export method.
+- The message length is bounded to 2,048 bytes; the DER signature is checked for the expected ASN.1 SEQUENCE framing and P-256-sized range.
+- Key deletion is an explicit recovery hook only. It is not automatically called after a signing error because deleting a registered key requires server-side device revocation/re-registration. There is no automatic key rotation.
+- `app/src/androidTest/java/com/tacresq/app/data/local/DeviceProofKeyStoreTest.kt` covers stable public-key retrieval, valid SHA256withECDSA verification, altered-message rejection, explicit delete/recreate behavior, and separation from the AES session alias.
+
+The existing Android build compiles instrumentation tests, but this workflow does not run AndroidKeyStore tests on a real device/emulator. Therefore the new instrumentation tests are present but **not yet executed**. No emulator was activated, no endpoint was wired into app behavior, and no device registration was enabled.
+
+### Android integration gates
+
+1. Execute the instrumentation suite on supported Android 8.0+ hardware/emulators and confirm Android Keystore returns P-256 SPKI and DER signatures accepted by the server's local verifier suite.
+2. Validate behavior on devices where Android Keystore cannot generate EC P-256 keys; fail closed with a clear unsupported-device result rather than silently falling back to software keys.
+3. Decide and implement Android Key Attestation verification before making hardware-backed claims. This implementation proves possession of a Keystore-held key only; it does not prove StrongBox, hardware backing, Play Integrity, or device integrity.
+4. Implement an authenticated device revocation/key-rotation transaction before exposing `deleteForRecovery()` in user-facing recovery UI. A registered Auth session cannot be rebound to a different device.
+5. Add the Android API client and UX only after the verifier endpoint is deployed with a provisioned dedicated DB login and pooler `session_user` behavior is validated.
+
+**Decision:** the server-side verifier and Android key-storage primitives now exist with local integration and compile-time regression coverage. The Android key manager remains dormant until device-level tests and the production trust-boundary setup are approved.
+
+
+## 2026-11-28 — Exact-head CI verification and device-security gate review
+
+- **Exact source head inspected:** `6ae1b2aea0481276a13951ae7ae9f29a455aac8d` on `docs/admin-ips-ui-master-plan`, PR #370.
+- **CI completed successfully on this head:** TACResQ CI run [46103650222](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650222) — source checks, Android debug/release build job, local Supabase migration replay and verifier integration, Laravel/dashboard integration, clean PostgreSQL migration replay, and advisory prototype checks all succeeded. Android JVM unit tests, Android Lint, demo/Supabase debug APK builds, release APK build, and APK artifact upload succeeded. Release signature verification was skipped because signing credentials are not configured.
+- **Other latest-head workflow groups:** TACResQ Security [46103650209](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650209) passed CodeQL Web/Actions, CodeQL Android, and repository guardrails; RPC grant contract [46103650173](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650173) passed; QA [46103650193](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650193) passed browser capture and local-stack stress smoke test; Frontend Review [46103650181](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650181) passed; read-only profile verification [46103650220](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/46103650220) passed.
+- **Device proof source review:** Rechecked `supabase/functions/tacresq-device-verifier/index.ts`, `supabase/migrations/20261127090000_device_verifier_trusted_db_boundary.sql`, `supabase/functions/_shared/device_proof_crypto.mjs`, `DeviceProofKeyStore.kt`, and its Android instrumentation tests. The Edge Function verifies JWT claims and Auth session ID, bounds the request body, verifies P-256 proof, and delegates atomic challenge consumption/session binding/event insertion to narrowly granted private database routines. Local disposable integration already tests cross-user/session rejection, forged and altered proofs, replay, concurrent consumption, rollback, rate limits, expired/stale Auth sessions, and direct PostgREST denial.
+- **Decision:** Keep the device registry and Android key manager dormant. Do not integrate proof into login, SOS, dispatch, chat, notifications, or privileged operational flows until the Android instrumentation suite has executed on a supported physical device/emulator, the hosted Supabase transaction-pooler `session_user` identity and TLS behavior are validated, and the integration/enforcement design receives independent security review. Requester SOS must remain available from new/unverified devices.
+- **Other release gates:** manual Admin UI acceptance, independent maintainer/security review, project-owner confirmation of hosted Auth audit persistence settings, and explicit deployment approval remain outstanding. No hosted migration, Auth setting, database write, Edge Function deployment, Render setting, user data, or production workflow was changed.
+- **PR status at inspection:** #370 remained open and mergeable, not merged; no human reviews or review threads were recorded. The latest code validation above applies to the exact inspected source head. The Android instrumentation suite was compiled, not executed on a device/emulator.
+- **Next:** obtain the external device/hosted-environment validations and reviews before activating the dormant device-security foundation. Do not bypass these gates or infer hosted readiness from local CI success.
+
+
+## 2026-11-28 — Latest PR validation and manual emulator evidence capture
+
+- **Validated source head:** `bde453193e2351f3462a3f2105a091b9ac46c665` on the existing PR #370 branch. All six fresh PR workflow groups completed successfully: TACResQ CI, TACResQ Security, RPC grant contract, QA, Frontend Review, and read-only profile verification. Android JVM tests, builds, Lint, local verifier integration, clean migration replay, browser suite, Laravel/dashboard integration, CodeQL, repository guardrails, and stress smoke tests passed.
+- **Manual device-test boundary preserved:** `.github/workflows/android-emulator-manual.yml` is intentionally `workflow_dispatch` only; `tools/test_android_emulator_kvm.py` explicitly guards against running emulator UI tests on every PR. Do not remove that boundary without a deliberate cost/CI-policy decision.
+- **Implementation commits:** `cd29120c7fac0a3a8bc7a90527f686863a5388ff` adds failure-only emulator logcat/device-property capture and an always-run upload of connected Android test XML/HTML reports as `tacresq-android-instrumentation-results` (7-day retention). `f31aa21b1619800466157933763c1bbfa26318ca` extends the static KVM/manual-workflow contract to require those diagnostics and artifacts.
+- **Important limitation:** this change improves observability of the manual emulator run; it does not dispatch the workflow or prove the Keystore tests passed on an emulator. The available GitHub integration in this session can inspect runs/jobs and rerun failed jobs, but does not expose a workflow-dispatch action. Do not report a device run until an actual workflow-dispatch result exists.
+- **Remaining gates:** dispatch the manual emulator workflow on the PR branch and inspect its results/artifact; validate hosted Supabase transaction-pooler `session_user` identity and TLS; obtain independent security/maintainer review; complete the separately reviewed Android-to-verifier integration, revocation/recovery, and sensitive-operation enforcement without blocking requester SOS; perform manual Admin UI acceptance; obtain owner approval before any production changes.
+- No production Supabase/Auth/Edge Function/Render changes, deployments, user-data writes, or merge occurred.
+
+
+## 2026-11-28 — Read-only hosted Supabase baseline and drift assessment
+
+- **Project inspected:** TACResQ-School-Project (kttguamhznoflzagfutr), region ap-southeast-1, status ACTIVE_HEALTHY, PostgreSQL 17.11.0.003. All checks in this section were read-only; no migration, Auth setting, function, or data was changed.
+- **Hosted migration baseline:** latest recorded migration is 20261125030354_make_actor_role_lookup_read_only_safe. PR #370's later migrations (including 20261126100000 onward and the trusted verifier boundary migration 20261127090000) are not present in the hosted migration history. Do not infer they are deployed from repository CI.
+- **Device verifier availability:** hosted public.user_devices and public.device_challenges exist from the older registry foundation. The tacresq_device_verifier role and private device_verifier_issue_challenge, device_verifier_get_challenge, and device_verifier_complete_challenge routines do not exist. Hosted Edge Function inventory currently contains only active tacresq-notify v2; tacresq-device-verifier is not deployed.
+- **Hosted registry grants:** read-only information_schema.role_table_grants inspection showed service_role retains INSERT/SELECT/UPDATE grants on the five device registry tables (and postgres retains owner privileges). No anon or authenticated table grants were returned for those tables. This is the legacy pre-dedicated-verifier boundary; the PR migration that revokes service-role table grants is not deployed. Keep verifier rollout blocked until the dedicated credential, transaction-pooler identity, TLS, and grant transition are validated in a controlled release.
+- **Connection identity caveat:** the read-only Supabase SQL tool reported current_user = session_user = postgres. This is the management/MCP SQL connection, not a transaction-pooler test. It proves nothing about the future dedicated login's session_user identity or TLS behavior.
+- **Security Advisor snapshot (observed 2026-11-28 04:02:57 UTC):** 16 informational rls_enabled_no_policy findings, including private/server-owned audit, device, and operational tables; 24 authenticated_security_definer_function_executable warnings; and one warning that leaked-password protection is disabled. The no-policy findings should be interpreted with actual grants and schema exposure, not blindly fixed by adding client policies. The SECURITY DEFINER warnings require per-function authorization/AAL2 and grant-contract review; do not revoke broad RPCs without preserving legitimate app/admin workflows. Leaked-password protection is a hosted Auth configuration change and needs owner approval plus login-flow testing.
+- **Release conclusion:** hosted project is healthy but intentionally behind the current PR security migrations. No production migration, role change, Auth setting, Edge Function deployment, or user-data mutation was performed. Before rollout, prepare a coordinated migration + dedicated connection-secret provisioning + Edge Function deployment sequence with rollback and outage checks; never deploy only one half of the trust boundary.
+
+
+## 2026-11-28 — Exact-head CI and hosted security-advisor follow-up
+
+- **Current PR state:** PR #370 remains open and mergeable, not merged, on branch `docs/admin-ips-ui-master-plan`. Exact head: `a9d6c67d3f145ebe45920a9450704e34b6ee7d57`. The branch is synchronized with `main` (0 commits behind; 750 commits ahead at inspection). No human reviews or review threads are recorded.
+- **Exact-head validation:** all six workflow groups completed successfully: TACResQ CI (Android debug/release builds and JVM tests, instrumentation compilation, Lint, local migration/verifier integration, PostgreSQL migration replay, Laravel/dashboard integration), TACResQ Security (repository guardrails and CodeQL), RPC grant contract, QA, Frontend Review, and read-only profile verification. The manual emulator workflow is a separate `workflow_dispatch` workflow; its static contract passed in CI, but the emulator workflow itself was not run.
+- **Manual emulator diagnostics implementation:** commit `cd29120c7fac0a3a8bc7a90527f686863a5388ff` adds failure-only logcat/device-property diagnostics and always-run instrumentation XML/HTML artifact collection; commits `f31aa21b1619800466157933763c1bbfa26318ca` and `a9d6c67d3f145ebe45920a9450704e34b6ee7d57` strengthen the manual workflow contract and pin the emulator runner and artifact actions to full commit SHAs. These changes improve diagnosability; they do not prove device execution.
+- **Hosted advisor follow-up (read-only):** the Performance Advisor snapshot returned 10 unindexed foreign-key findings, one RLS initialization-plan warning (`auth_rls_initplan` on `incident_assignment_events_dispatch_read`), and 34 unused-index notices. Do not automatically drop unused indexes; assess actual query plans and workload before proposing index changes. Evaluate FK indexes and RLS predicate optimization in separately tested migrations.
+- **Existing Security Advisor interpretation remains:** 16 informational RLS-enabled/no-policy findings, 24 SECURITY DEFINER executable warnings, and leaked-password protection disabled. Interpret each against schema exposure, effective grants, and function authorization; do not blanket-add policies or revoke functions. Any hosted Auth setting change requires owner approval and login-flow validation.
+- **Decision:** no additional production change is justified by advisor labels alone. Preserve existing AAL2/TOTP guards, private schema boundaries, role separation, and emergency workflows. The next safe work is evidence gathering and separately reviewed remediation proposals—not automatic privilege/index changes.
+- **Deployment boundary:** the hosted project still lacks the PR verifier role/routines and deployed Edge Function; the management SQL connection's `session_user=postgres` is not evidence about transaction-pooler identity. Do not provision the dedicated credential or deploy only one side of the verifier boundary. No production migration, role/password, Auth setting, Edge Function, Render configuration, or user data was changed.
+- **Release gates:** manual emulator/device execution; hosted pooler identity and TLS verification; device API integration and server-side enforcement design; revocation/recovery UX; manual Admin UI acceptance; independent security and maintainer review; explicit owner approval for coordinated deployment. Do not merge or activate the dormant device registry based only on green CI.
+
+
+## 2026-11-28 — Final validation of documentation head
+
+- **Exact head:** `a2e2b7ec4f0abe059398de39e3c77d2b529b1225`.
+- **Check-run inventory:** 18 check runs completed. Sixteen concluded success. The aggregate `CodeQL` check concluded neutral; its specific Android (Java/Kotlin) and Web/GitHub Actions analysis jobs both concluded success, as did repository security guardrails. `CodeRabbit` concluded skipped because this repository does not meet the integration's activation threshold; it is not a review approval. All other named checks concluded success, including Android debug/release builds, source checks, clean PostgreSQL migration replay, local Supabase migration replay, Laravel/dashboard integration, RPC grant contract, QA browser/prototype capture and local stack stress smoke test, Frontend Review, read-only profile verification, static security/correctness review, and Gradle dependency submission.
+- **What this proves:** repository source/build/integration contracts pass at this exact head. It does not prove hosted deployment, transaction-pooler identity/TLS, actual Android emulator/device execution, manual Admin UI acceptance, or human security review.
+- **Branch state:** PR #370 remains open, unmerged, mergeable, and 0 commits behind `main`. No human review submissions or inline review threads were present at inspection.
+- **Decision:** do not add speculative database/index/RLS changes based on advisor labels; do not activate device registry or deploy the verifier until the documented hosted and owner-approval gates are met. No production state was changed.
+
+
+## 2026-11-28 — Android verifier DER input validation hardening
+
+### Source finding
+
+The isolated Android transport previously checked only the encoded signature's character set and length. The trusted Edge Function already performed strict ASN.1 DER parsing, canonical Base64URL decoding, positive/minimal INTEGER validation, and P-256 scalar range checks before WebCrypto verification. Consequently, malformed DER or a raw 64-byte P1363 signature could pass the Android transport's local shape check and incur an unnecessary verifier request, even though the server would reject it.
+
+### Implemented correction
+
+- Android now decodes the signature as canonical, unpadded Base64URL and requires a byte-for-byte canonical re-encoding.
+- It validates a complete DER SEQUENCE, exact lengths, no trailing data, exactly two minimally encoded positive INTEGER scalars, 1–32-byte magnitudes, and scalar values strictly inside the P-256 group order.
+- The transport rejects P1363 raw signatures, zero/negative scalars, non-minimal encodings, malformed/truncated DER, and padded/non-canonical Base64URL before network activity.
+- The server-side verifier remains authoritative and retains its independent strict parser.
+- The Android verifier API remains intentionally dormant: no login, SOS, dispatch, chat, notification, or Admin call sites were added.
+
+### Regression coverage and acceptance
+
+The Android verifier API JVM test now uses a valid minimal DER signature fixture and asserts malformed P1363, zero-scalar, negative-scalar, and padded Base64URL inputs fail before any MockWebServer request. The existing registration/session-proof transport tests continue to exercise the valid DER wire representation.
+
+**Validation status:** implementation and regression tests are committed together; exact-head Android JVM, Lint, source-contract, full CI, PostgreSQL replay, RPC contract, security and QA results are pending. No passing result is claimed until the new exact commit completes CI.
+
+**Safety:** no hosted Supabase migration, verifier role/credential, Edge Function, Auth setting, Render configuration, production data, or operational Android flow was changed.
+
+
+## Exact implementation validation — 2026-11-28
+
+The Android client-side DER validation implementation is recorded in commit c0822ef66e6df0a04df82cd3348aef7ec545f20f. Exact-head check runs: 16 success, one neutral aggregate CodeQL check, and one skipped CodeRabbit check. Both individual CodeQL analysis jobs passed. The six primary workflows (CI, Security, QA, RPC grant contract, Frontend Review, and read-only profile verification) all passed.
+
+The Android JVM tests specifically exercised a valid minimal DER signature and rejected raw 64-byte P1363, zero-scalar, negative-scalar, and padded Base64URL signatures before network activity. Android Lint, debug/release builds, and instrumentation-test compilation passed. Actual instrumentation execution was not run; release signing verification was skipped because signing credentials were absent.
+
+The Android APK and Lint artifacts are retained by GitHub Actions under run 46115636286 (APK artifact 15251956274; Lint artifact 15252315088). This validates the repository-side protocol slice only. It does not validate a physical device, hosted pooler identity/TLS, hosted verifier deployment, production integration, or independent review.
+
+
+## 2026-11-28 — Canonical device UUID input validation
+
+### Source finding
+
+The Android transport normalized a caller-supplied session-proof device identifier with java.util.UUID.fromString before sending it. That parser accepts some abbreviated UUID group forms and silently expands them into a different canonical UUID. Although the Edge Function enforces a canonical UUID pattern and the database remains the authorization boundary, the client could transform malformed input into a different valid identifier rather than reject it.
+
+### Implemented correction
+
+- Require the requested device ID to match the same canonical UUID pattern used for verifier challenge/response identifiers before calling UUID.fromString.
+- Retain normalization only after canonical validation, preserving a consistent lowercase wire value without accepting abbreviated group forms.
+- Add a MockWebServer regression asserting the abbreviated input 1-1-1-1-1 fails before any network request.
+- Preserve server-side ownership/session checks as authoritative; client validation is not an authorization boundary.
+
+**Validation status:** exact-head CI is pending for this follow-up. No passing result is claimed until the new commit's workflows finish.
+
+**Safety:** the verifier remains dormant; no operational client flow, production Supabase/Render state, user data, or emergency/SOS behavior changed.
+
+
+## Exact-head validation — canonical UUID hardening (2026-11-28)
+
+Source implementation commit 708779f1a076d28e7303fe010fa2c3810aadb108 passed all six major workflow groups. Check-run inventory: 16 success, one neutral aggregate CodeQL check, one skipped CodeRabbit check. Both individual CodeQL analyses and repository security guardrails passed.
+
+Android JVM tests, including the new abbreviated UUID rejection-before-network regression, Android Lint, instrumentation-test compilation, demo/Supabase debug builds, and release APK build passed. Release-signature verification was skipped because signing credentials were not configured. Full local Supabase migration replay, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grant contract, QA, Frontend Review, and read-only profile verification passed.
+
+Artifacts from CI run 46116652072:
+- Android APK archive artifact 15251693882 (113,994,366 bytes; SHA-256 0fff96d8a74143980c94742ff1f788a023d6edb1e8945dcd57741cf21551948b).
+- Android Lint report artifact 15251866888 (44,438 bytes; SHA-256 b8d29787f1ce3b4f3664cfef38db53ff4321994130a2dfca2d6b3040b691f31f).
+
+The exact result applies to the source commit above. It does not prove physical-device execution, hosted verifier deployment, pooler identity/TLS, or independent human review.

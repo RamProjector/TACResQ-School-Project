@@ -40,21 +40,32 @@ assert "pg_default_acl" in inventory
 
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
-assert "24 public" in crosswalk
+assert "25 authenticated-callable public security definer functions" in crosswalk
 assert "api_assign_incident_team(bigint,bigint[])" in crosswalk
 assert "api_unregister_fcm_token(text)" in crosswalk
 assert "api_admin_set_account_status" in crosswalk
 assert "not client-callable" in crosswalk
 assert "api_admin_list_account_lifecycle_events(integer,integer)" in crosswalk
-assert "75 public callable functions" in crosswalk
-assert "twelve authenticated-callable private security definer helpers" in crosswalk
-assert "51 authenticated-callable public security invoker functions" in crosswalk
+assert "api_admin_list_auth_sessions_page(bigint,integer,timestamptz,uuid)" in crosswalk
+assert "14 authenticated-callable private security definer helpers" in crosswalk
+assert "14 authenticated-callable application api invoker functions" in crosswalk
+assert "11 authenticated-callable application api invoker functions after the legacy requester-create execute revocation" in crosswalk
+assert "38 authenticated-callable public api functions" in crosswalk
+callable_runtime_contract = (ROOT / "tools/test_account_suspension_definer_inventory.sql").read_text().lower()
+assert "cardinality(expected_invoker_signatures) <> 11" in callable_runtime_contract
+assert "api_callable_count <> 36" in callable_runtime_contract
+assert "api_invoker_count <> 11" in callable_runtime_contract
+assert "expected 36/25/11" in callable_runtime_contract
+
+assert "36 authenticated-callable public api functions after the legacy requester-create execute revocation" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
 assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md").is_file()
 assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md").is_file()
 assert (ROOT / "tools/test_account_suspension_definer_inventory.sql").is_file()
 assert (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").is_file()
+private_inventory = (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").read_text(encoding="utf-8").lower()
+assert "'private.tacresq_current_audit_correlation_id()'" in private_inventory
 print("Account-lifecycle callable inventory contract passed.")
 
 
@@ -229,6 +240,32 @@ for migration, expected in (
 
 assert "has_function_privilege('anon', routine_oid, 'execute')" in foundation_replay
 print("Expanded account-lifecycle callable replay source contract passed.")
+ 
+# Guard the evidence-based service-role writer matrix and its PostgREST test boundary.
+admin_plan = (ROOT / "docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8").lower()
+for required in (
+    "### 73.6 candidate least-privilege service-role matrix (not yet migrated)",
+    "apioperationauditlogger",
+    "fcmnotificationdispatcher",
+    "tacresq-notify",
+    "column-only postgrest patch behavior must be verified",
+    "do not replace the existing broad grants until that integration test",
+):
+    assert required in admin_plan, f"Service-role writer matrix is incomplete: {required}"
+
+ 
+# Service-role default ACL research must retain the explicit deployment boundary.
+admin_plan = (ROOT / "docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8").lower()
+for required in (
+    "## section 73 — service-role default acl and trusted writer inventory",
+    "postgres/public",
+    "supabase_admin/public",
+    "20 public tables",
+    "do not revoke `service_role` from all public tables in one migration",
+    "no hosted acl, default privilege, table data, migration ledger, or deployment was changed",
+):
+    assert required in admin_plan, f"Service-role ACL research boundary is incomplete: {required}"
+
 
 # Anonymous-callable routines are a distinct exposure surface. The catalog
 # must report effective anon EXECUTE (including inherited/PUBLIC grants) for
@@ -439,3 +476,69 @@ for required in (
     "has_function_privilege('authenticated', routine_oid, 'execute')",
 ):
     assert required in duty_replay, f"Duty-status replay assertion is missing: {required}"
+
+
+# The exact application RPC register is independent of where PostgreSQL
+# installs extensions (Supabase commonly uses the extensions schema; a plain
+# replay may install pgcrypto into public). Do not count extension functions as
+# TACResQ API entry points.
+definer_inventory = (ROOT / "tools/test_account_suspension_definer_inventory.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "expected_invoker_signatures text[]",
+    "public.api_active_responder_locations()",
+    "public.api_assign_incident_team(bigint,bigint[])",
+    "public.api_dependency_health()",
+    "public.api_set_duty_status(text)",
+    "left(p.proname, 4) = 'api_'",
+    "api_callable_count <> 36",
+    "api_invoker_count <> 11",
+):
+    assert required in definer_inventory, f"Application callable inventory is incomplete: {required}"
+
+trigger_grant_migration = (
+    ROOT / "supabase/migrations/20261126100000_revoke_incident_trigger_function_client_execute.sql"
+).read_text(encoding="utf-8").lower()
+for required in (
+    "revoke all on function public.tacresq_require_incident_location()",
+    "from public, anon, authenticated, service_role",
+    "trigger-only incident input invariant",
+):
+    assert required in trigger_grant_migration, f"Trigger-only function exposure guard is missing: {required}"
+
+foundation_sql = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "incidents_require_location_before_write",
+    "public.tacresq_require_incident_location()",
+    "has_function_privilege('anon', 'public.tacresq_require_incident_location()', 'execute')",
+    "has_function_privilege('authenticated', 'public.tacresq_require_incident_location()', 'execute')",
+    "has_function_privilege('service_role', 'public.tacresq_require_incident_location()', 'execute')",
+):
+    assert required in foundation_sql, f"Trigger-only function replay contract is missing: {required}"
+
+
+private_inventory = (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "cardinality(expected_signatures) <> 14",
+    "private.tacresq_current_auth_session_present_read()",
+    "coalesce(p.proconfig, array[]::text[]) @> array['search_path=pg_catalog']",
+    "has_schema_privilege('authenticated', 'private', 'usage')",
+    "has_schema_privilege('anon', 'private', 'usage')",
+    "private.tacresq_active_responder_locations_internal()",
+    "private.tacresq_assign_incident_team(bigint,bigint[])",
+    "private.tacresq_can_access_incident_chat(bigint,bigint)",
+    "private.tacresq_record_location_v2_internal",
+    "private.tacresq_current_auth_session_valid()",
+    "private.tacresq_release_incident_assignment_internal",
+    "internal private implementation must remain non-client-executable",
+):
+    assert required in private_inventory, f"Private helper grant boundary is incomplete: {required}"
+
+private_crosswalk = (ROOT / "docs/security/admin-account-suspension-callable-definer-crosswalk.md").read_text(encoding="utf-8").lower()
+for required in (
+    "private callable-helper dependency audit",
+    "tacresq_auth_profile_id_for_token_cleanup",
+    "tacresq_current_account_active_read",
+    "the private schema is intentionally not in the data api surface",
+    "leaked-password protection is disabled",
+):
+    assert required in private_crosswalk, f"Private helper audit documentation is incomplete: {required}"

@@ -21,6 +21,9 @@ assert "if (dateRangeError || idFilterError)" in AUDIT_PAGE
 assert 'setError(dateRangeError || idFilterError || "Invalid audit filter.")' in AUDIT_PAGE
 assert "Boolean(dateRangeError || idFilterError)" in AUDIT_PAGE
 assert "getAdminInvestigationEventsPage(" in AUDIT_PAGE
+assert 'new URLSearchParams(window.location.search).get("auditQuery")' in AUDIT_PAGE
+assert 'url.searchParams.delete("auditQuery")' in AUDIT_PAGE
+assert 'window.history.replaceState(window.history.state, "", url.toString())' in AUDIT_PAGE
 
 # Keyboard focus and reduced-motion preferences must be explicitly respected.
 assert ":focus-visible" in ADMIN_CSS
@@ -40,7 +43,10 @@ assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
 assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
 
 # Results and metadata are invalidated immediately, before the debounced request.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
+query_effect_marker = AUDIT_PAGE.index("// Invalidate the prior result as soon as filters/page change")
+query_effect_start = AUDIT_PAGE.rfind("useEffect(() => {", 0, query_effect_marker)
+query_effect_end = AUDIT_PAGE.index("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", query_effect_start)
+query_effect = AUDIT_PAGE[query_effect_start:query_effect_end]
 assert query_effect.index("setEvents([]);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setTotal(0);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setLoading(true);") < query_effect.index("window.setTimeout")
@@ -81,7 +87,10 @@ assert "text-align:left;" in ADMIN_CSS
 
 
 # Clipboard success/error feedback is scoped to the active audit query.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
+query_effect_marker = AUDIT_PAGE.index("// Invalidate the prior result as soon as filters/page change")
+query_effect_start = AUDIT_PAGE.rfind("useEffect(() => {", 0, query_effect_marker)
+query_effect_end = AUDIT_PAGE.index("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", query_effect_start)
+query_effect = AUDIT_PAGE[query_effect_start:query_effect_end]
 assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError || idFilterError)")
 assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError || idFilterError)")
 
@@ -94,6 +103,23 @@ copy_handler = AUDIT_PAGE.split("async function copyEventId(eventId: string)", 1
 assert "if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);" in copy_handler
 assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 
+
+# Correlation and provider request references are searchable from the expanded
+# event details. The server-side query searches the JSON details payload, so
+# this action finds records sharing the exact reference without inventing links.
+for marker in (
+    'function getTechnicalReference(event: AdminInvestigationEvent, key: string): string | null',
+    'getTechnicalReference(event, "correlation_id")',
+    'getTechnicalReference(event, "auth_session_id")',
+    'aria-label="Find events from this Auth session"',
+    'findRelatedEvents(getTechnicalReference(event, "auth_session_id") || "")',
+    'getTechnicalReference(event, "provider_request_id")',
+    'aria-label="Find events with this correlation ID"',
+    'aria-label="Find events with this provider request ID"',
+    'findRelatedEvents(getTechnicalReference(event, "correlation_id") || "")',
+    'findRelatedEvents(getTechnicalReference(event, "provider_request_id") || "")',
+):
+    assert marker in AUDIT_PAGE, f"Missing searchable investigation reference behavior: {marker}"
 
 # The seventh, metadata-only app-action source must be described accurately in
 # the UI and operator guide without implying comprehensive activity tracking.

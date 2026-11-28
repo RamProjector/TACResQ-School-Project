@@ -1516,6 +1516,8 @@
 /* Expandable read-only account details in the Admin directory. */
 .admin-account-actions { display:flex; align-items:center; flex-wrap:wrap; gap:7px; min-width:132px; }
 .admin-account-details { min-height:30px; padding:0 9px; border:1px solid #dfe4dc; border-radius:5px; color:#53696a; background:#fffefa; font-size:9px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.admin-security-event-reference { display:flex; min-width:175px; align-items:center; flex-wrap:wrap; gap:6px; }
+.admin-security-event-reference code { color:#53696a; font:500 9px var(--mono); white-space:nowrap; }
 .admin-account-details:hover { border-color:#c6d6cb; background:#f4f8f1; }
 .admin-account-details:focus-visible { outline:2px solid var(--ember); outline-offset:2px; }
 .admin-account-details-row > td { padding:0 !important; background:#f8faf5; }

@@ -146,7 +146,9 @@ class SupabaseBridgeTest extends TestCase
             ], 200),
         ]);
 
-        $this->withToken('valid-supabase-access-token')
+        $traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+        $this->withHeader('traceparent', $traceparent)
+            ->withToken('valid-supabase-access-token')
             ->postJson('/api/bridge/rpc/api_create_incident_v4', [
                 'p_type' => 'medical',
                 'p_client_request_id' => '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
@@ -159,10 +161,11 @@ class SupabaseBridgeTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only');
         });
-        Http::assertSent(function ($request) {
+        Http::assertSent(function ($request) use ($traceparent) {
             return str_contains($request->url(), '/rest/v1/rpc/api_create_incident_v4')
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only')
+                && $request->hasHeader('traceparent', $traceparent)
                 && !str_contains($request->header('Authorization')[0] ?? '', 'service_role');
         });
     }
@@ -250,6 +253,121 @@ class SupabaseBridgeTest extends TestCase
         $this->postEmptyRpc('api_units', 'valid-supabase-access-token')
             ->assertStatus(502)
             ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+    }
+
+    public function test_provider_request_ids_are_captured_from_trusted_upstream_response_headers(): void
+    {
+        config(['tacru.supabase_secret_key' => 'synthetic-server-secret']);
+        request()->attributes->set('correlation_id', '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27');
+
+        $sessionId = '10000000-0000-4000-8000-000000000401';
+        $accessToken = $this->syntheticJwt([
+            'sub' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001',
+            'session_id' => $sessionId,
+            'exp' => time() + 300,
+        ]);
+
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(
+                ['id' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001'],
+                200,
+                ['sb-request-id' => 'auth-gateway-request-123', 'x-request-id' => 'ignored-fallback'],
+            ),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response(
+                [],
+                200,
+                ['X-Request-Id' => 'self-hosted-rpc-request-456'],
+            ),
+            'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
+        ]);
+
+        $this->assertNotNull(app(SupabaseBridge::class)->getUser($accessToken));
+        $result = app(SupabaseBridge::class)->callRpc($accessToken, 'api_units', []);
+        $this->assertSame(200, $result['status']);
+
+        $auditPayloads = [];
+        Http::assertSent(function ($request) use (&$auditPayloads): bool {
+            if (!str_ends_with($request->url(), '/rest/v1/api_operation_logs')) {
+                return false;
+            }
+            $auditPayloads[] = $request->data();
+            return true;
+        });
+
+        $this->assertCount(2, $auditPayloads);
+        $this->assertSame(['auth.get_user', 'rpc.api_units'], array_column($auditPayloads, 'operation'));
+        $this->assertSame(['auth-gateway-request-123', 'self-hosted-rpc-request-456'], array_column($auditPayloads, 'provider_request_id'));
+        $this->assertSame([
+            '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
+            '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
+        ], array_column($auditPayloads, 'correlation_id'));
+        $this->assertSame([$sessionId, $sessionId], array_column($auditPayloads, 'auth_session_id'));
+    }
+
+    public function test_session_claim_is_not_attributed_when_auth_user_does_not_match_jwt_subject(): void
+    {
+        config(['tacru.supabase_secret_key' => 'synthetic-server-secret']);
+        $accessToken = $this->syntheticJwt([
+            'sub' => 'different-auth-user',
+            'session_id' => '10000000-0000-4000-8000-000000000402',
+            'exp' => time() + 300,
+        ]);
+
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001',
+            ], 200),
+            'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
+        ]);
+
+        $this->assertNotNull(app(SupabaseBridge::class)->getUser($accessToken));
+
+        Http::assertSent(function ($request): bool {
+            if (!str_ends_with($request->url(), '/rest/v1/api_operation_logs')) {
+                return false;
+            }
+            return ($request->data()['auth_session_id'] ?? null) === null;
+        });
+    }
+
+    public function test_session_claim_is_not_attributed_when_auth_rejects_the_bearer_token(): void
+    {
+        config(['tacru.supabase_secret_key' => 'synthetic-server-secret']);
+        $accessToken = $this->syntheticJwt([
+            'sub' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001',
+            'session_id' => '10000000-0000-4000-8000-000000000403',
+            'exp' => time() + 300,
+        ]);
+
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001',
+            ], 401),
+            'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
+        ]);
+
+        $this->assertNull(app(SupabaseBridge::class)->getUser($accessToken));
+
+        Http::assertSent(function ($request): bool {
+            if (!str_ends_with($request->url(), '/rest/v1/api_operation_logs')) {
+                return false;
+            }
+            return ($request->data()['auth_session_id'] ?? null) === null;
+        });
+    }
+
+    private function syntheticJwt(array $claims): string
+    {
+        $header = $this->base64UrlEncode(json_encode(['alg' => 'HS256', 'typ' => 'JWT'], JSON_THROW_ON_ERROR));
+        $payload = $this->base64UrlEncode(json_encode($claims, JSON_THROW_ON_ERROR));
+        $signature = $this->base64UrlEncode('synthetic-signature');
+
+        return $header.'.'.$payload.'.'.$signature;
+    }
+
+    private function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
     private function postEmptyRpc(string $function, string $token)

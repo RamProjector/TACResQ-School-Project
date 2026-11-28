@@ -45,9 +45,6 @@ ACTIVE_CLIENT_RPCS = {
     "api_all_incidents",
     "api_assign_incident",
     "api_assign_incident_team",
-    "api_create_incident",
-    "api_create_incident_v2",
-    "api_create_incident_v3",
     "api_create_incident_v4",
     "api_cancel_my_incident",
     "api_update_my_incident",
@@ -79,6 +76,51 @@ for name in ACTIVE_CLIENT_RPCS:
     assert grant.search(MIGRATION_SQL), (
         f"Missing explicit authenticated EXECUTE grant across migrations for {name}"
     )
+
+
+# Legacy requester-create RPCs are retained only as an internal implementation
+# boundary. Current Android and Laravel callers use v4; v4 calls v3 under its
+# SECURITY DEFINER owner context. Do not re-grant the old invoker signatures.
+LEGACY_INTERNAL_RPCS = {
+    "api_create_incident": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real\)",
+    "api_create_incident_v2": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real,\s*text,\s*timestamptz\)",
+    "api_create_incident_v3": r"\(text,\s*text,\s*double precision,\s*double precision,\s*real,\s*text,\s*timestamptz,\s*text\)",
+}
+LEGACY_REVOKE_MIGRATION = Path(
+    "supabase/migrations/20261127010000_revoke_legacy_incident_create_rpc_execute.sql"
+).read_text()
+for name, signature in LEGACY_INTERNAL_RPCS.items():
+    revoke = re.compile(
+        rf"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+FUNCTION\s+public\.{name}{signature}\s+"
+        rf"FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert revoke.search(LEGACY_REVOKE_MIGRATION), (
+        f"Legacy RPC {name} must be retained but not executable by API roles"
+    )
+    assert not re.search(
+        rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{name}{signature}\s+TO\s+(?:authenticated|service_role)",
+        LEGACY_REVOKE_MIGRATION,
+        re.IGNORECASE | re.DOTALL,
+    ), f"Legacy RPC {name} must not regain a client/server-role EXECUTE grant"
+
+ANDROID_API = Path("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+BRIDGE_CONFIG = Path("backend/src/config/tacru.php").read_text()
+CURRENT_V4_MIGRATION = Path(
+    "supabase/migrations/20261125020842_account_lifecycle_write_rpc_entry_guards.sql"
+).read_text()
+assert "api_create_incident_v4" in ANDROID_API
+assert all(
+    re.search(rf"/rpc/{re.escape(name)}\"", ANDROID_API) is None
+    for name in LEGACY_INTERNAL_RPCS
+)
+assert "api_create_incident_v4" in BRIDGE_CONFIG
+assert all(f"'{name}'" not in BRIDGE_CONFIG for name in LEGACY_INTERNAL_RPCS)
+assert "SECURITY DEFINER" in CURRENT_V4_MIGRATION
+assert "public.api_create_incident_v3(" in CURRENT_V4_MIGRATION
+REPLAY_SCRIPT = Path("tools/test_supabase_migration_replay.sh").read_text()
+assert Path("tools/test_legacy_incident_create_rpc_privileges.sql").is_file()
+assert "psql -v ON_ERROR_STOP=1 -f tools/test_legacy_incident_create_rpc_privileges.sql" in REPLAY_SCRIPT
 
 # Per-responder progress is intentionally retired: the dispatcher owns the
 # shared incident milestone. Keep the historical RPC names revoked rather than
@@ -237,3 +279,163 @@ assert re.search(
     r"PUBLIC,\s*anon,\s*authenticated\s*;",
     CORE_TABLE_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "profiles/incidents must revoke direct client DELETE and TRUNCATE"
+
+
+
+# The Admin website uses authenticated Admin JWTs, not the server service_role
+# identity. Keep service_role away from the append-only audit relation, its
+# identity sequence, and Admin-only RPCs. The disposable replay adds catalog
+# assertions for the effective privileges and preserves authenticated grants.
+SERVICE_ROLE_SEQUENCE_MIGRATION = Path(
+    "supabase/migrations/20261126180000_restrict_device_registry_sequences.sql"
+).read_text()
+RPC_OWNED_SEQUENCES = (
+    "fcm_delivery_attempts_id_seq",
+    "fcm_tokens_id_seq",
+    "incident_assignment_events_id_seq",
+    "incident_claimability_logs_id_seq",
+    "incident_messages_id_seq",
+    "incident_request_edit_logs_id_seq",
+    "incident_status_logs_id_seq",
+    "profiles_id_seq",
+    "user_notifications_id_seq",
+)
+sequence_revokes = re.findall(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+(.*?)\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+)
+revoked_sequence_names = " ".join(sequence_revokes)
+assert sequence_revokes, "Missing explicit RPC/trigger-owned sequence revoke"
+for sequence_name in RPC_OWNED_SEQUENCES:
+    assert f"public.{sequence_name}" in revoked_sequence_names, (
+        f"Missing sequence privilege reduction for {sequence_name}"
+    )
+assert re.search(
+    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
+    r"public\.device_security_events_id_seq,\s*"
+    r"public\.device_integrity_checks_id_seq\s+TO\s+service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Trusted device registry writers must retain their minimum sequence grants"
+assert re.search(
+    r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
+    r"public\.api_operation_logs_id_seq,\s*public\.incidents_id_seq,\s*"
+    r"public\.location_logs_id_seq\s+TO\s+service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Logger and remaining trusted service-role direct INSERT grants must retain minimum sequence access"
+assert re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Client roles must not retain incident/location sequence privileges"
+assert not re.search(
+    r"GRANT\s+.*ON\s+SEQUENCE\s+public\.incidents_id_seq\s+TO\s+authenticated",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Authenticated clients must not receive incident sequence grants"
+assert re.search(
+    r"REVOKE\s+UPDATE\s+ON\s+SEQUENCE\s+"
+    r"public\.incidents_id_seq,\s*public\.location_logs_id_seq\s+"
+    r"FROM\s+service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "Legacy service-role sequence paths must not retain setval capability"
+
+PG17_MAINTAIN_MIGRATION = Path(
+    "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
+).read_text()
+assert "server_version_num" in PG17_MAINTAIN_MIGRATION
+assert re.search(
+    r"EXECUTE\s+'REVOKE MAINTAIN ON ALL TABLES IN SCHEMA public "
+    r"FROM PUBLIC, anon, authenticated, service_role'",
+    PG17_MAINTAIN_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "PG17 MAINTAIN revoke must cover every existing public table"
+assert re.search(
+    r"EXECUTE\s+'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public "
+    r"REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated, service_role'",
+    PG17_MAINTAIN_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+), "PG17 MAINTAIN revoke must cover future postgres-owned public tables"
+assert "FOR ROLE supabase_admin" not in PG17_MAINTAIN_MIGRATION
+assert "FOR ROLE supabase_auth_admin" not in PG17_MAINTAIN_MIGRATION
+assert "IN SCHEMA storage" not in PG17_MAINTAIN_MIGRATION, (
+    "Application privilege cleanup must not rewrite Supabase-managed Storage defaults"
+)
+
+SERVICE_ROLE_ADMIN_MIGRATION = Path(
+    "supabase/migrations/20261126160000_revoke_service_role_admin_audit_access.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+"
+    r"public\.admin_audit_logs\s+FROM\s+service_role\s*;",
+    SERVICE_ROLE_ADMIN_MIGRATION, re.IGNORECASE | re.DOTALL
+), "service_role must have no direct admin_audit_logs table privileges"
+assert re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.admin_audit_logs_id_seq\s+FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
+    SERVICE_ROLE_ADMIN_MIGRATION, re.IGNORECASE | re.DOTALL
+), "service_role must have no direct admin_audit_logs identity-sequence privileges"
+
+ADMIN_SERVICE_ROLE_FUNCTIONS = {
+    "api_admin_analytics_summary": r"\(timestamptz,\s*timestamptz\)",
+    "api_admin_analytics_summary_internal": r"\(timestamptz,\s*timestamptz\)",
+    "api_admin_list_account_lifecycle_events": r"\(integer,\s*integer\)",
+    "api_admin_list_audit_logs": r"\(integer\)",
+    "api_admin_list_audit_logs_internal": r"\(integer\)",
+    "api_admin_list_audit_logs_page": r"\(integer,\s*integer,\s*text,\s*text,\s*timestamptz,\s*timestamptz,\s*bigint,\s*bigint\)",
+    "api_admin_list_investigation_events": r"\(integer,\s*integer,\s*text,\s*text,\s*text,\s*timestamptz,\s*timestamptz,\s*bigint,\s*bigint,\s*bigint\)",
+    "api_admin_list_users": r"\(\)",
+    "api_admin_list_users_page": r"\(integer,\s*integer,\s*text,\s*text\)",
+    "api_admin_list_users_page_internal": r"\(integer,\s*integer,\s*text,\s*text\)",
+    "api_admin_set_account_status": r"\(bigint,\s*text,\s*text,\s*text\)",
+    "api_admin_set_user_role": r"\(bigint,\s*text,\s*text\)",
+    "api_admin_set_user_role_internal": r"\(bigint,\s*text,\s*text\)",
+}
+for function_name, signature in ADMIN_SERVICE_ROLE_FUNCTIONS.items():
+    revoke = re.compile(
+        rf"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{function_name}{signature}\s+FROM\s+service_role\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert revoke.search(SERVICE_ROLE_ADMIN_MIGRATION), (
+        f"service_role must not retain direct EXECUTE on {function_name}"
+    )
+assert "GRANT " not in SERVICE_ROLE_ADMIN_MIGRATION.upper(), (
+    "The targeted service-role reduction must not add new grants"
+)
+assert Path("tools/test_service_role_admin_audit_privileges.sql").is_file(), (
+    "Missing runtime catalog contract for the service-role Admin audit reduction"
+)
+assert "test_service_role_admin_audit_privileges.sql" in Path(
+    "tools/test_supabase_migration_replay.sh"
+).read_text(), "Migration replay must execute the service-role Admin audit contract"
+assert (
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public"
+    in Path("tools/test_supabase_migration_replay.sh").read_text()
+), "Migration replay must model the hosted postgres/public service_role function default ACL"
+PROFILE_UPDATE_MIGRATION = Path(
+    "supabase/migrations/20261126170000_restrict_profile_update_to_duty_status.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\s+UPDATE\s+ON\s+TABLE\s+public\.profiles\s+FROM\s+authenticated\s*;",
+    PROFILE_UPDATE_MIGRATION, re.IGNORECASE | re.DOTALL
+), "Profile update must revoke the broad authenticated table-level UPDATE grant"
+assert re.search(
+    r"GRANT\s+UPDATE\s*\(\s*duty_status\s*,\s*updated_at\s*\)\s+"
+    r"ON\s+TABLE\s+public\.profiles\s+TO\s+authenticated\s*;",
+    PROFILE_UPDATE_MIGRATION, re.IGNORECASE | re.DOTALL
+), "Only duty_status and updated_at may retain authenticated profile UPDATE"
+REPLAY_FIXTURE = Path("tools/test_supabase_migration_replay.sh").read_text()
+for default_grant in (
+    "GRANT ALL PRIVILEGES ON TABLES TO anon, authenticated, service_role",
+    "GRANT ALL PRIVILEGES ON SEQUENCES TO anon, authenticated, service_role",
+    "GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role",
+):
+    assert default_grant in REPLAY_FIXTURE, (
+        f"Migration replay is missing hosted public default ACL fixture: {default_grant}"
+    )

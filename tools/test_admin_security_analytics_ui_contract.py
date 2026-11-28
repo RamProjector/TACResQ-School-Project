@@ -106,9 +106,17 @@ assert "}, [activeSection, settingsPage, continuityPage, preferencesDirty, confi
 assert 'aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true"' in SECURITY
 assert 'aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true"' in SECURITY
 
-# Staged account suspension must remain explicitly unavailable until the
-# transition RPC grant, same-token coverage, deployment, and session behavior
-# have been independently verified.
-assert "The database transition function is staged but EXECUTE remains revoked from client roles." in SECURITY
-assert "Remaining same-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete." in SECURITY
-assert "No suspend/reactivate action is exposed here." in SECURITY
+# The current branch exposes a narrow Admin lifecycle workflow, while
+# explicitly separating branch implementation from hosted deployment and
+# incomplete same-JWT enforcement across every application surface.
+assert "User management page implements reason-required suspend/reactivate actions for ordinary non-Admin accounts." in SECURITY
+assert "connected Supabase migration ledger includes 20261125020926" in SECURITY
+assert "grants EXECUTE to authenticated while denying anon and PUBLIC" in SECURITY
+assert "SECURITY DEFINER with search_path pinned to pg_catalog" in SECURITY
+assert "active Admin + AAL2/TOTP" in SECURITY
+assert "expected-status compare-and-set" in SECURITY
+assert "atomic lifecycle audit" in SECURITY
+assert "not complete suspension enforcement across every direct RPC, Storage bucket, Edge Function, or legacy Laravel/Sanctum path" in SECURITY
+assert "Already-issued access JWTs are not globally revoked by this action" in SECURITY
+assert "EXECUTE remains revoked from client roles" not in SECURITY
+assert "No suspend/reactivate action is exposed here." not in SECURITY

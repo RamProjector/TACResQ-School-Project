@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep repository migration filenames aligned with the applied TACResQ project history."""
+"""Check the repository migration inventory against its documented live-ledger baseline and gaps."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,12 +108,73 @@ EXPECTED = {
     "20261125020924_admin_website_account_lifecycle_controls.sql",
     "20261125020926_admin_account_lifecycle_compare_and_set.sql",
 }
-# Every repository migration now matches a version recorded in the live
-# Supabase migration ledger. New pending migrations must be added explicitly.
+# EXPECTED is the repository's reviewed applied-source baseline. This is not a
+# live-ledger query and does not prove one-to-one version identity. The two
+# read-only account migrations below are already represented in the live ledger
+# under different versions; the trigger-grant migration is still a draft.
 PENDING = {
-    # PR #365: staged read-only-safe account profile RLS correction; not yet in live migration ledger.
+    # Logical changes are live under 20261125025825 and 20261125030010,
+    # but these repository filenames use different version identities.
     "20261125120000_read_only_account_profile_rls.sql",
     "20261125130000_remove_legacy_fcm_active_account_policy.sql",
+    # PR #370: unapplied draft; must be regenerated with `supabase migration new`.
+    "20261126100000_revoke_incident_trigger_function_client_execute.sql",
+    # PR #370: repository-only forward migrations; do not deploy without approval.
+    "20261126160000_revoke_service_role_admin_audit_access.sql",
+    "20261126170000_restrict_profile_update_to_duty_status.sql",
+    "20261126180000_restrict_device_registry_sequences.sql",
+    "20261126190000_restrict_profile_insert_privilege.sql",
+    "20261127010000_revoke_legacy_incident_create_rpc_execute.sql",
+    "20261127020000_admin_session_inventory_read_rpc.sql",
+    "20261127030000_admin_investigation_api_operation_correlation.sql",
+    "20261127040000_admin_sensitive_session_revocation_guard.sql",
+    "20261127050000_add_auth_session_ids_to_audit_events.sql",
+    "20261127060000_admin_event_session_context.sql",
+    "20261127070000_admin_session_activity_feed.sql",
+    "20261127080000_admin_trace_context_correlation.sql",
+    # PR #370: private verifier foundation; requires an out-of-band login secret and is not deployed.
+    "20261127090000_device_verifier_trusted_db_boundary.sql",
+}
+# These two source files use new local timestamps, while the connected
+# project's migration ledger records the same logical migration names under
+# earlier versions. This is a reviewed alias map, not proof of byte-identical SQL.
+LIVE_VERSION_ALIASES = {
+    "20261125120000_read_only_account_profile_rls.sql": (
+        "20261125025825",
+        "read_only_account_profile_rls",
+    ),
+    "20261125130000_remove_legacy_fcm_active_account_policy.sql": (
+        "20261125030010",
+        "remove_legacy_fcm_active_account_policy",
+    ),
+}
+UNAPPLIED_DRAFTS = {
+    "20261126100000_revoke_incident_trigger_function_client_execute.sql",
+}
+# New forward migrations on PR #370. They are not present in the connected
+# project's migration ledger and must remain unapplied until explicit approval.
+UNAPPLIED_FORWARD_MIGRATIONS = {
+    "20261126160000_revoke_service_role_admin_audit_access.sql",
+    "20261126170000_restrict_profile_update_to_duty_status.sql",
+    "20261126180000_restrict_device_registry_sequences.sql",
+    "20261126190000_restrict_profile_insert_privilege.sql",
+    "20261127010000_revoke_legacy_incident_create_rpc_execute.sql",
+    "20261127020000_admin_session_inventory_read_rpc.sql",
+    "20261127030000_admin_investigation_api_operation_correlation.sql",
+    "20261127040000_admin_sensitive_session_revocation_guard.sql",
+    "20261127050000_add_auth_session_ids_to_audit_events.sql",
+    "20261127060000_admin_event_session_context.sql",
+    "20261127070000_admin_session_activity_feed.sql",
+    "20261127080000_admin_trace_context_correlation.sql",
+    "20261127090000_device_verifier_trusted_db_boundary.sql",
+}
+# Applied live migration with no recoverable source file in this branch.
+# Keep this gap explicit; do not synthesize SQL from the ledger name.
+LIVE_LEDGER_SOURCE_GAPS = {
+    "20261125030354_make_actor_role_lookup_read_only_safe": (
+        "Live actor-role helper is STABLE, while the checked-in source migration "
+        "currently defines it as VOLATILE."
+    ),
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -123,6 +184,41 @@ assert actual <= EXPECTED | PENDING, (
     f"Untracked migration files found. Unexpected={sorted(actual - (EXPECTED | PENDING))}"
 )
 
+# Keep three distinct classes separate: exact applied-source baseline,
+# version aliases already represented in the live ledger, and genuinely
+# unapplied drafts. This test is static; it does not query the hosted ledger.
+assert PENDING == set(LIVE_VERSION_ALIASES) | UNAPPLIED_DRAFTS | UNAPPLIED_FORWARD_MIGRATIONS, (
+    "Pending migration inventory must be exactly the reviewed version aliases, "
+    "unapplied drafts, and unapplied forward migrations"
+)
+local_versions = {path[:14] for path in actual}
+for source_file, (live_version, live_name) in LIVE_VERSION_ALIASES.items():
+    assert source_file in actual, f"Missing migration source for live alias: {source_file}"
+    source_version = source_file[:14]
+    source_name = source_file[15:-4]
+    assert source_name == live_name, (
+        f"Alias name mismatch for {source_file}: expected {live_name}"
+    )
+    assert source_version != live_version, (
+        f"Alias {source_file} unexpectedly uses the live version {live_version}"
+    )
+    assert live_version not in local_versions, (
+        f"Live alias version {live_version} must not also exist as a local migration"
+    )
+
+for live_identity in LIVE_LEDGER_SOURCE_GAPS:
+    live_version = live_identity.split("_", 1)[0]
+    assert live_version not in local_versions, (
+        f"Source-gap version {live_version} unexpectedly has a checked-in migration"
+    )
+
+master_plan = (ROOT / "docs" / "TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8")
+for migration_name, gap in LIVE_LEDGER_SOURCE_GAPS.items():
+    assert migration_name in master_plan, f"Live migration source gap is undocumented: {migration_name}"
+    assert "STABLE SECURITY DEFINER" in master_plan and "VOLATILE" in master_plan, (
+        f"Live/source volatility drift is not documented: {gap}"
+    )
+
 core = (MIGRATIONS / "20261015080806_tacresq_core_schema.sql").read_text()
 for required in (
     "create or replace function public.rls_auto_enable()",
@@ -130,6 +226,27 @@ for required in (
     "set search_path = pg_catalog",
 ):
     assert required in core, f"Missing Supabase RLS baseline object: {required}"
+
+location_guard = (MIGRATIONS / "20261112215721_require_incident_location_fallback.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.tacresq_require_incident_location()",
+    "RETURNS trigger",
+    "CREATE TRIGGER incidents_require_location_before_write",
+    "BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description",
+):
+    assert required in location_guard, f"Missing incident location trigger contract: {required}"
+assert "GRANT EXECUTE" not in location_guard.upper(), (
+    "Trigger-only incident location function must not receive a direct EXECUTE grant."
+)
+
+trigger_grant_fix = (MIGRATIONS / "20261126100000_revoke_incident_trigger_function_client_execute.sql").read_text()
+for required in (
+    "REVOKE ALL ON FUNCTION public.tacresq_require_incident_location()",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "Trigger-only incident input invariant",
+):
+    assert required in trigger_grant_fix, f"Missing trigger-only EXECUTE revocation contract: {required}"
+assert "GRANT EXECUTE" not in trigger_grant_fix.upper()
 
 push = (MIGRATIONS / "20261015092225_location_and_push.sql").read_text()
 for required in (
@@ -238,7 +355,7 @@ for required in (
 assert "GRANT ALL" not in api_audit.upper()
 assert "GRANT INSERT ON TABLE public.api_operation_logs TO authenticated" not in api_audit
 
-print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} additional migration file(s) are allowlisted and not assumed applied to live Supabase.")
+print(f"PASS: {len(EXPECTED)} repository migrations match the reviewed source baseline; {len(actual - EXPECTED)} additional file(s) are explicitly allowlisted. Live-ledger identity gaps are documented separately.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
@@ -306,6 +423,15 @@ for required in (
 ):
     assert required in location_fallback, f"Missing required SOS location database guard: {required}"
 assert "security definer" not in location_fallback
+trigger_grant_revoke = (
+    MIGRATIONS / "20261126100000_revoke_incident_trigger_function_client_execute.sql"
+).read_text().lower()
+for required in (
+    "revoke all on function public.tacresq_require_incident_location()",
+    "from public, anon, authenticated, service_role",
+    "trigger-only incident input invariant",
+):
+    assert required in trigger_grant_revoke, f"Missing trigger-only function privilege hardening: {required}"
 print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
 
 signup_validation = (MIGRATIONS / "20261112215734_require_requester_signup_contact.sql").read_text().lower()

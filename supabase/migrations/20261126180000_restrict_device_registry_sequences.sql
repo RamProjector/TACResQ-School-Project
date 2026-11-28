@@ -1,0 +1,58 @@
+BEGIN;
+
+-- These backend-only append-only tables are written by trusted server RPCs.
+-- The service_role needs USAGE/SELECT for identity-backed inserts, but no
+-- client role and no service-role caller needs sequence UPDATE.
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.device_security_events_id_seq,
+  public.device_integrity_checks_id_seq
+FROM PUBLIC, anon, authenticated, service_role;
+
+GRANT USAGE, SELECT ON SEQUENCE
+  public.device_security_events_id_seq,
+  public.device_integrity_checks_id_seq
+TO service_role;
+
+-- Other application identity sequences are consumed only inside database-owned
+-- SECURITY DEFINER RPCs, auth bootstrap, or SECURITY DEFINER triggers. The
+-- service_role FCM worker only PATCHes delivery attempts and deletes invalid
+-- tokens; it does not allocate IDs for those tables. Keep the device verifier,
+-- API telemetry, and two legacy invoker-RPC sequence consumers below.
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.fcm_delivery_attempts_id_seq,
+  public.fcm_tokens_id_seq,
+  public.incident_assignment_events_id_seq,
+  public.incident_claimability_logs_id_seq,
+  public.incident_messages_id_seq,
+  public.incident_request_edit_logs_id_seq,
+  public.incident_status_logs_id_seq,
+  public.profiles_id_seq,
+  public.user_notifications_id_seq
+FROM PUBLIC, anon, authenticated, service_role;
+
+-- Laravel's ApiOperationAuditLogger performs a direct service-role PostgREST
+-- INSERT. The live catalog also shows service_role has direct INSERT on
+-- incidents/location_logs. Section 72 revokes service_role EXECUTE on the old
+-- incident-create RPCs; v4 calls v3 under the function owner's privileges.
+-- Preserve service-role sequence USAGE/SELECT only while the independent direct
+-- table INSERT grants remain. The location writer path is separately reviewed.
+REVOKE ALL PRIVILEGES ON SEQUENCE
+  public.incidents_id_seq,
+  public.location_logs_id_seq
+FROM PUBLIC, anon, authenticated;
+REVOKE UPDATE ON SEQUENCE
+  public.incidents_id_seq,
+  public.location_logs_id_seq
+FROM service_role;
+
+-- Preserve only the sequence capabilities required by the remaining server writers.
+GRANT USAGE, SELECT ON SEQUENCE
+  public.api_operation_logs_id_seq,
+  public.incidents_id_seq,
+  public.location_logs_id_seq
+TO service_role;
+
+-- Do not grant clients sequence access merely because a legacy RPC has EXECUTE:
+-- direct table INSERT privilege is a separate gate, and the current requester
+-- creation path is the owner-executed v4 wrapper.
+COMMIT;

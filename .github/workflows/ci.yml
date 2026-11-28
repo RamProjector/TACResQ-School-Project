@@ -19,7 +19,7 @@ jobs:
   source-checks:
     name: Source checks
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -243,6 +243,12 @@ jobs:
 
       - name: Check administrator TOTP MFA enforcement
         run: python3 tools/test_admin_totp_contract.py
+
+      - name: Check protected Admin session inventory SQL contract
+        run: python3 tools/test_admin_session_inventory_contract.py
+
+      - name: Check Admin session inventory web contract
+        run: python3 tools/test_admin_session_inventory_ui_contract.py
       - name: Check pending MFA cleanup on gate sign-out
         run: python3 tools/test_admin_gate_signout_cleanup_contract.py
       - name: Check Admin pending MFA cleanup contract
@@ -291,6 +297,8 @@ jobs:
         run: python3 tools/test_admin_role_dialog_scroll_lock_contract.py
       - name: Check Admin security analytics UI contract
         run: python3 tools/test_admin_security_analytics_ui_contract.py
+      - name: Check Admin account lifecycle UI and rollout status contract
+        run: python3 tools/test_admin_account_status_scope.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
@@ -417,6 +425,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: backend/web/pnpm-lock.yaml
 
+      - name: Validate device verifier test tooling
+        run: |
+          python3 -m py_compile tools/prepare_device_verifier_local_env.py
+          node --check tools/test_device_verifier_local.mjs
+
+      - name: Test P-256 device proof cryptography contract
+        run: node --test tools/test_device_proof_crypto.mjs
+
       - name: Check SECURITY DEFINER trigger search paths
         run: python3 tools/test_trigger_search_paths.py
 
@@ -435,6 +451,14 @@ jobs:
         env:
           VITE_BASE_PATH: /admin/
         run: pnpm build
+
+      - name: Install Playwright Chromium for Admin browser tests
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Exercise the Admin portal in a real browser
+        run: python3 tools/test_admin_portal_browser.py
 
       - name: Check RPC and table privilege grants
         run: python3 tools/test_rpc_grants.py
@@ -464,6 +488,8 @@ jobs:
 
       - name: Check Admin role isolation in Android navigation
         run: python3 tools/test_android_admin_role_safety.py
+      - name: Check isolated Android Keystore device-proof key manager
+        run: python3 tools/test_android_device_proof_keystore_contract.py
 
       - name: Check Android emulator KVM configuration
         run: python3 tools/test_android_emulator_kvm.py
@@ -772,3 +798,172 @@ jobs:
 
       - name: Replay every migration on a clean database
         run: bash tools/test_supabase_migration_replay.sh
+
+
+  local-supabase-migration-compatibility:
+    name: Full local Supabase migration replay (advisory)
+    # The real Supabase stack is slower than the PostgreSQL contract job.
+    # Keep it advisory until startup, migrations, and teardown are repeatable.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect Supabase integration changes
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -Eq '^(supabase/migrations/|supabase/functions/|tools/test_supabase_jwt_context\.py$|docs/QA_LOCAL_SUPABASE_CLI_COMPATIBILITY_SPIKE\.md$|\.github/workflows/ci\.yml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No Supabase migration/function changes; skipping the advisory local stack."
+          fi
+
+      - name: Install pinned Supabase CLI
+        if: steps.scope.outputs.relevant == 'true'
+        uses: supabase/setup-cli@a9de0f0e1ffcf6ec895b135e292ddc76592d3c83 # v3
+        with:
+          version: 3.4.0
+
+      - name: Initialize and validate disposable local project
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          unset SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF || true
+          config_count="$(find supabase -maxdepth 1 -type f \( -name 'config.toml' -o -name 'config.jsonc' -o -name 'config.json' \) | wc -l)"
+          if [ "$config_count" -gt 1 ]; then
+            echo "Multiple Supabase config files found; refusing ambiguous local configuration."
+            exit 1
+          fi
+          if [ "$config_count" -eq 0 ]; then
+            supabase init
+          fi
+          test ! -e supabase/.temp/project-ref
+          supabase --version
+          supabase config validate
+
+      - name: Start isolated Supabase services and replay all migrations
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          # No hosted project is linked and no remote flags are used. The
+          # JWT probe does not send email, so omit Mailpit and avoid its fixed
+          # host port 54324 on shared CI runners. Redact local JWT/key output.
+          if ! supabase start --exclude mailpit 2>&1 | sed -E \
+            -e 's/(service_role key:|anon key:|JWT secret:).*/\1 [REDACTED]/I' \
+            -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED_JWT]/g'; then
+            echo "Local Supabase startup or migration application failed."
+            exit 1
+          fi
+          supabase db reset --local
+          echo "Local Supabase migration replay completed."
+
+      - name: Install PostgreSQL client for the disposable JWT probe
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Prove local Auth JWT context reaches PostgREST
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          # This file contains ephemeral local keys; never print or upload it.
+          supabase status -o env > "$status_file"
+          chmod 600 "$status_file"
+          python3 tools/test_supabase_jwt_context.py "$status_file"
+
+      - name: Set up Node.js for device verifier integration
+        if: steps.scope.outputs.relevant == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Provision a disposable dedicated verifier database login
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          edge_env="$RUNNER_TEMP/tacresq-device-verifier.env"
+          supabase status -o env > "$status_file"
+          chmod 600 "$status_file"
+          python3 tools/prepare_device_verifier_local_env.py "$status_file" "$edge_env"
+
+      - name: Serve and exercise the device verifier against local Auth and PostgreSQL
+        if: steps.scope.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          edge_env="$RUNNER_TEMP/tacresq-device-verifier.env"
+          status_file="$RUNNER_TEMP/tacresq-supabase-local.env"
+          edge_log="$RUNNER_TEMP/tacresq-device-verifier-edge.log"
+          supabase functions serve tacresq-device-verifier --env-file "$edge_env" > "$edge_log" 2>&1 &
+          edge_pid=$!
+          echo "$edge_pid" > "$RUNNER_TEMP/tacresq-device-verifier.pid"
+          anon_key="$(sed -n 's/^ANON_KEY=//p' "$status_file" | tr -d '"')"
+          ready=false
+          for attempt in $(seq 1 45); do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --header "apikey: $anon_key" \
+              --request POST "http://127.0.0.1:54321/functions/v1/tacresq-device-verifier" || true)"
+            # With a valid API key but no bearer token, 401 proves the
+            # function gateway has reached the verifier and enforced JWT auth.
+            if [ "$status" = "401" ]; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            echo "Local device verifier did not become JWT-ready; see the redacted runtime diagnostics below."
+            exit 1
+          fi
+          node tools/test_device_verifier_local.mjs "$status_file" "$edge_env"
+
+      - name: Show redacted device verifier runtime logs on integration failure
+        if: failure() && steps.scope.outputs.relevant == 'true'
+        run: |
+          edge_log="$RUNNER_TEMP/tacresq-device-verifier-edge.log"
+          if [ -f "$edge_log" ]; then
+            sed -E \
+              -e 's#(postgres(ql)?://[^:/]+:)[^@]+@#\1[REDACTED]@#g' \
+              -e 's/(SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|JWT_SECRET)=.*/\1=[REDACTED]/g' \
+              "$edge_log" | tail -n 200
+          else
+            echo "No Edge Runtime log file was produced."
+          fi
+
+      - name: Stop local device verifier and remove ephemeral credentials
+        if: always() && steps.scope.outputs.relevant == 'true'
+        run: |
+          if [ -f "$RUNNER_TEMP/tacresq-device-verifier.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/tacresq-device-verifier.pid")" 2>/dev/null || true
+          fi
+          rm -f "$RUNNER_TEMP/tacresq-device-verifier.pid" \
+            "$RUNNER_TEMP/tacresq-device-verifier.env" \
+            "$RUNNER_TEMP/tacresq-device-verifier-edge.log" \
+            "$RUNNER_TEMP/tacresq-supabase-local.env"
+
+      - name: Stop local stack and delete its volumes
+        if: always() && steps.scope.outputs.relevant == 'true'
+        run: |
+          rm -f "$RUNNER_TEMP/tacresq-supabase-local.env"
+          if [ -e supabase/config.toml ] || [ -e supabase/config.jsonc ] || [ -e supabase/config.json ]; then
+            supabase stop --no-backup || true
+          fi

@@ -151,3 +151,27 @@ This is a source-based review of the repository at the stated commit. It does no
 
 - OWASP Logging Cheat Sheet: application-level security events should include authentication successes/failures, authorization failures, session-management failures, and privileged administrative actions; logs should be structured, access-controlled, protected from tampering, and exclude credentials and unnecessary sensitive data.
 - OWASP Authorization Cheat Sheet: authorization-related logging supports detection and investigation, but the event stream should be designed with the appropriate level of detail and data minimization.
+
+
+---
+
+## 2026-11-26 addendum — End-to-end interaction correlation gap
+
+The current branch's Laravel request correlation is useful but is not a distributed workflow trace:
+
+- `RequestCorrelationId` creates a server UUID per Laravel request, ignores caller-supplied `X-Request-ID`, and returns the server ID in the response.
+- `SupabaseBridge` uses that ID for selected `api_operation_logs` records but currently passes a null provider request ID for Auth and RPC calls and does not propagate W3C `traceparent`.
+- Incident status and assignment event histories have their own source-local event IDs/timestamps and no shared Laravel correlation ID.
+- App-action audit rows default to a separate random UUID; it is not proven to match the user's originating interaction.
+- Direct Android and Admin-web Supabase calls bypass Laravel's operation logger.
+- The Admin investigation RPC does not currently include `api_operation_logs`.
+
+Supabase's current log documentation states that API Gateway responses include `sb-request-id`, and that a client-supplied W3C `traceparent` can be extracted into trace and span IDs in project logs where supported. Supabase Correlated Logs is in beta and supports requestId/traceId/userId navigation in Studio. This offers a potential low-cost provider-side correlation path, but does not by itself create a durable TACResQ business-event chain.
+
+**Recommended first step:** capture and validate the provider `sb-request-id` in the existing Laravel bridge's `provider_request_id` field, then test traceparent propagation in a non-production environment. Keep interaction ID, idempotency key, trace ID, HTTP request ID, and source event ID distinct. Do not join unrelated events by time/email/IP, do not treat client correlation IDs as authorization, and do not claim a complete Admin timeline until source coverage and retention are verified.
+
+References:
+- https://www.w3.org/TR/trace-context/
+- https://supabase.com/docs/guides/observability/advanced-log-filtering
+- https://supabase.com/changelog/53230-correlated-logs
+- https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html

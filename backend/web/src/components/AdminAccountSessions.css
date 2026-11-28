@@ -1,0 +1,151 @@
+.admin-account-sessions {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border, #d8dde5);
+}
+.admin-account-sessions__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.admin-account-sessions__heading h4 {
+  margin: 0;
+  color: var(--admin-text, #17212f);
+  font-size: 0.95rem;
+}
+.admin-account-sessions__heading p,
+.admin-account-sessions__semantics,
+.admin-account-sessions__footnote {
+  margin: 5px 0 0;
+  color: var(--admin-muted, #667085);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.admin-account-sessions__body {
+  display: grid;
+  gap: 12px;
+}
+.admin-account-sessions__source,
+.admin-account-sessions__message,
+.admin-account-sessions__footnote {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-account-sessions__source {
+  margin: 0;
+  color: var(--admin-muted, #667085);
+  font-size: 0.78rem;
+}
+.admin-account-sessions__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-account-sessions__record {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--admin-border, #d8dde5);
+  border-radius: 0;
+  background: transparent;
+}
+.admin-account-sessions__list li:first-child .admin-account-sessions__record {
+  border-top: 1px solid var(--admin-border, #d8dde5);
+}
+.admin-account-sessions__record-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  color: var(--admin-text, #17212f);
+  font-size: 0.85rem;
+}
+.admin-account-sessions__record-title > strong {
+  margin-right: auto;
+}
+.admin-account-sessions__record-title span {
+  color: var(--admin-muted, #667085);
+  font-size: 0.75rem;
+}
+.admin-account-sessions__record dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.admin-account-sessions__record dl div {
+  min-width: 0;
+}
+.admin-account-sessions__record dt {
+  color: var(--admin-muted, #667085);
+  font-size: 0.72rem;
+}
+.admin-account-sessions__record dd {
+  margin: 3px 0 0;
+  color: var(--admin-text, #17212f);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.admin-account-sessions__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--admin-muted, #667085);
+  font-size: 0.8rem;
+}
+.admin-account-sessions__pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.admin-account-sessions__pagination button,
+.admin-account-sessions__message button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--admin-border, #d8dde5);
+  border-radius: 8px;
+  background: var(--admin-surface, #fff);
+  color: var(--admin-text, #17212f);
+  font: inherit;
+  cursor: pointer;
+}
+.admin-account-sessions__pagination button:disabled,
+.admin-account-sessions__message button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.admin-account-sessions__message {
+  margin: 0;
+  color: var(--admin-muted, #667085);
+  font-size: 0.85rem;
+}
+.admin-account-sessions__message[role="alert"] {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.admin-account-sessions__footnote {
+  align-items: flex-start;
+  font-size: 0.75rem;
+}
+@media (max-width: 560px) {
+  .admin-account-sessions__heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-account-sessions__record dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-account-sessions__pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

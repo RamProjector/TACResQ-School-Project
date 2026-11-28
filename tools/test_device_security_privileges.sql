@@ -124,56 +124,115 @@ BEGIN
     RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
   END IF;
 
-  -- Identity sequences are backend-only too; table grants alone do not
-  -- protect INSERT ... RETURNING paths or direct sequence calls.
+  -- The dedicated verifier login is the only caller of private device
+  -- routines. It has no direct registry-table privileges and no RLS bypass.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = 'tacresq_device_verifier'
+      AND NOT rolcanlogin
+      AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
+      AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit
+  ) THEN
+    RAISE EXCEPTION 'Dedicated device verifier role is missing or over-privileged';
+  END IF;
+
+  IF NOT has_schema_privilege('tacresq_device_verifier', 'private', 'USAGE')
+     OR has_schema_privilege('tacresq_device_verifier', 'private', 'CREATE') THEN
+    RAISE EXCEPTION 'Dedicated verifier role has incorrect private-schema privileges';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_proc AS p
+      JOIN pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'private'
+       AND has_function_privilege('tacresq_device_verifier', p.oid, 'EXECUTE')
+       AND p.oid NOT IN (
+         'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)'::regprocedure,
+         'private.device_verifier_get_challenge(uuid,uuid,uuid)'::regprocedure,
+         'private.device_verifier_complete_challenge(uuid,uuid,uuid,text,text,text,text,text)'::regprocedure
+       )
+  ) THEN
+    RAISE EXCEPTION 'Dedicated verifier role can execute an unapproved private function';
+  END IF;
+
+  IF NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_get_challenge(uuid,uuid,uuid)',
+       'EXECUTE'
+     )
+     OR NOT has_function_privilege(
+       'tacresq_device_verifier',
+       'private.device_verifier_complete_challenge(uuid,uuid,uuid,text,text,text,text,text)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'Dedicated device verifier role is missing a required private function grant';
+  END IF;
+
+  FOREACH privilege_name IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] LOOP
+    IF has_table_privilege('tacresq_device_verifier', 'public.user_devices', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_sessions', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_challenges', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_security_events', privilege_name)
+       OR has_table_privilege('tacresq_device_verifier', 'public.device_integrity_checks', privilege_name) THEN
+      RAISE EXCEPTION 'Dedicated verifier role unexpectedly has direct table privilege %', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF has_function_privilege(
+       'authenticated',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR has_function_privilege(
+       'service_role',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     )
+     OR has_function_privilege(
+       'anon',
+       'private.device_verifier_issue_challenge(uuid,uuid,text,uuid)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'A client or service_role can invoke the private device verifier';
+  END IF;
+
+  -- The dedicated verifier's SECURITY DEFINER functions own all writes.
+  -- service_role must not read or mutate any device registry table directly.
+  FOREACH table_name IN ARRAY table_names LOOP
+    table_oid := to_regclass('public.' || table_name);
+    FOREACH privilege_name IN ARRAY ARRAY[
+      'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ] LOOP
+      IF has_table_privilege('service_role', table_oid, privilege_name) THEN
+        RAISE EXCEPTION 'service_role unexpectedly has % on public.%', privilege_name, table_name;
+      END IF;
+    END LOOP;
+  END LOOP;
+
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
     IF has_sequence_privilege('anon', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('authenticated', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('tacresq_device_verifier', 'public.device_security_events_id_seq', privilege_name)
        OR has_sequence_privilege('anon', 'public.device_integrity_checks_id_seq', privilege_name)
-       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name) THEN
-      RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on device registry sequences', privilege_name;
+       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR has_sequence_privilege('tacresq_device_verifier', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Client or dedicated verifier unexpectedly has % on device registry sequences', privilege_name;
     END IF;
   END LOOP;
 
   IF NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'USAGE')
      OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'SELECT')
-     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
      OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'USAGE')
      OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
      OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
-    RAISE EXCEPTION 'Unexpected service_role privileges on device registry sequences';
+    RAISE EXCEPTION 'Trusted service_role sequence grants must retain USAGE/SELECT but not UPDATE';
   END IF;
-
-  -- Mutable registry records are server-managed; event/integrity records
-  -- are insert-only so service_role cannot rewrite or erase their history.
-  IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
-     OR NOT has_table_privilege('service_role', 'public.user_devices', 'INSERT')
-     OR NOT has_table_privilege('service_role', 'public.user_devices', 'UPDATE')
-     OR has_table_privilege('service_role', 'public.user_devices', 'DELETE')
-     OR has_table_privilege('service_role', 'public.user_devices', 'TRUNCATE') THEN
-    RAISE EXCEPTION 'Unexpected service_role privileges on user_devices';
-  END IF;
-
-  FOREACH table_name IN ARRAY ARRAY['device_sessions', 'device_challenges'] LOOP
-    table_oid := to_regclass('public.' || table_name);
-    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
-       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
-       OR NOT has_table_privilege('service_role', table_oid, 'UPDATE')
-       OR has_table_privilege('service_role', table_oid, 'DELETE')
-       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
-      RAISE EXCEPTION 'Unexpected service_role privileges on public.%', table_name;
-    END IF;
-  END LOOP;
-
-  FOREACH table_name IN ARRAY ARRAY['device_security_events', 'device_integrity_checks'] LOOP
-    table_oid := to_regclass('public.' || table_name);
-    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
-       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
-       OR has_table_privilege('service_role', table_oid, 'UPDATE')
-       OR has_table_privilege('service_role', table_oid, 'DELETE')
-       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
-      RAISE EXCEPTION 'Unexpected service_role privileges on append-only public.%', table_name;
-    END IF;
-  END LOOP;
 END;
 $device_registry_privilege_contract$;
