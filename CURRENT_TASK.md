@@ -2309,3 +2309,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Safety:** no production migration, database role/password, Auth setting, Edge Function, Render configuration, deployment, or user data was changed. No tests were weakened. No merge was performed.
 - **Remaining blockers:** actual manual emulator/device execution; hosted transaction-pooler `session_user` and TLS validation; Android verifier integration and separately reviewed sensitive-operation enforcement; device revocation/recovery UX; manual Admin UI acceptance; independent security/maintainer review; explicit owner approval for a coordinated deployment.
 - **Next:** validate the documentation commit's exact-head CI, refresh the PR description to reflect the latest validation head if needed, and keep PR #370 open until all required human and hosted-environment gates are satisfied.
+
+
+## 2026-11-28 — Exact-head check-run closeout
+
+- **Validated commit:** `a2e2b7ec4f0abe059398de39e3c77d2b529b1225`.
+- **Check-run inventory:** all 18 check runs completed; 16 success, one neutral aggregate CodeQL check, and CodeRabbit skipped. The Android (Java/Kotlin) and Web/GitHub Actions CodeQL jobs both succeeded; repository security guardrails also succeeded. CodeRabbit is not available as a review approval because repository eligibility requirements are not met.
+- **Successful exact-head checks:** Android debug/release builds; source checks; clean PostgreSQL migration replay; full local Supabase migration replay; Laravel/dashboard integration; RPC grant contract; QA local-stack stress smoke test; QA prototype screen/activity capture; Frontend Review; read-only profile verification; static security/correctness review; Gradle dependency submission; and the remaining listed CI contracts.
+- **Branch state at closeout:** PR #370 remains open, unmerged, mergeable, and 0 commits behind `main`. No human review submissions or inline review threads were present.
+- **Research-plan update:** commit `106bf6b6f331a1dc3d6b29aecebb883fa1dd6089` records the exact-head check-run inventory and evidence limits in `docs/security/device-security-research-and-implementation-plan.md`.
+- **Validation limits:** no actual manual emulator/device execution, manual Admin UI acceptance, hosted transaction-pooler identity/TLS test, hosted verifier deployment, or independent human security review has occurred. CI and prototype capture do not replace those gates.
+- **Safety:** no production Supabase migration, DB role/password, Auth setting, Edge Function, Render configuration, deployment, or user data was changed. No security check was weakened and PR was not merged.
+- **Next release decision:** keep the device registry dormant and PR #370 open until hosted pooler verification, manual Android device testing, device API/enforcement and recovery design, manual Admin UI acceptance, independent review, and explicit owner approval are complete.
