@@ -2358,3 +2358,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Safety:** server ownership/session checks remain authoritative; verifier transport stays dormant; no operational Android, SOS, dispatch, chat, notification, Admin, production Supabase, or Render behavior changed.
 - **Branch/PR:** docs/admin-ips-ui-master-plan, PR #370; parent head c83b9f0ec8c03032159aecf6211444844a2686d6.
 - **Validation:** exact-head workflows pending; no result claimed.
+
+
+## 2026-11-28 — Canonical device UUID hardening exact-head closeout
+
+- **Source commit:** 708779f1a076d28e7303fe010fa2c3810aadb108 on PR #370.
+- **Validation:** all six major workflow groups passed. 18 check runs completed: 16 success, aggregate CodeQL neutral, CodeRabbit skipped. Both Android and Web/Actions CodeQL analyses passed; repository security guardrails passed.
+- **Android:** JVM tests including abbreviated UUID rejection-before-network, Android Lint, instrumentation-test compilation, demo/Supabase debug APKs, and release APK build passed. Release-signature verification skipped because signing credentials were not configured. No emulator/physical-device test was run.
+- **Backend and QA:** full local Supabase migration replay, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grant contract, local stack stress smoke, prototype capture, Frontend Review, and read-only profile verification passed.
+- **Artifacts:** APK archive 15251693882 (SHA-256 0fff96d8a74143980c94742ff1f788a023d6edb1e8945dcd57741cf21551948b); Lint report 15251866888 (SHA-256 b8d29787f1ce3b4f3664cfef38db53ff4321994130a2dfca2d6b3040b691f31f).
+- **Remaining:** physical device execution, hosted transaction-pooler identity/TLS, hosted verifier deployment, operational registration/enforcement/revocation/recovery, manual Admin UI acceptance, and independent human security review remain outstanding. No production state changed.

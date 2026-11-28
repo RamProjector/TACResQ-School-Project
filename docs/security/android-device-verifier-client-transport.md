@@ -110,3 +110,10 @@ The exact-head check-run inventory was 16 success, one neutral aggregate CodeQL 
 ## Canonical device identifier validation — 2026-11-28
 
 Session-proof challenge issuance now rejects malformed or abbreviated UUID input before normalization. This prevents java.util.UUID.fromString from silently expanding abbreviated UUID groups into a different identifier. A MockWebServer regression verifies the malformed value 1-1-1-1-1 produces no HTTP request. Server-side ownership and session checks remain authoritative; this client-side validation is not an authorization substitute. Exact-head CI is pending.
+
+
+## Canonical UUID input hardening — exact-head validation
+
+Source commit 708779f1a076d28e7303fe010fa2c3810aadb108 passed all six major workflow groups and 16 of 18 check runs. Android JVM tests, Android Lint, instrumentation-test compilation, demo/Supabase debug builds, and release APK build passed. The new test verifies abbreviated UUID input is rejected before network activity. Release-signature verification was skipped because signing credentials were not configured; physical device execution was not run.
+
+GitHub Actions run 46116652072 uploaded Android APK archive artifact 15251693882 and Lint report artifact 15251866888. The artifacts and their SHA-256 digests are recorded in the device-security research plan and CURRENT_TASK.md. Hosted verifier availability, pooler identity/TLS, operational device registration, and independent human review remain unverified.

@@ -1,6 +1,6 @@
 # TACResQ Device Security & Identification — Research and Implementation Plan
 
-**Status (2026-11-28):** Phase 1 private device registry foundation, Phase 2 trusted verifier-to-database challenge flow, isolated Android Keystore P-256 key manager, canonical Android proof-message builder, and isolated verifier transport with strict client-side DER validation are implemented in PR #370. Exact implementation head `c0822ef66e6df0a04df82cd3348aef7ec545f20f` passed all six major workflow groups and 16 of 18 check runs; aggregate CodeQL was neutral (both language analysis jobs succeeded) and CodeRabbit was skipped by repository eligibility policy. Android JVM tests, Lint, instrumentation-test compilation, demo/Supabase debug APKs, release APK build, local Supabase integration, PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, QA, and frontend review passed. The release APK was not signature-verified because signing credentials were not configured. Manual emulator/device execution remains unverified; hosted Supabase verifier role/routines/function remain undeployed, hosted transaction-pooler identity/TLS remains unverified, and operational client integration/enforcement/revocation/recovery remain outstanding. Independent human security/maintainer review and manual Admin UI acceptance remain outstanding. Keep device proof dormant and preserve requester SOS availability. No production settings, schema, secrets, data, or services were changed.
+**Status (2026-11-28):** Phase 1 private device registry foundation, Phase 2 trusted verifier-to-database challenge flow, isolated Android Keystore P-256 key manager, canonical Android proof-message builder, and isolated verifier transport with strict client-side DER and canonical UUID validation are implemented in PR #370. Exact source head `708779f1a076d28e7303fe010fa2c3810aadb108` passed all six major workflow groups and 16 of 18 check runs; aggregate CodeQL was neutral (both Android and Web/Actions analyses succeeded) and CodeRabbit was skipped by repository eligibility policy. Android JVM tests, Android Lint, instrumentation-test compilation, demo/Supabase debug APKs, release APK build, local Supabase integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, QA, and Frontend Review passed. Release-signature verification was skipped because signing credentials were not configured. Actual manual emulator/device execution remains unverified; hosted Supabase verifier role/routines/function remain undeployed; hosted transaction-pooler identity/TLS remains unverified; operational client integration/enforcement/revocation/recovery remain outstanding. Independent human security/maintainer review and manual Admin UI acceptance remain outstanding. Keep device proof dormant and preserve requester SOS availability. No production settings, schema, secrets, data, or services were changed.
 **Scope:** Android app, dispatcher/admin web clients, Supabase backend, and Render bridge where applicable  
 **Design principle:** Device recognition is a risk signal. Authentication and server-side authorization remain authoritative.
 
@@ -660,3 +660,16 @@ The Android transport normalized a caller-supplied session-proof device identifi
 **Validation status:** exact-head CI is pending for this follow-up. No passing result is claimed until the new commit's workflows finish.
 
 **Safety:** the verifier remains dormant; no operational client flow, production Supabase/Render state, user data, or emergency/SOS behavior changed.
+
+
+## Exact-head validation — canonical UUID hardening (2026-11-28)
+
+Source implementation commit 708779f1a076d28e7303fe010fa2c3810aadb108 passed all six major workflow groups. Check-run inventory: 16 success, one neutral aggregate CodeQL check, one skipped CodeRabbit check. Both individual CodeQL analyses and repository security guardrails passed.
+
+Android JVM tests, including the new abbreviated UUID rejection-before-network regression, Android Lint, instrumentation-test compilation, demo/Supabase debug builds, and release APK build passed. Release-signature verification was skipped because signing credentials were not configured. Full local Supabase migration replay, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grant contract, QA, Frontend Review, and read-only profile verification passed.
+
+Artifacts from CI run 46116652072:
+- Android APK archive artifact 15251693882 (113,994,366 bytes; SHA-256 0fff96d8a74143980c94742ff1f788a023d6edb1e8945dcd57741cf21551948b).
+- Android Lint report artifact 15251866888 (44,438 bytes; SHA-256 b8d29787f1ce3b4f3664cfef38db53ff4321994130a2dfca2d6b3040b691f31f).
+
+The exact result applies to the source commit above. It does not prove physical-device execution, hosted verifier deployment, pooler identity/TLS, or independent human review.
