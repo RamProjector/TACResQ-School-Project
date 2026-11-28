@@ -297,6 +297,8 @@ jobs:
         run: python3 tools/test_admin_role_dialog_scroll_lock_contract.py
       - name: Check Admin security analytics UI contract
         run: python3 tools/test_admin_security_analytics_ui_contract.py
+      - name: Check Admin account lifecycle UI and rollout status contract
+        run: python3 tools/test_admin_account_status_scope.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
