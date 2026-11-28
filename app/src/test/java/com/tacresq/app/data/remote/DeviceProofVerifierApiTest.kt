@@ -8,6 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
+import java.util.Base64
 import retrofit2.HttpException
 
 class DeviceProofVerifierApiTest {
@@ -150,6 +151,39 @@ class DeviceProofVerifierApiTest {
     }
 
     @Test
+    fun malformedOrNonCanonicalDerSignaturesAreRejectedBeforeNetwork() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val api = DeviceProofVerifierApi.createForTesting(server.url("/").toString(), PUBLISHABLE_KEY)
+            val challenge = registrationChallenge(purpose = "session_proof", deviceUid = DEVICE_UID)
+            val malformedSignatures = listOf(
+                // A 64-byte IEEE P1363 signature is not the Android DER wire format.
+                Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(64)),
+                // DER INTEGER r = 0 is outside the valid P-256 scalar range.
+                Base64.getUrlEncoder().withoutPadding().encodeToString(
+                    byteArrayOf(0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x01),
+                ),
+                // Negative DER INTEGER r must be rejected.
+                Base64.getUrlEncoder().withoutPadding().encodeToString(
+                    byteArrayOf(0x30, 0x06, 0x02, 0x01, 0x80.toByte(), 0x02, 0x01, 0x01),
+                ),
+                "$SIGNATURE=",
+            )
+
+            malformedSignatures.forEach { signature ->
+                val failure = runCatching {
+                    api.verifySessionProof(ACCESS_TOKEN, challenge, signature)
+                }
+                assertTrue("Expected malformed signature to fail: $signature", failure.isFailure)
+            }
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun nonLoopbackHttpOriginsAreRejected() {
         val failure = runCatching {
             DeviceProofVerifierApi.createForTesting("http://example.com/", PUBLISHABLE_KEY)
@@ -174,7 +208,7 @@ class DeviceProofVerifierApiTest {
         private const val PUBLISHABLE_KEY = "sb_publishable_test_key"
         private const val CHALLENGE_ID = "123e4567-e89b-42d3-a456-426614174000"
         private const val CHALLENGE = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        private const val SIGNATURE = "AQIDBAUGBwgJCgsM"
+        private const val SIGNATURE = "MAYCAQECAQE"
         private const val PUBLIC_KEY = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcY"
         private const val DEVICE_ID = "123e4567-e89b-42d3-a456-426614174001"
         private const val DEVICE_UID = "123e4567-e89b-42d3-a456-426614174002"

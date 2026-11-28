@@ -2321,3 +2321,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation limits:** no actual manual emulator/device execution, manual Admin UI acceptance, hosted transaction-pooler identity/TLS test, hosted verifier deployment, or independent human security review has occurred. CI and prototype capture do not replace those gates.
 - **Safety:** no production Supabase migration, DB role/password, Auth setting, Edge Function, Render configuration, deployment, or user data was changed. No security check was weakened and PR was not merged.
 - **Next release decision:** keep the device registry dormant and PR #370 open until hosted pooler verification, manual Android device testing, device API/enforcement and recovery design, manual Admin UI acceptance, independent review, and explicit owner approval are complete.
+
+
+## 2026-11-28 — Android device-proof signature DER validation
+
+- **Objective:** harden the isolated Android verifier transport so malformed signatures are rejected before HTTP transmission and the client wire contract matches the trusted Edge Function parser.
+- **Research finding:** the shared Edge Function crypto module already decodes canonical Base64URL and strictly parses P-256 DER signatures, rejecting malformed sequence lengths, trailing data, non-minimal/negative/zero scalars, and out-of-range P-256 values. The Android transport previously checked only the encoded character set and length, allowing malformed DER/P1363 data to reach the verifier request boundary.
+- **Implementation:** added canonical unpadded Base64URL decoding and strict DER SEQUENCE/INTEGER parsing to DeviceProofVerifierApi; enforces 8–72 DER bytes, exact sequence boundaries, two positive minimally encoded P-256 scalars and the P-256 group order. Server-side verification remains authoritative.
+- **Regression tests:** valid minimal DER fixture plus malformed 64-byte P1363, zero scalar, negative scalar and padded Base64URL rejection before any MockWebServer request.
+- **Preserved boundary:** verifier transport and key manager remain dormant; no login/SOS/dispatch/chat/notification/Admin integration, role change, production Supabase/Render change, or deployment.
+- **Branch/PR:** docs/admin-ips-ui-master-plan, PR [#370](https://github.com/RamProjector/TACResQ-School-Project/pull/370). Parent head before this implementation: 2d85ab466034ae1c962fba8f7bd8ed975bef6cc1.
+- **Validation:** exact-head CI pending; no tests or workflow results are claimed as passed for this implementation yet. Device emulator execution and hosted pooler/deployment validation remain separate and not run.
+- **Next:** inspect the new exact-head workflow jobs; fix any genuine Kotlin/test failures without weakening contracts, then record exact check-run outcomes and refresh the PR description.

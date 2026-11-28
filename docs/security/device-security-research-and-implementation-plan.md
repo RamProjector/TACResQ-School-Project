@@ -610,3 +610,26 @@ The existing Android build compiles instrumentation tests, but this workflow doe
 - **What this proves:** repository source/build/integration contracts pass at this exact head. It does not prove hosted deployment, transaction-pooler identity/TLS, actual Android emulator/device execution, manual Admin UI acceptance, or human security review.
 - **Branch state:** PR #370 remains open, unmerged, mergeable, and 0 commits behind `main`. No human review submissions or inline review threads were present at inspection.
 - **Decision:** do not add speculative database/index/RLS changes based on advisor labels; do not activate device registry or deploy the verifier until the documented hosted and owner-approval gates are met. No production state was changed.
+
+
+## 2026-11-28 — Android verifier DER input validation hardening
+
+### Source finding
+
+The isolated Android transport previously checked only the encoded signature's character set and length. The trusted Edge Function already performed strict ASN.1 DER parsing, canonical Base64URL decoding, positive/minimal INTEGER validation, and P-256 scalar range checks before WebCrypto verification. Consequently, malformed DER or a raw 64-byte P1363 signature could pass the Android transport's local shape check and incur an unnecessary verifier request, even though the server would reject it.
+
+### Implemented correction
+
+- Android now decodes the signature as canonical, unpadded Base64URL and requires a byte-for-byte canonical re-encoding.
+- It validates a complete DER SEQUENCE, exact lengths, no trailing data, exactly two minimally encoded positive INTEGER scalars, 1–32-byte magnitudes, and scalar values strictly inside the P-256 group order.
+- The transport rejects P1363 raw signatures, zero/negative scalars, non-minimal encodings, malformed/truncated DER, and padded/non-canonical Base64URL before network activity.
+- The server-side verifier remains authoritative and retains its independent strict parser.
+- The Android verifier API remains intentionally dormant: no login, SOS, dispatch, chat, notification, or Admin call sites were added.
+
+### Regression coverage and acceptance
+
+The Android verifier API JVM test now uses a valid minimal DER signature fixture and asserts malformed P1363, zero-scalar, negative-scalar, and padded Base64URL inputs fail before any MockWebServer request. The existing registration/session-proof transport tests continue to exercise the valid DER wire representation.
+
+**Validation status:** implementation and regression tests are committed together; exact-head Android JVM, Lint, source-contract, full CI, PostgreSQL replay, RPC contract, security and QA results are pending. No passing result is claimed until the new exact commit completes CI.
+
+**Safety:** no hosted Supabase migration, verifier role/credential, Edge Function, Auth setting, Render configuration, production data, or operational Android flow was changed.

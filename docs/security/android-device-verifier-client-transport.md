@@ -10,7 +10,7 @@ The Android application now has a dedicated DeviceProofVerifierApi transport for
 - Sends the Supabase publishable key in the apikey header.
 - Sends the current caller access token as a Bearer authorization header.
 - Adds a fresh W3C traceparent using the existing interceptor.
-- Uses bounded request values and validates challenge and verification response shapes.
+- Uses bounded request values and validates challenge and verification response shapes. Before network transmission, it accepts only canonical unpadded Base64URL containing a strict DER ECDSA sequence with positive, minimally encoded P-256 scalars in range; raw 64-byte P1363 signatures are rejected.
 - Requires HTTPS for non-loopback origins. Plain HTTP is accepted only for localhost/127.0.0.1 test servers.
 - Does not install an HTTP body/header logging interceptor.
 
@@ -30,6 +30,7 @@ The Android JVM test suite covers the authenticated transport and the canonical 
 - Registration challenge parsing and request shape.
 - Registration proof payload, metadata trimming, and result parsing.
 - Session-proof payload without public-key replacement.
+- Strict DER signature parsing, canonical Base64URL enforcement, P-256 scalar range checks, and rejection of raw P1363, zero/negative scalars, and padded encodings before network activity.
 - Rejection of malformed token inputs before network activity.
 - Preservation of HTTP authorization errors.
 - Rejection of non-loopback HTTP origins.
@@ -80,3 +81,16 @@ Artifacts from TACResQ CI run 46111579198:
 - Android Lint report: artifact 15250125419, SHA-256 353177204f251ffdf03239334473386eeaed1c9ef6e7b0c82335b51363a4c5ec
 
 No physical emulator/device execution, hosted pooler identity/TLS verification, hosted verifier deployment, or independent human security review was performed.
+
+
+## Client-side DER boundary hardening — 2026-11-28
+
+The Android transport now mirrors the server verifier's strict DER contract before sending a signature:
+
+- Decode only canonical, unpadded Base64URL and require a byte-for-byte canonical re-encoding.
+- Require a DER SEQUENCE of 8–72 bytes with exact sequence length and no trailing bytes.
+- Require exactly two minimally encoded, positive DER INTEGER scalars.
+- Enforce the P-256 scalar width and group-order range.
+- Reject raw 64-byte IEEE P1363 signatures, zero/negative scalars, non-minimal encodings, and padded/non-canonical Base64URL before any HTTP request.
+
+The server remains authoritative and repeats strict DER validation. This client-side check is defense in depth and does not activate the verifier transport or device registry in operational flows. Exact-head CI for this change is pending; no test result is claimed here.

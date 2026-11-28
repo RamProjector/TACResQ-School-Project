@@ -10,6 +10,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.POST
+import java.math.BigInteger
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -161,10 +163,98 @@ class DeviceProofVerifierApi private constructor(
         require(signature.length in 11..96 && signature.matches(BASE64_URL_PATTERN)) {
             "Device proof signature encoding is invalid."
         }
+        val der = try {
+            Base64.getUrlDecoder().decode(signature)
+        } catch (_: IllegalArgumentException) {
+            throw IllegalArgumentException("Device proof signature encoding is invalid.")
+        }
+        require(Base64.getUrlEncoder().withoutPadding().encodeToString(der) == signature) {
+            "Device proof signature must use canonical unpadded Base64URL."
+        }
+        validateDerSignature(der)
+    }
+
+    /**
+     * Match the verifier's strict ASN.1 DER parser before sending the proof.
+     * Android SHA256withECDSA emits DER; WebCrypto's P1363 form is not accepted.
+     */
+    private fun validateDerSignature(der: ByteArray) {
+        require(der.size in MIN_DER_SIGNATURE_BYTES..MAX_DER_SIGNATURE_BYTES) {
+            "Device proof signature must be a P-256 DER sequence."
+        }
+        require((der[0].toInt() and 0xff) == 0x30) {
+            "Device proof signature must be a DER sequence."
+        }
+        val (sequenceLength, sequenceBodyOffset) = readDerLength(der, 1)
+        require(sequenceBodyOffset + sequenceLength == der.size) {
+            "Device proof signature DER sequence length is invalid."
+        }
+        val rEnd = readDerInteger(der, sequenceBodyOffset)
+        val sEnd = readDerInteger(der, rEnd)
+        require(sEnd == der.size) {
+            "Device proof signature contains trailing DER data."
+        }
+    }
+
+    private fun readDerLength(bytes: ByteArray, offset: Int): Pair<Int, Int> {
+        require(offset < bytes.size) { "Device proof signature DER length is truncated." }
+        val first = bytes[offset].toInt() and 0xff
+        if (first < 0x80) return first to (offset + 1)
+
+        val count = first and 0x7f
+        require(count in 1..2 && offset + 1 + count <= bytes.size) {
+            "Device proof signature DER length is unsupported."
+        }
+        require(bytes[offset + 1].toInt() != 0) {
+            "Device proof signature DER length is not canonical."
+        }
+        var length = 0
+        repeat(count) { index ->
+            length = (length shl 8) or (bytes[offset + 1 + index].toInt() and 0xff)
+        }
+        require(length >= 0x80 && (count == 1 || length > 0xff)) {
+            "Device proof signature DER length is not minimally encoded."
+        }
+        return length to (offset + 1 + count)
+    }
+
+    private fun readDerInteger(bytes: ByteArray, offset: Int): Int {
+        require(offset < bytes.size && bytes[offset] == 0x02.toByte()) {
+            "Device proof signature must contain DER INTEGER values."
+        }
+        val (length, valueOffset) = readDerLength(bytes, offset + 1)
+        val end = valueOffset + length
+        require(length in 1..33 && end <= bytes.size) {
+            "Device proof signature DER INTEGER length is invalid."
+        }
+        val first = bytes[valueOffset].toInt() and 0xff
+        require((first and 0x80) == 0) {
+            "Device proof signature scalar must be positive."
+        }
+        if (length > 1 && first == 0) {
+            require((bytes[valueOffset + 1].toInt() and 0x80) != 0) {
+                "Device proof signature scalar is not minimally encoded."
+            }
+        }
+        val magnitudeOffset = if (first == 0) valueOffset + 1 else valueOffset
+        require(end - magnitudeOffset in 1..32) {
+            "Device proof signature scalar exceeds the P-256 width."
+        }
+        val scalar = BigInteger(1, bytes.copyOfRange(magnitudeOffset, end))
+        require(scalar.signum() > 0 && scalar < P256_ORDER) {
+            "Device proof signature scalar is outside the P-256 group order."
+        }
+        return end
     }
 
     companion object {
         private const val MAX_ACCESS_TOKEN_LENGTH = 8192
+        private const val MIN_DER_SIGNATURE_BYTES = 8
+        private const val MAX_DER_SIGNATURE_BYTES = 72
+        private val P256_ORDER = BigInteger(
+            "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
+            16,
+        )
         private val UUID_PATTERN = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
         private val CHALLENGE_PATTERN = Regex("^[A-Za-z0-9_-]{43}$")
         private val BASE64_URL_PATTERN = Regex("^[A-Za-z0-9_-]+$")
