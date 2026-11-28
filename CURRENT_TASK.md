@@ -2284,3 +2284,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated `tools/test_android_emulator_kvm.py` to enforce KVM setup ordering, failure diagnostics, always-run artifact upload, and expected result paths.
 - Commits: `cd29120c7fac0a3a8bc7a90527f686863a5388ff`, `f31aa21b1619800466157933763c1bbfa26318ca`.
 - This is instrumentation observability, not proof of test execution. The available GitHub integration does not expose workflow dispatch. Device-level Keystore tests remain pending until the manual workflow is actually run. Hosted pooler identity/TLS, independent security review, operational client integration/revocation/recovery, manual Admin acceptance, and owner-approved deployment remain open. No production changes or merge.
+
+## 2026-11-28 — Hosted Supabase read-only baseline assessment
+
+- Inspected TACResQ-School-Project (kttguamhznoflzagfutr) read-only: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003, ap-southeast-1.
+- Hosted migration history ends at 20261125030354; PR #370 migrations from 20261126/27 are not deployed.
+- Hosted registry tables exist, but dedicated tacresq_device_verifier role and private verifier routines are absent. Only tacresq-notify v2 appears in deployed Edge Function inventory.
+- Hosted service_role still has INSERT/SELECT/UPDATE grants on device registry tables; no anon or authenticated grants were returned. This is the legacy boundary before the PR migration that revokes service_role access.
+- Supabase SQL MCP connection reports session_user=postgres; it is not the transaction pooler and cannot validate dedicated role identity/TLS.
+- Security Advisor snapshot: 16 informational RLS-enabled/no-policy findings, 24 authenticated SECURITY DEFINER warnings, one leaked-password-protection-disabled warning. These require contextual review; no automatic grant/policy changes were made.
+- No production SQL writes, migrations, Auth setting changes, Edge Function deploys, or user-data changes. Device verifier rollout remains blocked pending a coordinated approved deployment and pooler validation.
+- Research plan entry committed as dbe27eabd5466e659aa48ed3585aea82e5e98bde.
