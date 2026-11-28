@@ -120,7 +120,7 @@ class DeviceProofVerifierApi private constructor(
     ): DeviceProofVerification {
         val response = wire.verify(publishableKey, bearer(accessToken), request)
         require(
-            runCatching { UUID.fromString(response.deviceId) }.isSuccess
+            response.deviceId.matches(UUID_PATTERN)
                 && response.deviceUid.matches(UUID_PATTERN)
                 && response.trustStatus == "active"
                 && response.verifiedAt.isNotBlank()
@@ -139,7 +139,7 @@ class DeviceProofVerifierApi private constructor(
     }
 
     private fun validateChallenge(challenge: DeviceProofChallenge) {
-        require(runCatching { UUID.fromString(challenge.challengeId) }.isSuccess) {
+        require(challenge.challengeId.matches(UUID_PATTERN)) {
             "Device challenge identifier is invalid."
         }
         require(challenge.challenge.matches(CHALLENGE_PATTERN)) {
