@@ -88,7 +88,25 @@ def main() -> None:
     ]
     require(not verifier_references, f"device verifier transport must remain dormant until hosted/device gates pass: {verifier_references}")
 
-    print("PASS: Android Keystore and verifier transport remain isolated, non-exportable, and separately tested")
+    message_builder = ROOT / "app/src/main/java/com/tacresq/app/data/remote/DeviceProofMessage.kt"
+    require(message_builder.is_file(), "canonical Android device proof message builder must be present")
+    message_source = message_builder.read_text(encoding="utf-8")
+    for marker, description in [
+        ('TACRESQ-DEVICE-PROOF', "server-matched message domain"),
+        ('"v1"', "versioned proof message"),
+        ('Base64.getUrlDecoder()', "Base64URL challenge decoding"),
+        ('CHALLENGE_BYTES = 32', "32-byte challenge binding"),
+        ('joinToString("\\n")', "newline-delimited canonical wire format"),
+    ]:
+        require(marker in message_source, f"missing {description}")
+    message_references = [
+        path.relative_to(ROOT).as_posix()
+        for path in app_sources
+        if path != message_builder and "DeviceProofMessage.build" in path.read_text(encoding="utf-8")
+    ]
+    require(not message_references, f"canonical device proof builder must remain dormant until hosted/device gates pass: {message_references}")
+
+    print("PASS: Android Keystore, verifier transport, and canonical message builder remain isolated and separately tested")
 
 
 if __name__ == "__main__":
