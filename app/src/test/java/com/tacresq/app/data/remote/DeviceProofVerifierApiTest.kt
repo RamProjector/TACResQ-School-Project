@@ -82,6 +82,29 @@ class DeviceProofVerifierApiTest {
     }
 
     @Test
+    fun sessionProofChallengeIsBoundToTheRequestedDevice() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"challenge_id":"$CHALLENGE_ID","challenge":"$CHALLENGE","purpose":"session_proof","profile_id":"42","device_uid":"$DEVICE_UID","expires_at":"2026-11-28T05:00:00Z"}""",
+            ),
+        )
+        server.start()
+        try {
+            val api = DeviceProofVerifierApi.createForTesting(server.url("/").toString(), PUBLISHABLE_KEY)
+            val result = api.issueSessionProofChallenge(ACCESS_TOKEN, DEVICE_ID)
+            val request = server.takeRequest()
+            val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
+
+            assertEquals(DEVICE_ID, body.get("deviceId").asString)
+            assertEquals("session_proof", body.get("purpose").asString)
+            assertEquals(DEVICE_UID, result.deviceUid)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun sessionProofNeverSendsAReplacementPublicKey() = runBlocking {
         val server = MockWebServer()
         server.enqueue(
