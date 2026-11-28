@@ -1,6 +1,6 @@
 # TACResQ Android device-verifier transport — implementation note
 
-**Status:** Implemented as an isolated Android transport in PR #370. Exact head 8d5b7b98b7524d5a890723bbd8920793b6a1a80a passed all six workflow groups, including Android JVM tests, source contracts, Android instrumentation-test compilation, Android Lint, demo/Supabase debug builds, release APK build, local Supabase verifier integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, and Android/Web CodeQL. Physical emulator/device execution, hosted verifier availability, and operational device registration remain unverified.
+**Status:** Implemented as an isolated Android client-protocol slice in PR #370. The latest code head 226b9df60c2cbbd6dcbe8057287bedd0468f420a passed all six workflow groups, including canonical-message and transport JVM tests, repository source contracts, Android instrumentation-test compilation, Android Lint, demo/Supabase debug builds, release APK build, local Supabase verifier integration, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grants, and Android/Web CodeQL. Physical emulator/device execution, hosted verifier availability, and operational device registration remain unverified.
 
 ## Scope
 
@@ -38,7 +38,7 @@ The existing Android Keystore contract test also checks the fixed endpoint, auth
 
 ## Remaining release gates
 
-The new canonical message builder and its JVM tests were added after the previously validated transport-only commit. The exact latest PR head must pass its own Android JVM, source-contract, and full workflow checks before this expanded client-protocol slice is considered validated.
+The canonical message builder and its JVM tests are included in code head 226b9df60c2cbbd6dcbe8057287bedd0468f420a. That exact head passed the Android JVM suite, the extended dormant-boundary source contract, Android instrumentation-test compilation, Android Lint, both debug APK builds, the release APK build, clean migration replay, local Supabase verifier integration, Laravel/dashboard tests, RPC grant contract, QA, Frontend Review, read-only profile contract, and both CodeQL analyses.
 
 1. Execute Android Keystore instrumentation tests on supported Android emulators/devices; CI compilation alone is insufficient.
 2. Verify the hosted Supabase transaction-pooler session_user identity and TLS behavior through a controlled, owner-approved check.
@@ -61,3 +61,22 @@ The implementation source commit was 8d5b7b98b7524d5a890723bbd8920793b6a1a80a. I
 - Read-only profile verification: 46110222349
 
 The TACResQ CI run uploaded the Android build artifact (artifact ID 15249622111, SHA-256 ee0602cb0668a84deade3189b0c96bde6ca7379854567d6882f4c2a40fc30054) and Android Lint report (artifact ID 15249472160). The release APK build succeeded, but signing verification was skipped because signing configuration was not supplied. The manual Android emulator workflow was not dispatched.
+
+## Canonical message-builder validation — exact code head 226b9df60c2cbbd6dcbe8057287bedd0468f420a
+
+All six workflow groups passed on the exact code head above:
+
+- TACResQ CI: 46111579198
+- TACResQ Security: 46111579213
+- TACResQ QA: 46111579162
+- RPC grant contract: 46111579168
+- TACResQ Frontend Review: 46111579178
+- Read-only profile verification: 46111579220
+
+The Android JVM suite passed both DeviceProofVerifierApiTest and DeviceProofMessageTest. The Android source contract passed after correcting its comment-only false positive; it confirms the key manager, verifier transport, and canonical message builder remain unreferenced by operational app flows. The release APK build and artifact upload passed. Release-signature verification was skipped because signing credentials were not configured.
+
+Artifacts from TACResQ CI run 46111579198:
+- Android APK archive: artifact 15250755097, SHA-256 5a6627e7d51b0359fb6e618c9c7202babdc4c25b835aa7c2adfbfa29a186c76d
+- Android Lint report: artifact 15250125419, SHA-256 353177204f251ffdf03239334473386eeaed1c9ef6e7b0c82335b51363a4c5ec
+
+No physical emulator/device execution, hosted pooler identity/TLS verification, hosted verifier deployment, or independent human security review was performed.
