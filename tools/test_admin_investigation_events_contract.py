@@ -359,7 +359,7 @@ for marker in (
     "database event writers: integrated",
     "date boundaries and displayed times use Asia/Manila",
     "Laravel API operations",
-    "No trusted server-side writer currently creates these rows",
+    "No trusted server-side event writer is implemented yet",
     "an empty result is not evidence that devices are safe",
     "the shared Android and browser Supabase transports now generate one per request",
     "FCM delivery attempts",
