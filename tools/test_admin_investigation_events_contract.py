@@ -360,7 +360,7 @@ for marker in (
     "date boundaries and displayed times use Asia/Manila",
     "Laravel API operations",
     "No trusted server-side event writer is implemented yet",
-    "an empty result is not evidence that devices are safe",
+    "an empty result is not a device-health signal",
     "the shared Android and browser Supabase transports now generate one per request",
     "FCM delivery attempts",
     "Provider acceptance does not prove device receipt or user acknowledgement.",
