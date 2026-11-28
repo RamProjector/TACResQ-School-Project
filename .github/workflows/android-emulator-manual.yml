@@ -78,3 +78,22 @@ jobs:
           disable-animations: true
           pre-emulator-launch-script: sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
           script: ./gradlew --no-daemon connectedDebugAndroidTest
+
+      - name: Capture Android emulator diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts/android-emulator
+          adb logcat -d > artifacts/android-emulator/logcat.txt || true
+          adb shell getprop > artifacts/android-emulator/device-properties.txt || true
+
+      - name: Upload Android instrumentation results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tacresq-android-instrumentation-results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+            artifacts/android-emulator/
+          if-no-files-found: warn
+          retention-days: 7
