@@ -114,7 +114,9 @@ assert "Migration 20261125020926 grants the narrow transition RPC to authenticat
 assert "active Admin + AAL2/TOTP" in SECURITY
 assert "expected-status compare-and-set" in SECURITY
 assert "atomic lifecycle audit" in SECURITY
-assert "do not prove the migration is deployed in the hosted project" in SECURITY
+assert "connected Supabase migration ledger includes 20261125020926" in SECURITY
+assert "grants EXECUTE to authenticated while denying anon and PUBLIC" in SECURITY
+assert "not complete suspension enforcement across every direct RPC, Storage bucket, Edge Function, or legacy Laravel/Sanctum path" in SECURITY
 assert "not yet proven across every direct RPC, Storage, Edge Function, and legacy Laravel/Sanctum path" in SECURITY
 assert "already-issued access JWTs are not globally revoked by this action" in SECURITY
 assert "EXECUTE remains revoked from client roles" not in SECURITY
